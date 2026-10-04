@@ -1,0 +1,25 @@
+# Configuration minimale pour la CLI Supabase (supabase start / functions deploy).
+project_id = "manifest"
+
+[api]
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+major_version = 16
+
+[realtime]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+# Seul l'admin a un compte, créé à la main : pas d'inscription publique.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+
+[functions.collect]
+# L'authentification est faite dans la fonction (secret cron ou JWT admin).
+verify_jwt = false

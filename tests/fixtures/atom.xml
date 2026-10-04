@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Syndicat lycéen</title>
+  <entry>
+    <id>tag:exemple.org,2026:1</id>
+    <title>Point sur les blocus</title>
+    <link rel="alternate" href="https://exemple.org/blocus-1"/>
+    <published>2026-10-04T06:00:00Z</published>
+    <summary type="html">&lt;p&gt;Le lycée Jean-Jaurès de Montreuil est bloqué.&lt;/p&gt;</summary>
+  </entry>
+</feed>

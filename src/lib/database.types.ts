@@ -1,0 +1,205 @@
+// Types de la base, au format de `supabase gen types typescript`.
+// À régénérer après chaque migration : npm run gen:types
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+
+type ReportStatus = 'bloque' | 'filtrant' | 'leve'
+type SourceType = 'presse' | 'syndicat' | 'utilisateur' | 'collecteur'
+type ModerationStatus = 'pending' | 'validated' | 'rejected'
+type ScrapeKind = 'telegram' | 'rss' | 'bluesky'
+
+export type Database = {
+  public: {
+    Tables: {
+      app_settings: {
+        Row: { key: string; value: string }
+        Insert: { key: string; value: string }
+        Update: { key?: string; value?: string }
+        Relationships: []
+      }
+      schools: {
+        Row: {
+          uai: string
+          name: string
+          city: string
+          postcode: string | null
+          department: string | null
+          academy: string | null
+          location: unknown
+          kind: string | null
+          name_norm: string
+          city_norm: string
+          updated_at: string
+        }
+        Insert: {
+          uai: string
+          name: string
+          city: string
+          postcode?: string | null
+          department?: string | null
+          academy?: string | null
+          location?: unknown
+          kind?: string | null
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['schools']['Insert']>
+        Relationships: []
+      }
+      trusted_domains: {
+        Row: { domain: string; label: string; kind: SourceType }
+        Insert: { domain: string; label: string; kind: SourceType }
+        Update: { domain?: string; label?: string; kind?: SourceType }
+        Relationships: []
+      }
+      scrape_sources: {
+        Row: {
+          id: string
+          kind: ScrapeKind
+          identifier: string
+          label: string
+          source_type: SourceType
+          trusted: boolean
+          enabled: boolean
+          last_run_at: string | null
+          last_error: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          kind: ScrapeKind
+          identifier: string
+          label: string
+          source_type?: SourceType
+          trusted?: boolean
+          enabled?: boolean
+          last_run_at?: string | null
+          last_error?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['scrape_sources']['Insert']>
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          id: string
+          school_uai: string
+          status: ReportStatus
+          source_type: SourceType
+          source_url: string
+          source_domain: string
+          source_id: string | null
+          moderation: ModerationStatus
+          certainty: 'haute' | 'moyenne' | 'faible' | null
+          observed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          school_uai: string
+          status: ReportStatus
+          source_type: SourceType
+          source_url: string
+          source_domain: string
+          source_id?: string | null
+          moderation?: ModerationStatus
+          certainty?: 'haute' | 'moyenne' | 'faible' | null
+          observed_at: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['reports']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'reports_school_uai_fkey'
+            columns: ['school_uai']
+            isOneToOne: false
+            referencedRelation: 'schools'
+            referencedColumns: ['uai']
+          },
+          {
+            foreignKeyName: 'reports_source_id_fkey'
+            columns: ['source_id']
+            isOneToOne: false
+            referencedRelation: 'scrape_sources'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      scraped_items: {
+        Row: { source_id: string; external_id: string; processed_at: string }
+        Insert: { source_id: string; external_id: string; processed_at?: string }
+        Update: { source_id?: string; external_id?: string; processed_at?: string }
+        Relationships: []
+      }
+      unmatched_extractions: {
+        Row: {
+          id: string
+          source_id: string | null
+          school_name: string
+          city: string | null
+          status: ReportStatus
+          source_url: string
+          observed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          source_id?: string | null
+          school_name: string
+          city?: string | null
+          status: ReportStatus
+          source_url: string
+          observed_at: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['unmatched_extractions']['Insert']>
+        Relationships: []
+      }
+    }
+    Views: {
+      school_current_status: {
+        Row: {
+          uai: string
+          name: string
+          city: string
+          department: string | null
+          academy: string | null
+          lat: number
+          lng: number
+          status: ReportStatus
+          last_signal_at: string
+          source_count: number
+        }
+        Relationships: []
+      }
+    }
+    Functions: {
+      national_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: { bloque: number; filtrant: number; leve: number; last_signal_at: string | null }[]
+      }
+      match_school: {
+        Args: { p_name: string; p_city?: string | null; p_limit?: number }
+        Returns: {
+          uai: string
+          name: string
+          city: string
+          name_score: number
+          city_score: number
+          score: number
+        }[]
+      }
+      is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
+    }
+    Enums: {
+      report_status: ReportStatus
+      source_type: SourceType
+      moderation_status: ModerationStatus
+      scrape_kind: ScrapeKind
+    }
+    CompositeTypes: Record<string, never>
+  }
+}
+
+type PublicSchema = Database['public']
+export type Tables<T extends keyof PublicSchema['Tables']> = PublicSchema['Tables'][T]['Row']
+export type Views<T extends keyof PublicSchema['Views']> = PublicSchema['Views'][T]['Row']
+export type Enums<T extends keyof PublicSchema['Enums']> = PublicSchema['Enums'][T]

@@ -1,0 +1,119 @@
+import { z } from 'zod'
+import { REPORT_STATUSES, type ReportStatus } from './status.ts'
+import type { ScrapedItem } from './fetchers/types.ts'
+
+export const CERTAINTIES = ['haute', 'moyenne', 'faible'] as const
+export type Certainty = (typeof CERTAINTIES)[number]
+
+/** Filtre lexical avant l'appel IA, pour ne pas payer l'extraction sur du hors-sujet. */
+const KEYWORDS =
+  /\b(lyc[ée]es?|lp|lgt|lpo|blocus|bloqu[ée]e?s?|bloquent|barrage|filtrant|piquet|mobilisation lyc[ée]enne)\b/i
+
+export function isRelevant(text: string): boolean {
+  return KEYWORDS.test(text)
+}
+
+/** Événement tel que renvoyé par le modèle, validé strictement. */
+export const extractedEventSchema = z.object({
+  item_id: z.string(),
+  school_name: z.string().trim().min(3).max(200),
+  city: z.string().trim().max(120).nullable(),
+  status: z.enum(REPORT_STATUSES),
+  observed_at: z.string().nullable(),
+  certainty: z.enum(CERTAINTIES),
+})
+export type ExtractedEvent = z.infer<typeof extractedEventSchema>
+
+export const extractionResultSchema = z.object({
+  events: z.array(z.unknown()),
+})
+
+/** Schéma de sortie structurée transmis à Gemini (sous-ensemble OpenAPI). */
+export const GEMINI_RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    events: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          item_id: { type: 'STRING', description: "Identifiant de l'élément source (champ id)." },
+          school_name: {
+            type: 'STRING',
+            description: 'Nom du lycée tel que cité, sans la ville. Ex. "Lycée Victor-Hugo".',
+          },
+          city: { type: 'STRING', nullable: true, description: 'Commune du lycée si connue.' },
+          status: { type: 'STRING', enum: [...REPORT_STATUSES] },
+          observed_at: {
+            type: 'STRING',
+            nullable: true,
+            description: 'Date et heure du fait, ISO 8601 avec fuseau, null si inconnue.',
+          },
+          certainty: { type: 'STRING', enum: [...CERTAINTIES] },
+        },
+        required: ['item_id', 'school_name', 'city', 'status', 'observed_at', 'certainty'],
+        propertyOrdering: ['item_id', 'school_name', 'city', 'status', 'observed_at', 'certainty'],
+      },
+    },
+  },
+  required: ['events'],
+} as const
+
+export const SYSTEM_PROMPT = `Tu extrais des faits sur des blocages de lycées français à partir de messages publics (presse, canaux Telegram, Bluesky).
+
+Pour chaque lycée explicitement cité comme bloqué, sous barrage filtrant ou débloqué, produis un événement :
+- status "bloque" : entrée du lycée bloquée (blocus).
+- status "filtrant" : barrage filtrant, entrée partiellement bloquée.
+- status "leve" : blocus levé, fin du blocage, lycée rouvert.
+- observed_at : moment du fait. Déduis-le du texte et de la date de publication fournie ("ce matin", "hier"). null si impossible.
+- certainty : "haute" si le fait est affirmé clairement et au présent ; "moyenne" si probable ; "faible" si appel à bloquer, rumeur, conditionnel, futur ou fait ancien.
+
+Règles strictes :
+- Uniquement des lycées (pas de collèges, universités, entreprises).
+- Un appel ou un projet de blocus n'est pas un blocage : certainty "faible".
+- Ne recopie jamais de nom de personne, de pseudo, de chiffre de participants ni de description de la scène.
+- Si un message cite plusieurs lycées, produis un événement par lycée.
+- Si aucun fait exploitable, ne produis rien pour ce message.
+Réponds uniquement avec le JSON demandé.`
+
+export function buildUserPrompt(items: ReadonlyArray<{ id: string; item: ScrapedItem }>): string {
+  const payload = items.map(({ id, item }) => ({
+    id,
+    publie_le: item.publishedAt.toISOString(),
+    texte: item.text.slice(0, 2500),
+  }))
+  return `Messages à analyser (JSON) :\n${JSON.stringify(payload)}`
+}
+
+/** Valide la sortie du modèle et ignore silencieusement les événements mal formés. */
+export function parseExtraction(raw: unknown, knownIds: ReadonlySet<string>): ExtractedEvent[] {
+  const result = extractionResultSchema.safeParse(raw)
+  if (!result.success) return []
+  const events: ExtractedEvent[] = []
+  for (const candidate of result.data.events) {
+    const parsed = extractedEventSchema.safeParse(candidate)
+    if (parsed.success && knownIds.has(parsed.data.item_id)) events.push(parsed.data)
+  }
+  return events
+}
+
+const CERTAINTY_RANK: Record<Certainty, number> = { faible: 0, moyenne: 1, haute: 2 }
+
+export function meetsCertainty(value: Certainty, min: Certainty): boolean {
+  return CERTAINTY_RANK[value] >= CERTAINTY_RANK[min]
+}
+
+/**
+ * Date du fait retenue : celle extraite si plausible, sinon la date de publication.
+ * Plausible = pas après la publication (+1 h de marge) et au plus 7 jours avant.
+ */
+export function resolveObservedAt(extracted: string | null, publishedAt: Date): Date {
+  if (!extracted) return publishedAt
+  const d = new Date(extracted)
+  if (Number.isNaN(d.getTime())) return publishedAt
+  const delta = d.getTime() - publishedAt.getTime()
+  if (delta > 3_600_000 || delta < -7 * 86_400_000) return publishedAt
+  return d
+}
+
+export type { ReportStatus }
