@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractEvents, modelsFromEnv } from '@shared/gemini.ts'
+import { createExtractor, extractEvents, modelsFromEnv } from '@shared/gemini.ts'
 import type { ScrapedItem } from '@shared/fetchers/types.ts'
 
 const item: ScrapedItem = {
@@ -92,5 +92,30 @@ describe('extractEvents : résistance aux erreurs Gemini', () => {
     ])
     expect(modelsFromEnv('a', 'b, c,,a')).toEqual(['a', 'b', 'c'])
     expect(modelsFromEnv('a', '')).toEqual(['a'])
+  })
+})
+
+describe('createExtractor : modèle « collant »', () => {
+  it('garde le modèle qui a répondu pour les lots suivants', async () => {
+    const { fetchFn, calls } = fakeFetch([err(503), err(503), ok(), ok()])
+    const { extract, served } = createExtractor({
+      apiKey: 'k',
+      models: ['m1', 'm2'],
+      fetchFn,
+      sleep,
+    })
+    await extract(batch)
+    await extract(batch)
+    // 2e lot : directement m2, sans retenter m1 saturé.
+    expect(calls).toEqual(['m1', 'm1', 'm2', 'm2'])
+    expect([...served]).toEqual(['m2'])
+  })
+
+  it('résume tous les modèles si aucun ne répond', async () => {
+    const { fetchFn } = fakeFetch([err(503), err(503), err(404)])
+    const { extract } = createExtractor({ apiKey: 'k', models: ['m1', 'm2'], fetchFn, sleep })
+    await expect(extract(batch)).rejects.toThrow(
+      'Gemini indisponible, repris au prochain passage. m1 : saturé (503) ; m2 : indisponible pour ce compte (404)',
+    )
   })
 })

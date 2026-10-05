@@ -150,3 +150,38 @@ export function modelsFromEnv(
   ].filter(Boolean)
   return [...new Set(list)]
 }
+
+/**
+ * Extracteur « collant » pour une exécution : dès qu'un modèle répond, les lots suivants
+ * commencent par lui au lieu de retenter d'abord un modèle saturé (gain de temps important
+ * quand le modèle principal est surchargé). `served` garde la trace des modèles utilisés.
+ */
+export function createExtractor(config: GeminiConfig) {
+  let preferred: string | null = null
+  const served = new Set<string>()
+  const extract = async (batch: ReadonlyArray<{ id: string; item: ScrapedItem }>) => {
+    const models = preferred
+      ? [preferred, ...config.models.filter((m) => m !== preferred)]
+      : config.models
+    const failures: string[] = []
+    for (const model of models) {
+      try {
+        const events = await extractEvents({ ...config, models: [model] }, batch)
+        preferred = model
+        served.add(model)
+        return events
+      } catch (e) {
+        // Erreur définitive (clé invalide...) : inutile d'essayer les autres modèles.
+        if (e instanceof GeminiError) throw e
+        failures.push(
+          (e instanceof Error ? e.message : String(e)).replace(
+            /^Gemini indisponible, repris au prochain passage\. /,
+            '',
+          ),
+        )
+      }
+    }
+    throw new Error(`Gemini indisponible, repris au prochain passage. ${failures.join(' ; ')}`)
+  }
+  return { extract, served }
+}

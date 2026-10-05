@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, Link2, Search, Trash2 } from 'lucide-react'
+import { Check, ExternalLink, Link2, RefreshCw, Search, Trash2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
@@ -38,6 +38,15 @@ export function UnmatchedPanel() {
     },
   })
 
+  const retry = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('retry_unmatched')
+      if (error) throw new Error(error.message)
+      return data
+    },
+    onSuccess: invalidate,
+  })
+
   if (unmatched.isPending) return <div className="h-24 animate-pulse rounded-lg bg-surface" />
   if (unmatched.isError) return <p className="text-bloque">Erreur de chargement.</p>
   if (unmatched.data.length === 0) return <p className="text-muted">Rien à rattacher.</p>
@@ -48,6 +57,27 @@ export function UnmatchedPanel() {
         Faits repérés par l'IA sans lycée identifié avec certitude (nom fréquent, nom incomplet,
         ville manquante). Ouvre la source, puis rattache au bon lycée : le signal est publié
         aussitôt. Conservés 7 jours.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={retry.isPending}
+          onClick={() => retry.mutate()}
+        >
+          <RefreshCw size={16} aria-hidden="true" />
+          {retry.isPending ? 'Rattachement…' : 'Réessayer le rattachement automatique'}
+        </button>
+        <span className="text-sm text-muted" aria-live="polite">
+          {retry.isSuccess &&
+            (retry.data === 0
+              ? 'Aucun nouveau rattachement possible.'
+              : `${retry.data} rattaché${retry.data > 1 ? 's' : ''} automatiquement.`)}
+          {retry.error && <span className="text-bloque">Échec : {retry.error.message}</span>}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-muted">
+        Utile après l'import ou la mise à jour du référentiel des lycées.
       </p>
       {link.error && (
         <p role="alert" className="mt-2 text-sm text-bloque">

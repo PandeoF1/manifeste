@@ -79,6 +79,11 @@ SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service_role> 
 
 Si le script signale un schéma modifié, envoie-moi sa sortie.
 
+Vérifie dans le SQL Editor : `select count(*) from schools;` doit renvoyer plusieurs milliers.
+Sans référentiel, aucun fait extrait par l'IA ne peut être rattaché (tout part dans « Non
+rattachés »). Après l'import, clique **Admin > Non rattachés > Réessayer le rattachement
+automatique** pour reprendre ceux déjà collectés.
+
 Compte admin : **Authentication > Users > Add user** (email + mot de passe fort, _Auto confirm_), puis :
 
 ```sql

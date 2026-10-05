@@ -222,6 +222,7 @@ export type Database = {
         Args: { p_lat: number; p_lng: number; p_radius_m?: number }
         Returns: { uai: string; name: string; city: string; distance_m: number }[]
       }
+      retry_unmatched: { Args: Record<PropertyKey, never>; Returns: number }
       link_unmatched: {
         Args: { p_unmatched_id: string; p_uai: string }
         Returns: string

@@ -9,7 +9,7 @@ import {
   type CollectorSource,
 } from '../_shared/collector.ts'
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
-import { extractEvents, modelsFromEnv } from '../_shared/gemini.ts'
+import { createExtractor, modelsFromEnv } from '../_shared/gemini.ts'
 import type { SchoolCandidate } from '../_shared/matching.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
@@ -111,23 +111,29 @@ const WORKER_CONCURRENCY = Number(Deno.env.get('COLLECT_WORKER_CONCURRENCY') ?? 
 const MAX_SOURCES_PER_RUN = Number(Deno.env.get('COLLECT_MAX_SOURCES_PER_RUN') ?? 80)
 
 type RunResult = Awaited<ReturnType<typeof collectSources>>[number]
+type WorkResult = { results: RunResult[]; served: string[] }
 
 /** Mode « travailleur » : collecte une liste précise de sources. */
-async function work(sourceIds: string[]): Promise<RunResult[]> {
+async function work(sourceIds: string[]): Promise<WorkResult> {
   const { data, error } = await admin
     .from('scrape_sources')
     .select('id, kind, identifier, label, source_type')
     .in('id', sourceIds)
     .eq('enabled', true)
   if (error) throw new Error(error.message)
-  return collectSources((data ?? []) as CollectorSource[], {
+  const extractor = createExtractor({
+    apiKey: GEMINI_API_KEY,
+    models: GEMINI_MODELS,
+    fetchFn: fetch,
+  })
+  const results = await collectSources((data ?? []) as CollectorSource[], {
     db,
     fetchFn: fetch,
     minCertainty: MIN_CERTAINTY,
     budgetMs: 120_000,
-    extract: (batch) =>
-      extractEvents({ apiKey: GEMINI_API_KEY, models: GEMINI_MODELS, fetchFn: fetch }, batch),
+    extract: extractor.extract,
   })
+  return { results, served: [...extractor.served] }
 }
 
 /**
@@ -135,7 +141,7 @@ async function work(sourceIds: string[]): Promise<RunResult[]> {
  * groupes et lance un sous-appel par groupe. Le répartiteur ne fait qu'attendre (pas de CPU),
  * la charge est répartie : ajouter des sources n'épuise jamais le budget d'un seul appel.
  */
-async function dispatch(): Promise<RunResult[]> {
+async function dispatch(): Promise<WorkResult> {
   const { data, error } = await admin
     .from('scrape_sources')
     .select('id, label')
@@ -152,28 +158,38 @@ async function dispatch(): Promise<RunResult[]> {
         body: JSON.stringify({ source_ids: group.map((s) => s.id) }),
         signal: AbortSignal.timeout(145_000),
       })
-      const body = (await res.json()) as { results?: RunResult[]; error?: string }
+      const body = (await res.json()) as {
+        results?: RunResult[]
+        served?: string[]
+        error?: string
+      }
       if (!res.ok || !body.results) throw new Error(body.error ?? `HTTP ${res.status}`)
-      return body.results
+      return { results: body.results, served: body.served ?? [] }
     } catch (e) {
       // Sous-appel coupé (limite CPU, délai) : on le signale sans bloquer les autres groupes.
       const message = `Sous-appel interrompu : ${e instanceof Error ? e.message : String(e)}`
-      return group.map((s) => ({
-        source_id: s.id,
-        label: s.label,
-        fetched: 0,
-        new_items: 0,
-        relevant: 0,
-        events: 0,
-        reports: 0,
-        duplicates: 0,
-        unmatched: 0,
-        low_certainty: 0,
-        error: message,
-      }))
+      return {
+        served: [],
+        results: group.map((s) => ({
+          source_id: s.id,
+          label: s.label,
+          fetched: 0,
+          new_items: 0,
+          relevant: 0,
+          events: 0,
+          reports: 0,
+          duplicates: 0,
+          unmatched: 0,
+          low_certainty: 0,
+          error: message,
+        })),
+      }
     }
   })
-  return nested.flat()
+  return {
+    results: nested.flatMap((n) => n.results),
+    served: [...new Set(nested.flatMap((n) => n.served))],
+  }
 }
 
 Deno.serve(async (req) => {
