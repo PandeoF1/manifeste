@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, Link2, RefreshCw, Search, Sparkles, Trash2 } from 'lucide-react'
+import { ExternalLink, Link2, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
 import { reanalyze, unmatchedQuery, type ReanalyzeResult } from '@/queries/admin'
-import { searchSchoolsQuery } from '@/queries/report'
+import { SchoolSearch } from './SchoolSearch'
 import { initialQuery } from '@/lib/unmatched'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
@@ -196,67 +196,5 @@ export function UnmatchedPanel() {
         ))}
       </ul>
     </>
-  )
-}
-
-function SchoolSearch({
-  initial,
-  busy,
-  onPick,
-}: {
-  initial: string
-  busy: boolean
-  onPick: (uai: string) => void
-}) {
-  const [query, setQuery] = useState(initial)
-  const results = useQuery(searchSchoolsQuery(query))
-
-  return (
-    <div className="mt-3 space-y-2 rounded-lg border border-border bg-bg p-3">
-      <label className="relative block">
-        <span className="sr-only">Chercher le lycée</span>
-        <Search
-          size={16}
-          className="absolute top-1/2 left-3 -translate-y-1/2 text-muted"
-          aria-hidden="true"
-        />
-        <input
-          type="search"
-          autoFocus
-          className="input w-full pl-9"
-          placeholder="Nom du lycée, ville"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
-      {query.trim().length < 2 && <p className="text-sm text-muted">Tape au moins 2 caractères.</p>}
-      {results.isFetching && <div className="h-10 animate-pulse rounded bg-surface" />}
-      {results.data?.length === 0 && (
-        <p className="text-sm text-muted">
-          Aucun lycée trouvé. Essaie avec moins de mots (juste la ville, ou juste le nom).
-        </p>
-      )}
-      <ul className="divide-y divide-border">
-        {results.data?.map((s) => (
-          <li key={s.uai} className="flex items-center gap-3 py-2">
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{s.name}</span>
-              <span className="block text-sm text-muted">
-                {s.city}
-                {s.department ? ` (${s.department})` : ''} · {s.uai}
-              </span>
-            </span>
-            <button
-              type="button"
-              className="btn-primary min-h-10 px-3 text-sm"
-              disabled={busy}
-              onClick={() => onPick(s.uai)}
-            >
-              <Check size={16} aria-hidden="true" /> Ce lycée
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
   )
 }

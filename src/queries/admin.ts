@@ -183,3 +183,55 @@ export async function reanalyze(ids?: string[]): Promise<ReanalyzeResult> {
   if (!data) throw new Error('Réponse vide')
   return data
 }
+
+export type AdminReport = Tables<'reports'> & {
+  schools: { name: string; city: string } | null
+  scrape_sources: { label: string } | null
+}
+
+/** Tous les signaux récents (publiés, en attente, rejetés), pour l'onglet « Signaux ». */
+export const reportsQuery = queryOptions({
+  queryKey: queryKeys.admin.reports(),
+  queryFn: async (): Promise<AdminReport[]> => {
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*, schools(name, city), scrape_sources(label)')
+      .order('observed_at', { ascending: false })
+      .limit(300)
+    if (error) throw error
+    return data as AdminReport[]
+  },
+})
+
+export interface ReportPatch {
+  school_uai?: string
+  status?: Tables<'reports'>['status']
+  observed_at?: string
+  moderation?: Tables<'reports'>['moderation']
+}
+
+export async function updateReport(id: string, patch: ReportPatch): Promise<void> {
+  const { error } = await supabase.rpc('admin_update_report', {
+    p_id: id,
+    p_school_uai: patch.school_uai ?? null,
+    p_status: patch.status ?? null,
+    p_observed_at: patch.observed_at ?? null,
+    p_moderation: patch.moderation ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteReport(report: AdminReport): Promise<void> {
+  if (report.photo_public_path) {
+    await supabase.storage.from('photos').remove([report.photo_public_path])
+  }
+  const { error } = await supabase.rpc('admin_delete_report', { p_id: report.id })
+  if (error) throw new Error(error.message)
+}
+
+/** Renvoie le signal en « Non rattachés » puis lance la réanalyse de l'IA dessus. */
+export async function sendBackToAi(id: string): Promise<ReanalyzeResult> {
+  const { data, error } = await supabase.rpc('admin_report_to_unmatched', { p_id: id })
+  if (error) throw new Error(error.message)
+  return reanalyze([data])
+}

@@ -3,18 +3,20 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { LoginForm } from '@/components/admin/LoginForm'
 import { PendingPanel } from '@/components/admin/PendingPanel'
+import { ReportsPanel } from '@/components/admin/ReportsPanel'
 import { SourcesPanel } from '@/components/admin/SourcesPanel'
 import { TrustedDomainsPanel } from '@/components/admin/TrustedDomainsPanel'
 import { UnmatchedPanel } from '@/components/admin/UnmatchedPanel'
 import { supabase } from '@/lib/supabase'
 import { isAdminSession, pendingQuery, useSession } from '@/queries/admin'
 
-const TABS = ['sources', 'moderation', 'non-rattaches', 'domaines'] as const
+const TABS = ['sources', 'moderation', 'signaux', 'non-rattaches', 'domaines'] as const
 type Tab = (typeof TABS)[number]
 
 const TAB_LABELS: Record<Tab, string> = {
   sources: 'Sources',
   moderation: 'Modération',
+  signaux: 'Signaux',
   'non-rattaches': 'Non rattachés',
   domaines: 'Domaines de confiance',
 }
@@ -79,6 +81,7 @@ function AdminPage() {
       <div className="mt-4">
         {tab === 'sources' && <SourcesPanel />}
         {tab === 'moderation' && <PendingPanel />}
+        {tab === 'signaux' && <ReportsPanel />}
         {tab === 'non-rattaches' && <UnmatchedPanel />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
       </div>

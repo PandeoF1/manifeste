@@ -13,6 +13,7 @@ export const queryKeys = {
     all: ['admin'] as const,
     sources: () => [...queryKeys.admin.all, 'sources'] as const,
     pending: () => [...queryKeys.admin.all, 'pending'] as const,
+    reports: () => [...queryKeys.admin.all, 'reports'] as const,
     unmatched: () => [...queryKeys.admin.all, 'unmatched'] as const,
     trustedDomains: () => [...queryKeys.admin.all, 'trusted-domains'] as const,
   },

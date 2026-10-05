@@ -226,6 +226,18 @@ export type Database = {
         Args: { p_lat: number; p_lng: number; p_radius_m?: number }
         Returns: { uai: string; name: string; city: string; distance_m: number }[]
       }
+      admin_update_report: {
+        Args: {
+          p_id: string
+          p_school_uai?: string | null
+          p_status?: ReportStatus | null
+          p_observed_at?: string | null
+          p_moderation?: ModerationStatus | null
+        }
+        Returns: undefined
+      }
+      admin_delete_report: { Args: { p_id: string }; Returns: undefined }
+      admin_report_to_unmatched: { Args: { p_id: string }; Returns: string }
       retry_unmatched: { Args: Record<PropertyKey, never>; Returns: number }
       link_unmatched: {
         Args: { p_unmatched_id: string; p_uai: string }
