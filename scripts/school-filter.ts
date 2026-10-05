@@ -5,6 +5,13 @@
  *   doublons sur la carte et empêche de rattacher « Lycée Queneau » (homonyme quasi parfait) ;
  * - les « écoles secondaires » privées hors contrat, qui ne sont pas des lycées.
  */
+/**
+ * Sur le nom normalisé. Les données officielles varient : « Section d'enseignement »,
+ * « Sectiond'enseignement », « Section Enseignement », « SEP », « S.E.P. », « SEGT »…
+ * Même règle en SQL : migrations 20261006000015 et 20261006000026.
+ */
+export const EXCLUDED = /^(section ?d? ?enseignement|s ?e ?p |s ?e ?g ?t |ecole secondaire)/
+
 export function isExcludedEstablishment(name: string): boolean {
   const n = name
     .normalize('NFD')
@@ -12,5 +19,5 @@ export function isExcludedEstablishment(name: string): boolean {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
-  return /^(section d enseignement|sep |segt |ecole secondaire)/.test(n)
+  return EXCLUDED.test(n)
 }
