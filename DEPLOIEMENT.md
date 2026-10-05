@@ -127,6 +127,40 @@ Vercel redéploie tout seul.
 4. Ensuite la collecte tourne seule toutes les 10 minutes. Les signaux non sûrs arrivent dans
    **Modération** ; les lycées que l'IA n'a pas su identifier dans **Non rattachés**.
 
+## 8 bis. Rattrapage de l'historique (facultatif)
+
+Récupère sur Google Actualités tout ce qui a été publié depuis le début du mouvement, le met en
+file d'attente en base (`backfill_queue`), puis le fait analyser par l'IA avec exactement le même
+traitement que la collecte : rattachement aux lycées, validation, **Non rattachés**, journal dans
+l'admin (source « Rattrapage Google Actualités (CLI) »). À lancer depuis ton PC (WSL), une fois les
+migrations appliquées.
+
+Crée `.env.backfill` à la racine (ignoré par git) :
+
+```
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<clé service_role : Project Settings > API>
+GEMINI_API_KEY=<ta clé>
+```
+
+```bash
+npm run backfill -- fetch --since 2026-09-14 --dry-run   # simulation : combien d'articles
+npm run backfill -- fetch --since 2026-09-14             # remplit la file (~5 min)
+npm run backfill -- process                              # vide la file vers l'IA
+npm run backfill -- status                               # où en est la file
+npm run backfill -- retry-errors                         # remet en file les articles en échec
+```
+
+- `fetch` interroge chaque requête des préréglages jour par jour. Un jour de pic (Google coupe à
+  100 articles), le flux est relancé région par région. Les articles hors sujet ne sont pas gardés.
+- `process` traite les plus anciens d'abord, 60 articles par appel Gemini, 10 appels par minute au
+  plus (`--rpm`). Environ 2 700 articles, soit une cinquantaine d'appels : ça passe dans le quota
+  gratuit du jour. Si le quota est épuisé, il s'arrête proprement : relance-le plus tard, il
+  reprend où il en était. `--max-calls 20` pour faire par petits bouts.
+- Les signaux du rattrapage ont leur date réelle : ils remplissent l'historique des fiches lycée
+  mais n'apparaissent pas sur la carte en direct (qui ne montre que les dernières heures).
+- Seuls le lien, l'éditeur et le titre (effacé une fois traité) sont stockés, jamais le texte.
+
 ## 9. Vérifier les aperçus de partage
 
 - Colle `https://<ton-site>/` puis `https://<ton-site>/lycee/<UAI>` dans Discord, Telegram, WhatsApp.
