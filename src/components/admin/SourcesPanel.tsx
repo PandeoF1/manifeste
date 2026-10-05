@@ -9,6 +9,7 @@ import {
   SOURCE_TYPES_FOR_SCRAPE,
   newSourceSchema,
   type NewSource,
+  type SourcePreset,
 } from '@shared/sources.ts'
 import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
@@ -34,6 +35,16 @@ export function SourcesPanel() {
       const { error } = await supabase.from('scrape_sources').insert(input)
       if (error)
         throw new Error(error.code === '23505' ? 'Cette source existe déjà.' : error.message)
+    },
+    onSuccess: invalidate,
+  })
+  const addMany = useMutation({
+    mutationFn: async (presets: ReadonlyArray<SourcePreset>) => {
+      const rows = presets.map(({ group: _group, ...row }) => row)
+      const { error } = await supabase
+        .from('scrape_sources')
+        .upsert(rows, { onConflict: 'kind,identifier', ignoreDuplicates: true })
+      if (error) throw new Error(error.message)
     },
     onSuccess: invalidate,
   })
@@ -140,18 +151,16 @@ export function SourcesPanel() {
             Ajouter
           </button>
         </form>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {SOURCE_PRESETS.filter((p) => !existing.has(`${p.kind}:${p.identifier}`)).map((p) => (
-            <button
-              key={p.identifier}
-              type="button"
-              className="btn-secondary"
-              onClick={() => add.mutate(p)}
-            >
-              + {p.label}
-            </button>
-          ))}
-        </div>
+        <Presets
+          existing={existing}
+          onAdd={(presets) => addMany.mutate(presets)}
+          busy={addMany.isPending}
+        />
+        {addMany.error && (
+          <p role="alert" className="mt-2 text-sm text-bloque">
+            {addMany.error.message}
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="sources-list">
@@ -277,6 +286,61 @@ function RunSummary({ run }: { run: CollectRunResult }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/** Sources recommandées, ajoutables en un clic (une par une ou toutes). */
+function Presets({
+  existing,
+  onAdd,
+  busy,
+}: {
+  existing: Set<string>
+  onAdd: (presets: ReadonlyArray<SourcePreset>) => void
+  busy: boolean
+}) {
+  const missing = SOURCE_PRESETS.filter((p) => !existing.has(`${p.kind}:${p.identifier}`))
+  if (missing.length === 0) return null
+  const groups = [...new Set(missing.map((p) => p.group))]
+  return (
+    <div className="mt-5 space-y-3 border-t border-border pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">Sources recommandées</h3>
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={busy}
+          onClick={() => onAdd(missing)}
+        >
+          Ajouter les {missing.length} sources
+        </button>
+      </div>
+      {groups.map((g) => (
+        <div key={g}>
+          <p className="text-xs font-semibold tracking-wider text-muted uppercase">{g}</p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {missing
+              .filter((p) => p.group === g)
+              .map((p) => (
+                <button
+                  key={p.identifier}
+                  type="button"
+                  className="btn-secondary"
+                  disabled={busy}
+                  onClick={() => onAdd([p])}
+                  title={p.trusted ? 'Ajoutée comme source de confiance' : undefined}
+                >
+                  + {p.label}
+                  {p.trusted ? ' ✓' : ''}
+                </button>
+              ))}
+          </div>
+        </div>
+      ))}
+      <p className="text-xs text-muted">
+        ✓ = source de confiance (signaux publiés sans modération).
+      </p>
     </div>
   )
 }

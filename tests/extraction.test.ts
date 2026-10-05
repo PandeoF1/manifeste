@@ -148,3 +148,18 @@ describe('sources', () => {
     expect(ko.success).toBe(false)
   })
 })
+
+describe('préréglages de sources', () => {
+  it('sont tous valides et sans doublon', async () => {
+    const { SOURCE_PRESETS, newSourceSchema } = await import('@shared/sources.ts')
+    const keys = new Set<string>()
+    for (const { group: _group, ...p } of SOURCE_PRESETS) {
+      const parsed = newSourceSchema.safeParse(p)
+      expect(parsed.success, p.label).toBe(true)
+      // L'identifiant est déjà sous forme normalisée (sinon l'upsert créerait un doublon).
+      expect(parsed.success && parsed.data.identifier).toBe(p.identifier)
+      keys.add(`${p.kind}:${p.identifier}`)
+    }
+    expect(keys.size).toBe(SOURCE_PRESETS.length)
+  })
+})

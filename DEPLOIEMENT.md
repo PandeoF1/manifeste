@@ -65,6 +65,9 @@ npx supabase functions deploy submit-report --no-verify-jwt
 npx supabase functions deploy purge-submissions --no-verify-jwt
 ```
 
+Si Gemini est saturé (erreur 503), la collecte réessaie puis bascule sur un modèle de secours
+(`GEMINI_FALLBACK_MODELS`, par défaut `gemini-3.6-flash,gemini-2.5-flash`).
+
 ## 5. Référentiel des lycées et compte admin
 
 ```bash

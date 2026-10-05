@@ -3,14 +3,17 @@
 import { createClient } from '@supabase/supabase-js'
 import { collectAll, type CollectorDb, type CollectorSource } from '../_shared/collector.ts'
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
-import { DEFAULT_GEMINI_MODEL, extractEvents } from '../_shared/gemini.ts'
+import { extractEvents, modelsFromEnv } from '../_shared/gemini.ts'
 import type { SchoolCandidate } from '../_shared/matching.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const COLLECT_SECRET = Deno.env.get('COLLECT_SECRET') ?? ''
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
-const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || DEFAULT_GEMINI_MODEL
+const GEMINI_MODELS = modelsFromEnv(
+  Deno.env.get('GEMINI_MODEL'),
+  Deno.env.get('GEMINI_FALLBACK_MODELS'),
+)
 const MIN_CERTAINTY_RAW = Deno.env.get('COLLECT_MIN_CERTAINTY') ?? 'moyenne'
 const MIN_CERTAINTY: Certainty = (CERTAINTIES as readonly string[]).includes(MIN_CERTAINTY_RAW)
   ? (MIN_CERTAINTY_RAW as Certainty)
@@ -123,8 +126,12 @@ Deno.serve(async (req) => {
     fetchFn: fetch,
     minCertainty: MIN_CERTAINTY,
     extract: (batch) =>
-      extractEvents({ apiKey: GEMINI_API_KEY, model: GEMINI_MODEL, fetchFn: fetch }, batch),
+      extractEvents({ apiKey: GEMINI_API_KEY, models: GEMINI_MODELS, fetchFn: fetch }, batch),
   })
 
-  return json(200, { model: GEMINI_MODEL, duration_ms: Date.now() - startedAt, results })
+  return json(200, {
+    model: GEMINI_MODELS.join(' > '),
+    duration_ms: Date.now() - startedAt,
+    results,
+  })
 })
