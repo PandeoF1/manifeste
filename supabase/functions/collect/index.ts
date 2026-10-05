@@ -126,6 +126,7 @@ async function dispatch(startedAt: number) {
           unmatched: 0,
           low_certainty: 0,
           error: message,
+          items: [],
         })),
       }
     }

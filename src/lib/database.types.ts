@@ -153,6 +153,60 @@ export type Database = {
           },
         ]
       }
+      collector_runs: {
+        Row: {
+          id: string
+          source_id: string
+          ran_at: string
+          fetched: number
+          new_items: number
+          relevant: number
+          events: number
+          reports: number
+          duplicates: number
+          unmatched: number
+          low_certainty: number
+          error: string | null
+        }
+        Insert: Partial<Database['public']['Tables']['collector_runs']['Row']> & {
+          source_id: string
+        }
+        Update: Partial<Database['public']['Tables']['collector_runs']['Row']>
+        Relationships: []
+      }
+      collector_item_logs: {
+        Row: {
+          id: number
+          run_id: string
+          external_id: string
+          url: string
+          outcome:
+            | 'hors_sujet'
+            | 'aucun_fait'
+            | 'certitude_faible'
+            | 'rattache'
+            | 'doublon'
+            | 'non_rattache'
+            | 'erreur'
+            | 'reporte'
+          school_name: string | null
+          city: string | null
+          school_uai: string | null
+          status: ReportStatus | null
+          detail: string | null
+        }
+        Insert: Omit<Database['public']['Tables']['collector_item_logs']['Row'], 'id'>
+        Update: Partial<Database['public']['Tables']['collector_item_logs']['Row']>
+        Relationships: [
+          {
+            foreignKeyName: 'collector_item_logs_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'collector_runs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       scraped_items: {
         Row: { source_id: string; external_id: string; processed_at: string }
         Insert: { source_id: string; external_id: string; processed_at?: string }

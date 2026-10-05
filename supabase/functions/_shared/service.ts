@@ -64,10 +64,42 @@ export const db: CollectorDb = {
     const { error } = await admin.from('unmatched_extractions').insert(row)
     if (error) throw new Error(`unmatched_extractions: ${error.message}`)
   },
-  async recordRun(sourceId, err) {
+  async recordRun(r) {
     await admin
       .from('scrape_sources')
-      .update({ last_run_at: new Date().toISOString(), last_error: err })
-      .eq('id', sourceId)
+      .update({ last_run_at: new Date().toISOString(), last_error: r.error })
+      .eq('id', r.source_id)
+    // Journal : seulement s'il y a eu du nouveau ou une erreur (pas de lignes vides).
+    if (r.items.length === 0 && !r.error) return
+    const { data: run, error } = await admin
+      .from('collector_runs')
+      .insert({
+        source_id: r.source_id,
+        fetched: r.fetched,
+        new_items: r.new_items,
+        relevant: r.relevant,
+        events: r.events,
+        reports: r.reports,
+        duplicates: r.duplicates,
+        unmatched: r.unmatched,
+        low_certainty: r.low_certainty,
+        error: r.error,
+      })
+      .select('id')
+      .single()
+    if (error || !run || r.items.length === 0) return
+    await admin.from('collector_item_logs').insert(
+      r.items.map((i) => ({
+        run_id: run.id,
+        external_id: i.external_id.slice(0, 500),
+        url: i.url.slice(0, 2000),
+        outcome: i.outcome,
+        school_name: i.school_name ?? null,
+        city: i.city ?? null,
+        school_uai: i.school_uai ?? null,
+        status: i.status ?? null,
+        detail: i.detail ?? null,
+      })),
+    )
   },
 }

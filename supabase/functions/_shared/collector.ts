@@ -53,7 +53,8 @@ export interface CollectorDb {
   schoolsInCity(city: string): Promise<Array<{ uai: string }>>
   insertReport(report: NewReport): Promise<'inserted' | 'duplicate'>
   insertUnmatched(row: NewUnmatched): Promise<void>
-  recordRun(sourceId: string, error: string | null): Promise<void>
+  /** Fin de passage : met à jour la source et enregistre le journal (s'il y a du nouveau). */
+  recordRun(result: SourceRunResult): Promise<void>
 }
 
 export type Extractor = (
@@ -71,6 +72,28 @@ export interface CollectorOptions {
   batchSize?: number
 }
 
+/** Devenir d'un nouvel élément lu pendant un passage (journal du collecteur). */
+export type ItemOutcome =
+  | 'hors_sujet'
+  | 'aucun_fait'
+  | 'certitude_faible'
+  | 'rattache'
+  | 'doublon'
+  | 'non_rattache'
+  | 'erreur'
+  | 'reporte'
+
+export interface ItemLog {
+  external_id: string
+  url: string
+  outcome: ItemOutcome
+  school_name?: string | null
+  city?: string | null
+  school_uai?: string | null
+  status?: ReportStatus | null
+  detail?: string | null
+}
+
 export interface SourceRunResult {
   source_id: string
   label: string
@@ -83,6 +106,8 @@ export interface SourceRunResult {
   unmatched: number
   low_certainty: number
   error: string | null
+  /** Journal détaillé (nouveaux éléments uniquement). */
+  items: ItemLog[]
 }
 
 export { chunk, mapLimit } from './collector-utils.ts'
@@ -100,6 +125,7 @@ function emptyResult(source: CollectorSource): SourceRunResult {
     unmatched: 0,
     low_certainty: 0,
     error: null,
+    items: [],
   }
 }
 
@@ -160,8 +186,11 @@ export async function gatherSources(
       r.new_items = fresh.length
       const relevant = fresh.filter((i) => isRelevant(i.text))
       r.relevant = relevant.length
-      const irrelevant = fresh.filter((i) => !isRelevant(i.text)).map((i) => i.externalId)
+      const irrelevantItems = fresh.filter((i) => !isRelevant(i.text))
+      const irrelevant = irrelevantItems.map((i) => i.externalId)
       if (irrelevant.length) await opts.db.markSeen(source.id, irrelevant)
+      for (const i of irrelevantItems)
+        r.items.push({ external_id: i.externalId, url: i.url, outcome: 'hors_sujet' })
       // Flux RSS (dont Google Actualités) : souvent un simple titre, on lit l'article.
       const ready =
         opts.enrich === false || source.kind !== 'rss'
@@ -201,15 +230,34 @@ export async function analyzePending(
     return r
   }
 
-  for (const group of chunk(pending, batchSize)) {
-    if (Date.now() - startedAt > budgetMs) break // repris au prochain passage
+  const groups = chunk(pending, batchSize)
+  for (const [groupIndex, group] of groups.entries()) {
+    if (Date.now() - startedAt > budgetMs) {
+      // Budget de temps dépassé : repris au prochain passage.
+      for (const p of groups.slice(groupIndex).flat()) {
+        res(p.source).items.push({
+          external_id: p.item.externalId,
+          url: p.item.url,
+          outcome: 'reporte',
+        })
+      }
+      break
+    }
     const batch = group.map((p, idx) => ({ id: String(idx), item: p.item, source: p.source }))
     let events: ExtractedEvent[]
     try {
       events = await opts.extract(batch)
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
-      for (const p of group) res(p.source).error = message
+      for (const p of group) {
+        res(p.source).error = message
+        res(p.source).items.push({
+          external_id: p.item.externalId,
+          url: p.item.url,
+          outcome: 'erreur',
+          detail: `IA : ${message}`.slice(0, 300),
+        })
+      }
       continue
     }
     const entries = new Map(batch.map((b) => [b.id, b]))
@@ -218,10 +266,32 @@ export async function analyzePending(
       if (!entry) continue
       const r = res(entry.source)
       r.events++
+      const base = {
+        external_id: entry.item.externalId,
+        url: entry.item.url,
+        school_name: event.school_name,
+        city: event.city,
+        status: event.status,
+      }
       try {
-        await handleEvent(event, entry.item, entry.source, r, minCertainty, opts.db)
+        r.items.push({
+          ...base,
+          ...(await handleEvent(event, entry.item, entry.source, r, minCertainty, opts.db)),
+        })
       } catch (e) {
         r.error = e instanceof Error ? e.message : String(e)
+        r.items.push({ ...base, outcome: 'erreur', detail: r.error.slice(0, 300) })
+      }
+    }
+    // Éléments lus par l'IA sans aucun fait de blocage.
+    const withEvents = new Set(events.map((e) => e.item_id))
+    for (const b of batch) {
+      if (!withEvents.has(b.id)) {
+        res(b.source).items.push({
+          external_id: b.item.externalId,
+          url: b.item.url,
+          outcome: 'aucun_fait',
+        })
       }
     }
     const bySource = new Map<string, string[]>()
@@ -230,7 +300,7 @@ export async function analyzePending(
     for (const [sourceId, ids] of bySource) await opts.db.markSeen(sourceId, ids)
   }
 
-  for (const r of results) await opts.db.recordRun(r.source_id, r.error)
+  for (const r of results) await opts.db.recordRun(r)
   return results
 }
 
@@ -251,10 +321,10 @@ async function handleEvent(
   r: SourceRunResult,
   minCertainty: Certainty,
   db: CollectorDb,
-) {
+): Promise<Pick<ItemLog, 'outcome' | 'school_uai' | 'detail'>> {
   if (!meetsCertainty(event.certainty, minCertainty)) {
     r.low_certainty++
-    return
+    return { outcome: 'certitude_faible', detail: `certitude ${event.certainty}` }
   }
   const observedAt = resolveObservedAt(event.observed_at, item.publishedAt).toISOString()
   let uai: string | null = null
@@ -279,10 +349,10 @@ async function handleEvent(
       source_url: item.url,
       observed_at: observedAt,
     })
-    return
+    return { outcome: 'non_rattache' }
   }
   const domain = item.publisherDomain ?? extractDomain(item.url)
-  if (!domain) return
+  if (!domain) return { outcome: 'erreur', school_uai: uai, detail: 'lien source invalide' }
   const outcome = await db.insertReport({
     school_uai: uai,
     status: event.status,
@@ -295,6 +365,7 @@ async function handleEvent(
   })
   if (outcome === 'inserted') r.reports++
   else r.duplicates++
+  return { outcome: outcome === 'inserted' ? 'rattache' : 'doublon', school_uai: uai }
 }
 
 /** Une seule source (bouton « collecter maintenant », tests). */

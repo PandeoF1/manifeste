@@ -32,7 +32,7 @@ function fakeDb(candidates: Record<string, SchoolCandidate[]>) {
       return 'inserted'
     },
     insertUnmatched: async (u) => void unmatched.push(u),
-    recordRun: async (_s, e) => void runs.push(e),
+    recordRun: async (r) => void runs.push(r.error),
   }
   return { db, seen, reports, unmatched, runs }
 }
@@ -235,5 +235,47 @@ describe('nom générique et commune à lycée unique', () => {
       expect.objectContaining({ school_name: 'Lycée', source_domain: 't.me' }),
     ])
     expect(r).toMatchObject({ reports: 1, unmatched: 1 })
+  })
+})
+
+describe('journal du collecteur', () => {
+  it('trace le devenir de chaque nouvel élément', async () => {
+    const { db } = fakeDb({ 'Lycée Victor-Hugo': [besancon] })
+    const extract = async (batch: ReadonlyArray<{ id: string }>): Promise<ExtractedEvent[]> => [
+      {
+        item_id: batch[0]?.id ?? '',
+        school_name: 'Lycée Victor-Hugo',
+        city: 'Besançon',
+        status: 'bloque',
+        observed_at: null,
+        certainty: 'haute',
+      },
+      {
+        item_id: batch[0]?.id ?? '',
+        school_name: 'Lycée Victor-Hugo',
+        city: 'Besançon',
+        status: 'leve',
+        observed_at: null,
+        certainty: 'faible',
+      },
+    ]
+    const r = await collectSource(source, { db, fetchFn, extract, now })
+    expect(r.items.map((i) => [i.external_id, i.outcome, i.school_uai ?? null])).toEqual([
+      ['mobilycee/103', 'hors_sujet', null],
+      ['mobilycee/101', 'rattache', '0000002B'],
+      ['mobilycee/101', 'certitude_faible', null],
+    ])
+  })
+
+  it("trace l'erreur de l'IA pour chaque élément du lot", async () => {
+    const { db } = fakeDb({})
+    const extract = async () => {
+      throw new Error('Gemini indisponible')
+    }
+    const r = await collectSource(source, { db, fetchFn, extract, now })
+    expect(r.items.find((i) => i.external_id === 'mobilycee/101')).toMatchObject({
+      outcome: 'erreur',
+      detail: 'IA : Gemini indisponible',
+    })
   })
 })

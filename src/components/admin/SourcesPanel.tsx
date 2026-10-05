@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Trash2 } from 'lucide-react'
+import { Play, ScrollText, Trash2 } from 'lucide-react'
 import { formatRelative } from '@shared/status.ts'
 import {
   SCRAPE_KINDS,
@@ -12,6 +12,7 @@ import {
   type SourcePreset,
 } from '@shared/sources.ts'
 import { supabase } from '@/lib/supabase'
+import { SourceLog } from './SourceLog'
 import { queryKeys } from '@/lib/queryKeys'
 import { runCollect, sourcesQuery, type CollectRunResult, type ScrapeSource } from '@/queries/admin'
 
@@ -27,6 +28,7 @@ export function SourcesPanel() {
   const [kind, setKind] = useState<NewSource['kind']>('telegram')
   const [formError, setFormError] = useState<string | null>(null)
   const [lastRun, setLastRun] = useState<CollectRunResult | null>(null)
+  const [logOpen, setLogOpen] = useState<string | null>(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.all })
 
@@ -192,60 +194,73 @@ export function SourcesPanel() {
         )}
         <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-surface">
           {sources.data?.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-3 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">{s.label}</div>
-                <div className="truncate text-sm text-muted">
-                  {SCRAPE_KIND_LABELS[s.kind]} · {s.identifier}
+            <li key={s.id} className="p-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{s.label}</div>
+                  <div className="truncate text-sm text-muted">
+                    {SCRAPE_KIND_LABELS[s.kind]} · {s.identifier}
+                  </div>
+                  <div className="text-xs text-muted">
+                    {s.last_run_at
+                      ? `dernier passage ${formatRelative(new Date(s.last_run_at))}`
+                      : 'jamais collectée'}
+                    {s.last_error && (
+                      <span className="text-bloque"> · erreur : {s.last_error}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-muted">
-                  {s.last_run_at
-                    ? `dernier passage ${formatRelative(new Date(s.last_run_at))}`
-                    : 'jamais collectée'}
-                  {s.last_error && <span className="text-bloque"> · erreur : {s.last_error}</span>}
-                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-5"
+                    checked={s.enabled}
+                    onChange={(e) =>
+                      update.mutate({ id: s.id, patch: { enabled: e.target.checked } })
+                    }
+                  />
+                  Active
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-5"
+                    checked={s.trusted}
+                    onChange={(e) =>
+                      update.mutate({ id: s.id, patch: { trusted: e.target.checked } })
+                    }
+                  />
+                  Confiance
+                </label>
+                <button
+                  type="button"
+                  className="btn-secondary min-h-10 px-3"
+                  aria-expanded={logOpen === s.id}
+                  onClick={() => setLogOpen(logOpen === s.id ? null : s.id)}
+                >
+                  <ScrollText size={16} aria-hidden="true" /> Journal
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={`Collecter ${s.label} maintenant`}
+                  disabled={run.isPending}
+                  onClick={() => run.mutate(s.id)}
+                >
+                  <Play size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={`Supprimer ${s.label}`}
+                  onClick={() => {
+                    if (window.confirm(`Supprimer la source « ${s.label} » ?`)) remove.mutate(s.id)
+                  }}
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-5"
-                  checked={s.enabled}
-                  onChange={(e) =>
-                    update.mutate({ id: s.id, patch: { enabled: e.target.checked } })
-                  }
-                />
-                Active
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-5"
-                  checked={s.trusted}
-                  onChange={(e) =>
-                    update.mutate({ id: s.id, patch: { trusted: e.target.checked } })
-                  }
-                />
-                Confiance
-              </label>
-              <button
-                type="button"
-                className="icon-btn"
-                aria-label={`Collecter ${s.label} maintenant`}
-                disabled={run.isPending}
-                onClick={() => run.mutate(s.id)}
-              >
-                <Play size={18} />
-              </button>
-              <button
-                type="button"
-                className="icon-btn"
-                aria-label={`Supprimer ${s.label}`}
-                onClick={() => {
-                  if (window.confirm(`Supprimer la source « ${s.label} » ?`)) remove.mutate(s.id)
-                }}
-              >
-                <Trash2 size={18} />
-              </button>
+              {logOpen === s.id && <SourceLog sourceId={s.id} />}
             </li>
           ))}
         </ul>

@@ -235,3 +235,23 @@ export async function sendBackToAi(id: string): Promise<ReanalyzeResult> {
   if (error) throw new Error(error.message)
   return reanalyze([data])
 }
+
+export type CollectorRun = Tables<'collector_runs'> & {
+  collector_item_logs: Tables<'collector_item_logs'>[]
+}
+
+/** Derniers passages d'une source, avec le devenir de chaque élément (7 jours max). */
+export const sourceLogQuery = (sourceId: string) =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.all, 'source-log', sourceId] as const,
+    queryFn: async (): Promise<CollectorRun[]> => {
+      const { data, error } = await supabase
+        .from('collector_runs')
+        .select('*, collector_item_logs(*)')
+        .eq('source_id', sourceId)
+        .order('ran_at', { ascending: false })
+        .limit(30)
+      if (error) throw error
+      return data as CollectorRun[]
+    },
+  })
