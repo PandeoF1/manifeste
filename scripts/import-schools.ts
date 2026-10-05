@@ -74,6 +74,39 @@ function normalizeDepartment(code: string | null): string | null {
   return c.length === 3 && c.startsWith('0') ? c.slice(1) : c
 }
 
+/** Fusion de deux lignes partageant le même UAI : on cumule les voies et on complète les trous. */
+function mergeRecords(a: SourceRecord, b: SourceRecord): SourceRecord {
+  const hasCoords = a.latitude != null && a.longitude != null
+  return {
+    ...a,
+    code_postal: a.code_postal ?? b.code_postal,
+    code_departement: a.code_departement ?? b.code_departement,
+    libelle_academie: a.libelle_academie ?? b.libelle_academie,
+    latitude: hasCoords ? a.latitude : b.latitude,
+    longitude: hasCoords ? a.longitude : b.longitude,
+    voie_generale: a.voie_generale || b.voie_generale,
+    voie_technologique: a.voie_technologique || b.voie_technologique,
+    voie_professionnelle: a.voie_professionnelle || b.voie_professionnelle,
+  }
+}
+
+function toRow(r: SourceRecord, now: string): Database['public']['Tables']['schools']['Insert'] {
+  return {
+    uai: r.identifiant_de_l_etablissement,
+    name: r.nom_etablissement.trim(),
+    city: r.nom_commune.trim(),
+    postcode: r.code_postal,
+    department: normalizeDepartment(r.code_departement),
+    academy: r.libelle_academie,
+    location:
+      r.latitude != null && r.longitude != null
+        ? `SRID=4326;POINT(${r.longitude} ${r.latitude})`
+        : null,
+    kind: kindOf(r),
+    updated_at: now,
+  }
+}
+
 async function loadRecords(file: string | undefined): Promise<unknown[]> {
   if (file) return JSON.parse(readFileSync(file, 'utf8')) as unknown[]
   console.log(`Téléchargement de ${DATASET}…`)
@@ -91,8 +124,13 @@ async function main() {
   const raw = await loadRecords(file)
   if (!Array.isArray(raw) || raw.length === 0) throw new Error('Export vide ou inattendu.')
 
-  const rows: Database['public']['Tables']['schools']['Insert'][] = []
+  const now = new Date().toISOString()
+  // Le jeu de données expose parfois plusieurs lignes pour un même UAI (une par voie
+  // d'enseignement) : il faut les fusionner, sinon un lot d'upsert touche deux fois la même
+  // ligne et Postgres refuse ("ON CONFLICT DO UPDATE command cannot affect row a second time").
+  const byUai = new Map<string, SourceRecord>()
   let skipped = 0
+  let merged = 0
   for (const [i, item] of raw.entries()) {
     const parsed = recordSchema.safeParse(item)
     if (!parsed.success) {
@@ -110,26 +148,17 @@ async function main() {
       skipped++
       continue
     }
-    if (!/^[0-9]{7}[A-Z]$/.test(r.identifiant_de_l_etablissement)) {
+    const uai = r.identifiant_de_l_etablissement
+    if (!/^[0-9]{7}[A-Z]$/.test(uai)) {
       skipped++
       continue
     }
-    rows.push({
-      uai: r.identifiant_de_l_etablissement,
-      name: r.nom_etablissement.trim(),
-      city: r.nom_commune.trim(),
-      postcode: r.code_postal,
-      department: normalizeDepartment(r.code_departement),
-      academy: r.libelle_academie,
-      location:
-        r.latitude != null && r.longitude != null
-          ? `SRID=4326;POINT(${r.longitude} ${r.latitude})`
-          : null,
-      kind: kindOf(r),
-      updated_at: new Date().toISOString(),
-    })
+    const previous = byUai.get(uai)
+    if (previous) merged++
+    byUai.set(uai, previous ? mergeRecords(previous, r) : r)
   }
-  console.log(`${rows.length} lycées valides, ${skipped} ignorés.`)
+  const rows = [...byUai.values()].map((r) => toRow(r, now))
+  console.log(`${rows.length} lycées valides, ${skipped} ignorés, ${merged} doublons fusionnés.`)
   if (dryRun) {
     console.log('Exemple :', rows.slice(0, 3))
     return

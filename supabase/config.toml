@@ -5,9 +5,6 @@ project_id = "manifest"
 schemas = ["public"]
 extra_search_path = ["public", "extensions"]
 
-[db]
-major_version = 16
-
 [realtime]
 enabled = true
 
