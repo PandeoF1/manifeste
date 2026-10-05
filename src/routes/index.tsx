@@ -1,13 +1,13 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { List, X } from 'lucide-react'
 import { z } from 'zod'
 import type { MapViewState } from '@/components/map/MapView'
 import { LiveFeed } from '@/components/map/LiveFeed'
 import { NewSignalToasts } from '@/components/map/NewSignalToasts'
 import { SchoolPanel } from '@/components/map/SchoolPanel'
 import { HeroStats, Legend } from '@/components/status/HeroStats'
+import { ShareButton } from '@/components/ShareButton'
 import { computeStats, statusesQuery } from '@/queries/statuses'
 import { useReportsRealtime } from '@/lib/realtime'
 
@@ -44,7 +44,6 @@ function MapPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: '/' })
   const { data: statuses = [], dataUpdatedAt, isError, isPending } = useQuery(statusesQuery)
-  const [listOpen, setListOpen] = useState(false)
   useReportsRealtime()
 
   const stats = useMemo(() => computeStats(statuses), [statuses])
@@ -67,13 +66,6 @@ function MapPage() {
     },
     [navigate],
   )
-  const selectFromList = useCallback(
-    (uai: string) => {
-      setListOpen(false)
-      onSelect(uai)
-    },
-    [onSelect],
-  )
 
   return (
     <main className="flex min-h-0 flex-1">
@@ -87,6 +79,12 @@ function MapPage() {
         <div className="space-y-4 border-b border-border p-6">
           <HeroStats stats={stats} updatedAt={dataUpdatedAt} isError={isError} />
           <Legend />
+          <ShareButton
+            url="/"
+            title="Manifest - les lycées mobilisés, en direct"
+            text={`${stats.bloque} lycées bloqués en ce moment en France.`}
+            label="Partager la carte"
+          />
         </div>
         <h2 className="px-4 pt-4 pb-2 text-xs font-semibold tracking-wider text-muted uppercase">
           Derniers signaux
@@ -119,54 +117,12 @@ function MapPage() {
         <NewSignalToasts statuses={statuses} onSelect={onSelect} />
 
         {!isPending && statuses.length === 0 && (
-          <p className="glass absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm shadow md:top-4 md:bottom-auto">
+          <p className="glass absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm shadow md:top-4 md:bottom-auto">
             Aucun blocus signalé pour le moment
           </p>
         )}
 
         {selected && <SchoolPanel school={selected} onClose={() => onSelect(undefined)} />}
-
-        {/* Téléphone : accès à la liste (alternative textuelle à la carte). */}
-        {!selected && (
-          <button
-            type="button"
-            onClick={() => setListOpen(true)}
-            className="glass absolute inset-x-3 z-10 flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-border font-semibold shadow-2xl md:hidden"
-            style={{ bottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-          >
-            <List size={20} /> Voir la liste ({stats.bloque + stats.filtrant + stats.leve})
-          </button>
-        )}
-
-        {listOpen && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="list-title"
-            className="absolute inset-0 z-30 flex flex-col bg-bg md:hidden"
-          >
-            <div className="flex items-center justify-between border-b border-border px-4 py-2">
-              <h2 id="list-title" className="font-semibold">
-                Derniers signaux
-              </h2>
-              <button
-                type="button"
-                autoFocus
-                onClick={() => setListOpen(false)}
-                className="icon-btn"
-                aria-label="Fermer la liste"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="border-b border-border px-4 py-3">
-              <Legend />
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <LiveFeed statuses={statuses} selectedUai={search.uai} onSelect={selectFromList} />
-            </div>
-          </div>
-        )}
       </div>
     </main>
   )

@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AProposRouteImport } from './routes/a-propos'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ListeRouteImport } from './routes/liste'
 import { Route as SignalerRouteImport } from './routes/signaler'
+import { Route as LyceeUaiRouteImport } from './routes/lycee.$uai'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,9 +31,19 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ListeRoute = ListeRouteImport.update({
+  id: '/liste',
+  path: '/liste',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignalerRoute = SignalerRouteImport.update({
   id: '/signaler',
   path: '/signaler',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LyceeUaiRoute = LyceeUaiRouteImport.update({
+  id: '/lycee/$uai',
+  path: '/lycee/$uai',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -39,34 +51,50 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
+  '/lycee/$uai': typeof LyceeUaiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
+  '/lycee/$uai': typeof LyceeUaiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
+  '/lycee/$uai': typeof LyceeUaiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/a-propos' | '/admin' | '/signaler'
+  fullPaths:
+    '/' | '/a-propos' | '/admin' | '/liste' | '/signaler' | '/lycee/$uai'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/a-propos' | '/admin' | '/signaler'
-  id: '__root__' | '/' | '/a-propos' | '/admin' | '/signaler'
+  to: '/' | '/a-propos' | '/admin' | '/liste' | '/signaler' | '/lycee/$uai'
+  id:
+    | '__root__'
+    | '/'
+    | '/a-propos'
+    | '/admin'
+    | '/liste'
+    | '/signaler'
+    | '/lycee/$uai'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AProposRoute: typeof AProposRoute
   AdminRoute: typeof AdminRoute
+  ListeRoute: typeof ListeRoute
   SignalerRoute: typeof SignalerRoute
+  LyceeUaiRoute: typeof LyceeUaiRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,11 +120,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/liste': {
+      id: '/liste'
+      path: '/liste'
+      fullPath: '/liste'
+      preLoaderRoute: typeof ListeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signaler': {
       id: '/signaler'
       path: '/signaler'
       fullPath: '/signaler'
       preLoaderRoute: typeof SignalerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lycee/$uai': {
+      id: '/lycee/$uai'
+      path: '/lycee/$uai'
+      fullPath: '/lycee/$uai'
+      preLoaderRoute: typeof LyceeUaiRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -106,7 +148,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AProposRoute: AProposRoute,
   AdminRoute: AdminRoute,
+  ListeRoute: ListeRoute,
   SignalerRoute: SignalerRoute,
+  LyceeUaiRoute: LyceeUaiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

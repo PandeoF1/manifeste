@@ -222,6 +222,20 @@ export type Database = {
         Args: { p_lat: number; p_lng: number; p_radius_m?: number }
         Returns: { uai: string; name: string; city: string; distance_m: number }[]
       }
+      school_detail: {
+        Args: { p_uai: string }
+        Returns: {
+          uai: string
+          name: string
+          city: string
+          postcode: string | null
+          department: string | null
+          academy: string | null
+          kind: string | null
+          lat: number | null
+          lng: number | null
+        }[]
+      }
       search_schools: {
         Args: { p_query: string }
         Returns: { uai: string; name: string; city: string; department: string | null }[]

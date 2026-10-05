@@ -1,5 +1,9 @@
 # Manifest
 
+![Manifest](brand/logo-horizontal.png)
+
+> Déploiement pas à pas : voir [DEPLOIEMENT.md](DEPLOIEMENT.md).
+
 Carte en temps quasi réel des lycées bloqués en France, avec la source de chaque information.
 
 Cette version contient : la carte, les **signalements sur place** (géolocalisés, photo facultative,
@@ -161,6 +165,21 @@ OpenFreeMap et Cloudflare Turnstile).
 
 Avant la mise en ligne : compléter `src/config/legal.ts` (email de contact, adresses des hébergeurs).
 
-## Hors périmètre de cette version
+## Aperçus de partage (Discord, Telegram, WhatsApp, X...)
 
-Liste filtrable et fiche lycée dédiées, PWA/hors ligne.
+- `api/og` (Vercel Edge) génère l'image 1200 x 630 : chiffres nationaux en direct, ou situation
+  d'un lycée avec `?uai=`. Polices Inter embarquées, cache CDN 5 min.
+- `api/share` sert aux robots d'aperçu (détectés par user-agent dans `vercel.json`) le HTML de
+  l'app avec titre, description et image adaptés. Les visiteurs humains ne passent jamais par là.
+- Prévisualisation locale : `npx tsx scripts/preview-og.ts <dossier>`.
+
+## Logo
+
+Poing levé tenant un crayon : le symbole de lutte devient lycéen. Source : `brand/logo-mark.svg`.
+`npm run brand` régénère favicon, icônes PWA (192, 512, maskable), apple-touch-icon, image de
+partage par défaut et logo horizontal.
+
+## PWA
+
+Installable, fonctionne hors ligne (dernier état connu, gardé dans IndexedDB 24 h), bandeau
+« nouvelle version », invitation à l'installation à partir de la 2e visite seulement.

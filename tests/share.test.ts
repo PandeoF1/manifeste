@@ -1,0 +1,42 @@
+import { describe, expect, it } from 'vitest'
+import { _inject } from '../api/share'
+import { escapeHtml, parisTime, plural } from '../api/_data'
+
+const shell = `<!doctype html><html><head>
+<title>Ancien</title>
+<meta name="description" content="ancienne" />
+<meta property="og:title" content="ancien" />
+<meta
+  property="og:description"
+  content="sur plusieurs lignes"
+/>
+<meta name="twitter:card" content="summary" />
+</head><body><div id="root"></div></body></html>`
+
+describe('aperçus de partage', () => {
+  it('remplace titre et balises Open Graph sans doublon', () => {
+    const html = _inject(shell, {
+      title: 'Lycée "Victor" <Hugo> : Bloqué',
+      description: 'desc',
+      image: 'https://m.fr/api/og?uai=0000002B',
+      url: 'https://m.fr/lycee/0000002B',
+    })
+    expect(html.match(/<title>/g)).toHaveLength(1)
+    expect(html.match(/property="og:title"/g)).toHaveLength(1)
+    expect(html.match(/property="og:description"/g)).toHaveLength(1)
+    expect(html.match(/name="twitter:card"/g)).toHaveLength(1)
+    expect(html).toContain('content="summary_large_image"')
+    expect(html).not.toContain('ancien')
+    // Échappement : un nom de lycée ne peut pas injecter de HTML.
+    expect(html).toContain('Lycée &#34;Victor&#34; &#60;Hugo&#62; : Bloqué')
+    expect(html).not.toContain('<Hugo>')
+    expect(html).toContain('<div id="root"></div>')
+  })
+
+  it('helpers', () => {
+    expect(escapeHtml(`<a href="x">'`)).toBe('&#60;a href=&#34;x&#34;&#62;&#39;')
+    expect(plural(1, 'lycée bloqué', 'lycées bloqués')).toBe('1 lycée bloqué')
+    expect(plural(3, 'lycée bloqué', 'lycées bloqués')).toBe('3 lycées bloqués')
+    expect(parisTime('2026-10-05T06:12:00Z')).toBe('08h12')
+  })
+})

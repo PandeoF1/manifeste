@@ -41,6 +41,8 @@ insert into t select 'search_schools nom + ville', (select uai from public.searc
 insert into t select 'search_schools accents', exists (select 1 from public.search_schools('jaures montreuil'));
 insert into t select 'school_distance_m', public.school_distance_m('0000002B', 47.2380, 6.0240) < 5;
 
+insert into t select 'school_detail', (select round(lat::numeric, 3) = 47.238 and city = 'Besançon' from public.school_detail('0000002B'));
+
 -- Limitation : 5 par jour, IP jamais stockée en clair.
 insert into t select 'rate limit 5 ok', bool_and(public.consume_rate_limit('203.0.113.7', 5)) from generate_series(1, 5);
 insert into t select 'rate limit 6e refusé', not public.consume_rate_limit('203.0.113.7', 5);

@@ -2,7 +2,29 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/((?!assets/|favicon).*)",
+      "source": "/",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(discordbot|telegrambot|whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|linkedinbot|skypeuripreview|redditbot|mastodon|bluesky|cardyb|iframely|embedly|pinterest|vkshare|snapchat|applebot|signal).*"
+        }
+      ],
+      "destination": "/api/share"
+    },
+    {
+      "source": "/lycee/:uai",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(discordbot|telegrambot|whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|linkedinbot|skypeuripreview|redditbot|mastodon|bluesky|cardyb|iframely|embedly|pinterest|vkshare|snapchat|applebot|signal).*"
+        }
+      ],
+      "destination": "/api/share?uai=:uai"
+    },
+    {
+      "source": "/((?!api/|assets/|icons/|fonts/|favicon|og-default|manifest|sw\\.js|workbox-).*)",
       "destination": "/index.html"
     }
   ],
@@ -34,6 +56,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
         }
       ]
     }

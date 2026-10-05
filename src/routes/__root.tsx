@@ -1,6 +1,8 @@
 import { Outlet, createRootRouteWithContext, useRouterState } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { TopBar } from '@/components/layout/TopBar'
+import { BottomTabs } from '@/components/layout/BottomTabs'
+import { InstallPrompt, OfflineBanner, UpdatePrompt } from '@/components/layout/AppNotices'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -16,8 +18,20 @@ function RootLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   return (
     <div className={`flex h-full flex-col ${pathname.startsWith('/admin') ? '' : 'theme-dark'}`}>
+      <a
+        href="#contenu"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-bg focus:p-3"
+      >
+        Aller au contenu
+      </a>
       <TopBar />
-      <Outlet />
+      <OfflineBanner />
+      <div id="contenu" className="flex min-h-0 flex-1 flex-col">
+        <Outlet />
+      </div>
+      <BottomTabs />
+      <UpdatePrompt />
+      <InstallPrompt />
     </div>
   )
 }

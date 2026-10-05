@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { X, ExternalLink, Megaphone } from 'lucide-react'
+import { X, ExternalLink, FileText, Megaphone } from 'lucide-react'
+import { ShareButton } from '@/components/ShareButton'
 import { formatRelative } from '@shared/status.ts'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { schoolReportsQuery, type SchoolStatus } from '@/queries/statuses'
@@ -117,9 +118,17 @@ export function SchoolPanel({ school, onClose }: { school: SchoolStatus; onClose
         </ol>
       )}
 
-      <Link to="/signaler" search={{ uai: school.uai }} className="btn-primary mt-4 w-full">
-        <Megaphone size={18} /> J'y suis : signaler la situation
-      </Link>
+      <div className="mt-4 grid gap-2">
+        <Link to="/signaler" search={{ uai: school.uai }} className="btn-primary w-full">
+          <Megaphone size={18} aria-hidden="true" /> J'y suis : signaler la situation
+        </Link>
+        <div className="grid grid-cols-2 gap-2">
+          <Link to="/lycee/$uai" params={{ uai: school.uai }} className="btn-secondary">
+            <FileText size={18} aria-hidden="true" /> Fiche
+          </Link>
+          <ShareButton url={`/lycee/${school.uai}`} title={`${school.name} - Manifest`} />
+        </div>
+      </div>
     </section>
   )
 }

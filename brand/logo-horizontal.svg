@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 512">
+  <rect width="1400" height="512" fill="#07090d"/>
+  <g transform="translate(64 64) scale(0.75)">
+  <defs><clipPath id="c"><rect width="512" height="512" rx="72"/></clipPath></defs>
+  <g clip-path="url(#c)">
+    <rect width="512" height="512" fill="#ff453a"/>
+    <g transform="translate(0 0) scale(1)"><g id="mark">
+    <!-- Crayon brandi, incliné (tenu dans le poing) -->
+    <g transform="rotate(28 262 240)">
+      <rect x="240" y="60" width="44" height="190" fill="#ffffff"/>
+      <rect x="240" y="60" width="44" height="14" fill="#07090d" opacity="0.18"/>
+      <polygon points="240,62 284,62 262,8" fill="#f6d7a7"/>
+      <polygon points="254,28 270,28 262,8" fill="#07090d"/>
+    </g>
+    <!-- Avant-bras + paume d'un seul tenant -->
+    <path d="M146 214 H366 V372 L340 512 H172 L146 372 Z" fill="#07090d"/>
+    <!-- Doigts repliés (phalanges vues de face), séparés par un liseré couleur fond -->
+    <g fill="#07090d" stroke="#ff453a" stroke-width="9" stroke-linejoin="round">
+      <rect x="138" y="178" width="64" height="94" rx="30"/>
+      <rect x="198" y="166" width="62" height="100" rx="30"/>
+      <rect x="256" y="170" width="62" height="98" rx="30"/>
+      <rect x="314" y="186" width="58" height="88" rx="28"/>
+      <!-- Pouce replié devant les doigts -->
+      <rect x="120" y="250" width="186" height="62" rx="31"/>
+    </g>
+  </g>
+</g>
+  </g>
+</g>
+  <text x="520" y="310" font-family="DejaVu Sans, Arial, sans-serif" font-weight="900" font-size="150" fill="#ffffff" letter-spacing="2">MANIFEST</text>
+</svg>

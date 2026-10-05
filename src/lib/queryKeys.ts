@@ -7,6 +7,8 @@ export const queryKeys = {
   },
   school: (uai: string) => ['school', uai] as const,
   schoolReports: (uai: string) => ['school', uai, 'reports'] as const,
+  schoolDetail: (uai: string) => ['school', uai, 'detail'] as const,
+  schoolHistory: (uai: string) => ['school', uai, 'history'] as const,
   admin: {
     all: ['admin'] as const,
     sources: () => [...queryKeys.admin.all, 'sources'] as const,
