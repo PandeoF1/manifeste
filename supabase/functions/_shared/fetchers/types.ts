@@ -12,7 +12,7 @@ export interface ScrapedItem {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
-export const USER_AGENT = 'ManifestBot/0.1 (+https://github.com/pandeof1/manifest)'
+export const USER_AGENT = 'ManifesteBot/0.1 (+https://github.com/pandeof1/manifest)'
 
 export async function fetchText(
   fetchFn: FetchLike,

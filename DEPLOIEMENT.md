@@ -1,4 +1,4 @@
-# Déploiement de Manifest - pas à pas
+# Déploiement de Manifeste - pas à pas
 
 Durée : environ 1 h. Coût : 0 € pour démarrer (offres gratuites), sauf Gemini (voir étape 3).
 Commandes à lancer depuis la racine du dépôt, sur ton ordinateur (Node 22+).

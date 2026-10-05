@@ -81,7 +81,7 @@ function MapPage() {
           <Legend />
           <ShareButton
             url="/"
-            title="Manifest - les lycées mobilisés, en direct"
+            title="Manifeste - les lycées mobilisés, en direct"
             text={`${stats.bloque} lycées bloqués en ce moment en France.`}
             label="Partager la carte"
           />

@@ -70,9 +70,9 @@ function SchoolPage() {
   const current = status.data
   useEffect(() => {
     if (!school) return
-    document.title = `${school.name} (${school.city}) - Manifest`
+    document.title = `${school.name} (${school.city}) - Manifeste`
     return () => {
-      document.title = 'Manifest - les lycées mobilisés, en direct'
+      document.title = 'Manifeste - les lycées mobilisés, en direct'
     }
   }, [school])
 
@@ -122,7 +122,7 @@ function SchoolPage() {
           </Link>
           <ShareButton
             url={`/lycee/${uai}`}
-            title={`${school.name} - Manifest`}
+            title={`${school.name} - Manifeste`}
             text={
               current
                 ? `${school.name} (${school.city}) : ${current.status === 'bloque' ? 'bloqué' : current.status === 'filtrant' ? 'barrage filtrant' : 'blocus levé'}.`

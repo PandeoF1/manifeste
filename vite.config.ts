@@ -18,8 +18,8 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         id: '/',
-        name: 'Manifest - les lycées mobilisés, en direct',
-        short_name: 'Manifest',
+        name: 'Manifeste - les lycées mobilisés, en direct',
+        short_name: 'Manifeste',
         description:
           'Partout en France, les lycéens se font entendre. La carte en direct des lycées bloqués.',
         lang: 'fr',

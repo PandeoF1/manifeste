@@ -1,6 +1,6 @@
-# Manifest
+# Manifeste
 
-![Manifest](brand/logo-horizontal.png)
+![Manifeste](brand/logo-horizontal.png)
 
 > Déploiement pas à pas : voir [DEPLOIEMENT.md](DEPLOIEMENT.md).
 

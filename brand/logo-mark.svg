@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Manifest : poing levé tenant un crayon. Fond rouge, poing noir, crayon blanc. -->
+  <!-- Manifeste : poing levé tenant un crayon. Fond rouge, poing noir, crayon blanc. -->
   <rect width="512" height="512" fill="#ff453a"/>
   <g id="mark">
     <!-- Crayon brandi, incliné (tenu dans le poing) -->

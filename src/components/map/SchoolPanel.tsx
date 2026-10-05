@@ -126,7 +126,7 @@ export function SchoolPanel({ school, onClose }: { school: SchoolStatus; onClose
           <Link to="/lycee/$uai" params={{ uai: school.uai }} className="btn-secondary">
             <FileText size={18} aria-hidden="true" /> Fiche
           </Link>
-          <ShareButton url={`/lycee/${school.uai}`} title={`${school.name} - Manifest`} />
+          <ShareButton url={`/lycee/${school.uai}`} title={`${school.name} - Manifeste`} />
         </div>
       </div>
     </section>

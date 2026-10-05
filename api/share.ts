@@ -14,7 +14,7 @@ interface Meta {
 
 async function buildMeta(origin: string, uai: string | null): Promise<Meta> {
   const fallback: Meta = {
-    title: 'Manifest - les lycées mobilisés, en direct',
+    title: 'Manifeste - les lycées mobilisés, en direct',
     description:
       'Partout en France, les lycéens se font entendre. La carte en direct des lycées bloqués.',
     image: `${origin}/api/og`,
@@ -27,7 +27,7 @@ async function buildMeta(origin: string, uai: string | null): Promise<Meta> {
       const status = s.status ? STATUS_LABEL[s.status] : 'Aucun signal en cours'
       return {
         title: `${s.name} (${s.city}) : ${status}`,
-        description: `${status} au ${s.name}, ${s.city}. Suis la mobilisation des lycées en direct sur Manifest.`,
+        description: `${status} au ${s.name}, ${s.city}. Suis la mobilisation des lycées en direct sur Manifeste.`,
         image: `${origin}/api/og?uai=${encodeURIComponent(s.uai)}`,
         url: `${origin}/lycee/${s.uai}`,
       }
@@ -35,7 +35,7 @@ async function buildMeta(origin: string, uai: string | null): Promise<Meta> {
     const n = await nationalSummary()
     return {
       ...fallback,
-      title: `${plural(n.bloque, 'lycée bloqué', 'lycées bloqués')} en ce moment - Manifest`,
+      title: `${plural(n.bloque, 'lycée bloqué', 'lycées bloqués')} en ce moment - Manifeste`,
       description: `${n.filtrant} en barrage filtrant, dans ${plural(n.departments, 'département', 'départements')}. Partout en France, les lycéens se font entendre.`,
     }
   } catch {
@@ -47,7 +47,7 @@ function inject(html: string, m: Meta): string {
   const tags = [
     `<title>${escapeHtml(m.title)}</title>`,
     `<meta name="description" content="${escapeHtml(m.description)}" />`,
-    `<meta property="og:site_name" content="Manifest" />`,
+    `<meta property="og:site_name" content="Manifeste" />`,
     `<meta property="og:type" content="website" />`,
     `<meta property="og:locale" content="fr_FR" />`,
     `<meta property="og:title" content="${escapeHtml(m.title)}" />`,

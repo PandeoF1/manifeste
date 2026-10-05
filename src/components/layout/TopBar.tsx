@@ -38,7 +38,7 @@ export function TopBar() {
         className="flex items-center gap-2 text-lg font-black tracking-tight uppercase"
       >
         <img src="/favicon.svg" alt="" width={28} height={28} className="rounded-md" />
-        Manifest
+        Manifeste
       </Link>
       {/* Ordinateur : navigation au centre. Téléphone : barre d'onglets en bas. */}
       <nav aria-label="Navigation principale" className="hidden items-center gap-1 text-sm md:flex">

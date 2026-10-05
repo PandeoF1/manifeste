@@ -63,7 +63,7 @@ function frame(content: Node, footer: string): Node {
       'div',
       { display: 'flex', alignItems: 'center', gap: 20 },
       img(MARK_DATA_URI, 72),
-      h('div', { fontSize: 40, fontWeight: 900, letterSpacing: 2 }, 'MANIFEST'),
+      h('div', { fontSize: 40, fontWeight: 900, letterSpacing: 2 }, 'MANIFESTE'),
       h(
         'div',
         {

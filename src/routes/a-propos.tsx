@@ -28,8 +28,9 @@ function AboutPage() {
       <header className="space-y-3 pt-4">
         <h1 className="text-3xl font-black">Aucun lycée mobilisé n'est seul.</h1>
         <p className="text-lg">
-          Manifest rend visible, en direct, chaque lycée bloqué en France. Ce qui se passe devant un
-          établissement à Rennes, à Marseille ou à Lille apparaît sur la même carte, au même moment.
+          Manifeste rend visible, en direct, chaque lycée bloqué en France. Ce qui se passe devant
+          un établissement à Rennes, à Marseille ou à Lille apparaît sur la même carte, au même
+          moment.
         </p>
         <p className="text-muted">
           Chaque point est sourcé. Rien n'est inventé, rien n'est exagéré : la carte montre ce qui
@@ -67,7 +68,7 @@ function AboutPage() {
 
       <Section id="confidentialite" title="Confidentialité">
         <p>
-          Manifest ne crée pas de compte, ne dépose aucun cookie de suivi et n'utilise aucun outil
+          Manifeste ne crée pas de compte, ne dépose aucun cookie de suivi et n'utilise aucun outil
           de mesure d'audience.
         </p>
         <p>Données traitées :</p>
@@ -118,10 +119,10 @@ function AboutPage() {
 
       <Section id="mentions" title="Mentions légales">
         <p>
-          <strong>Éditeur.</strong> Manifest est édité à titre non professionnel par un particulier.
-          Conformément à la loi n° 2004-575 du 21 juin 2004 pour la confiance dans l'économie
-          numérique, l'éditeur a choisi de préserver son anonymat. Ses éléments d'identification ont
-          été communiqués à l'hébergeur.
+          <strong>Éditeur.</strong> Manifeste est édité à titre non professionnel par un
+          particulier. Conformément à la loi n° 2004-575 du 21 juin 2004 pour la confiance dans
+          l'économie numérique, l'éditeur a choisi de préserver son anonymat. Ses éléments
+          d'identification ont été communiqués à l'hébergeur.
         </p>
         <p>
           <strong>Hébergement.</strong> Site : {HOST_VERCEL}. Base de données : {HOST_SUPABASE}.
@@ -132,7 +133,7 @@ function AboutPage() {
           demande de retrait. Les signalements sont traités dans les meilleurs délais.
         </p>
         <p>
-          <strong>Nature du service.</strong> Manifest recense des informations publiques sur les
+          <strong>Nature du service.</strong> Manifeste recense des informations publiques sur les
           blocages d'établissements, avec leur source. Le site n'organise aucun rassemblement et
           n'appelle à aucune action.
         </p>

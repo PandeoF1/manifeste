@@ -126,7 +126,7 @@ export function InstallPrompt() {
       className="glass fixed inset-x-3 bottom-20 z-40 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-border p-3 shadow-2xl md:bottom-4"
     >
       <img src="/favicon.svg" alt="" width={36} height={36} className="rounded-lg" />
-      <p className="flex-1 text-sm">Installe Manifest pour suivre la mobilisation en un geste.</p>
+      <p className="flex-1 text-sm">Installe Manifeste pour suivre la mobilisation en un geste.</p>
       <button
         type="button"
         className="btn-primary min-h-10 px-3 text-sm"

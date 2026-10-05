@@ -34,7 +34,7 @@ function png(svg: string, width: number): Buffer {
 }
 
 const wordmark = (x: number, y: number, size: number) =>
-  `<text x="${x}" y="${y}" font-family="DejaVu Sans, Arial, sans-serif" font-weight="900" font-size="${size}" fill="#ffffff" letter-spacing="2">MANIFEST</text>`
+  `<text x="${x}" y="${y}" font-family="DejaVu Sans, Arial, sans-serif" font-weight="900" font-size="${size}" fill="#ffffff" letter-spacing="2">MANIFESTE</text>`
 
 mkdirSync('public/icons', { recursive: true })
 
@@ -50,7 +50,7 @@ writeFileSync('public/icons/apple-touch-icon.png', png(tile(0.06, 0), 180))
 const horizontal = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 512">
   <rect width="1400" height="512" fill="${INK}"/>
   <g transform="translate(64 64) scale(0.75)">${tile(0, 72).replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g>
-  ${wordmark(520, 310, 150)}
+  ${wordmark(510, 300, 128)}
 </svg>`
 writeFileSync('brand/logo-horizontal.svg', horizontal)
 writeFileSync('brand/logo-horizontal.png', png(horizontal, 1400))
