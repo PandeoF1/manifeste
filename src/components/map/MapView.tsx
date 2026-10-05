@@ -3,6 +3,7 @@ import {
   GeolocateControl,
   Map as MapLibreMap,
   NavigationControl,
+  type ExpressionSpecification,
   type GeoJSONSource,
   type MapLayerMouseEvent,
   setWorkerUrl,
@@ -13,12 +14,16 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection, Point } from 'geojson'
 import type { SchoolStatus } from '@/queries/statuses'
 import { addMarkerImages } from './markerImages'
+import { darkenStyle } from './darkenStyle'
+import { MAP_STATUS_COLORS } from './palette'
+
+setWorkerUrl(workerUrl)
 
 const STYLE_URL =
   import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/positron'
 const SOURCE_ID = 'schools'
-
-setWorkerUrl(workerUrl)
+/** Un signal de moins de 30 min « pulse » sur la carte. */
+const RECENT_MS = 30 * 60_000
 
 export interface MapViewState {
   lat: number
@@ -28,31 +33,55 @@ export interface MapViewState {
 
 interface Props {
   statuses: ReadonlyArray<SchoolStatus>
-  view: MapViewState
+  initialView: MapViewState
+  selected: SchoolStatus | undefined
   onViewChange: (view: MapViewState) => void
   onSelect: (uai: string | undefined) => void
 }
 
-function toGeoJSON(rows: ReadonlyArray<SchoolStatus>): FeatureCollection<Point> {
+const STATUS_COLOR: ExpressionSpecification = [
+  'match',
+  ['get', 'status'],
+  'bloque',
+  MAP_STATUS_COLORS.bloque,
+  'filtrant',
+  MAP_STATUS_COLORS.filtrant,
+  MAP_STATUS_COLORS.leve,
+]
+
+function toGeoJSON(rows: ReadonlyArray<SchoolStatus>, now: number): FeatureCollection<Point> {
   return {
     type: 'FeatureCollection',
     features: rows.map((r) => ({
       type: 'Feature',
-      id: r.uai,
       geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
-      // Priorité d'affichage : bloqué au-dessus.
       properties: {
         uai: r.uai,
         status: r.status,
-        rank: r.status === 'bloque' ? 0 : r.status === 'filtrant' ? 1 : 2,
+        // Bloqué dessiné au-dessus des autres.
+        rank: r.status === 'bloque' ? 2 : r.status === 'filtrant' ? 1 : 0,
+        // Poids dans la carte de chaleur : un lycée levé ne compte pas.
+        weight: r.status === 'bloque' ? 1 : r.status === 'filtrant' ? 0.6 : 0,
+        recent: r.status !== 'leve' && now - new Date(r.last_signal_at).getTime() < RECENT_MS,
       },
     })),
   }
 }
 
-export function MapView({ statuses, view, onViewChange, onSelect }: Props) {
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+export default function MapView({
+  statuses,
+  initialView,
+  selected,
+  onViewChange,
+  onSelect,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
+  const readyRef = useRef(false)
   const latest = useRef({ statuses, onViewChange, onSelect })
   useEffect(() => {
     latest.current = { statuses, onViewChange, onSelect }
@@ -64,15 +93,19 @@ export function MapView({ statuses, view, onViewChange, onSelect }: Props) {
     const map = new MapLibreMap({
       container: containerRef.current,
       style: STYLE_URL,
-      center: [view.lng, view.lat],
-      zoom: view.z,
+      center: [initialView.lng, initialView.lat],
+      zoom: initialView.z,
+      minZoom: 3,
       attributionControl: { compact: true },
+      dragRotate: false,
+      pitchWithRotate: false,
       maxBounds: [
         [-70, -25],
         [60, 55],
       ],
     })
     mapRef.current = map
+    map.touchZoomRotate.disableRotation()
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
     // Géolocalisation : calculée dans le navigateur, jamais envoyée au serveur.
     map.addControl(
@@ -83,70 +116,147 @@ export function MapView({ statuses, view, onViewChange, onSelect }: Props) {
       'top-right',
     )
 
+    let frame = 0
     map.on('load', () => {
+      darkenStyle(map)
       addMarkerImages(map)
       map.addSource(SOURCE_ID, {
         type: 'geojson',
-        data: toGeoJSON(latest.current.statuses),
-        cluster: true,
-        clusterRadius: 45,
-        clusterMaxZoom: 11,
-        clusterProperties: {
-          bloque: ['+', ['case', ['==', ['get', 'status'], 'bloque'], 1, 0]],
+        data: toGeoJSON(latest.current.statuses, Date.now()),
+      })
+
+      // 1. Carte de chaleur à l'échelle nationale : rend visible l'ampleur.
+      map.addLayer({
+        id: 'heat',
+        type: 'heatmap',
+        source: SOURCE_ID,
+        maxzoom: 10,
+        paint: {
+          'heatmap-weight': ['get', 'weight'],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 9, 2],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 3, 14, 6, 26, 9, 40],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0,
+            'rgba(0,0,0,0)',
+            0.15,
+            'rgba(90,10,12,0.55)',
+            0.35,
+            'rgba(180,20,27,0.75)',
+            0.6,
+            '#ff453a',
+            0.85,
+            '#ff9f0a',
+            1,
+            '#ffd60a',
+          ],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.85, 10, 0],
         },
       })
+
+      // 2. Halo lumineux par lycée, puis noyau brillant (effet « foyer »).
       map.addLayer({
-        id: 'clusters',
+        id: 'glow',
         type: 'circle',
         source: SOURCE_ID,
-        filter: ['has', 'point_count'],
         paint: {
-          'circle-color': ['case', ['>', ['get', 'bloque'], 0], '#c0261f', '#5f6673'],
-          'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 50, 26],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
+          'circle-color': STATUS_COLOR,
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 6, 8, 14, 13, 24],
+          'circle-blur': 1,
+          'circle-opacity': ['match', ['get', 'status'], 'leve', 0.2, 0.55],
         },
       })
       map.addLayer({
-        id: 'cluster-count',
-        type: 'symbol',
+        id: 'core',
+        type: 'circle',
         source: SOURCE_ID,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': ['get', 'point_count_abbreviated'],
-          'text-font': ['Noto Sans Bold'],
-          'text-size': 13,
+        maxzoom: 9,
+        paint: {
+          'circle-color': [
+            'match',
+            ['get', 'status'],
+            'bloque',
+            '#ffd2cc',
+            'filtrant',
+            '#ffe2b0',
+            '#c9ced8',
+          ],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.4, 8, 2.6],
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 7.5, 1, 9, 0],
         },
-        paint: { 'text-color': '#ffffff' },
       })
+
+      // 3. Onde qui pulse sur les signaux de moins de 30 min.
+      map.addLayer({
+        id: 'pulse',
+        type: 'circle',
+        source: SOURCE_ID,
+        filter: ['==', ['get', 'recent'], true],
+        paint: {
+          'circle-color': 'rgba(0,0,0,0)',
+          'circle-stroke-color': STATUS_COLOR,
+          'circle-stroke-width': 2,
+          'circle-radius': 10,
+          'circle-stroke-opacity': 0.6,
+        },
+      })
+
+      // 4. Repère de sélection.
+      map.addLayer({
+        id: 'selected',
+        type: 'circle',
+        source: SOURCE_ID,
+        filter: ['==', ['get', 'uai'], ''],
+        paint: {
+          'circle-color': 'rgba(0,0,0,0)',
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 10, 12, 20],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2.5,
+        },
+      })
+
+      // 5. Forme du statut (accessibilité : pas la couleur seule).
       map.addLayer({
         id: 'schools',
         type: 'symbol',
         source: SOURCE_ID,
-        filter: ['!', ['has', 'point_count']],
+        // Vue nationale : seulement les foyers lumineux ; les formes apparaissent en zoomant
+        // (et restent toujours disponibles dans la liste et la légende).
+        minzoom: 7,
+        paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0, 8, 1] },
         layout: {
           'icon-image': ['concat', 'status-', ['get', 'status']],
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 7, 0.5, 11, 0.85],
           'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
           'symbol-sort-key': ['get', 'rank'],
         },
       })
 
-      map.on('click', 'schools', (e: MapLayerMouseEvent) => {
-        const uai = e.features?.[0]?.properties?.uai
-        if (typeof uai === 'string') latest.current.onSelect(uai)
-      })
-      map.on('click', 'clusters', async (e: MapLayerMouseEvent) => {
-        const feature = e.features?.[0]
-        const clusterId = feature?.properties?.cluster_id
-        if (!feature || typeof clusterId !== 'number' || feature.geometry.type !== 'Point') return
-        const source = map.getSource<GeoJSONSource>(SOURCE_ID)
-        const zoom = await source?.getClusterExpansionZoom(clusterId)
-        if (zoom == null) return
-        map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom })
-      })
-      for (const layer of ['schools', 'clusters']) {
+      for (const layer of ['schools', 'glow', 'core']) {
+        map.on('click', layer, (e: MapLayerMouseEvent) => {
+          const uai = e.features?.[0]?.properties?.uai
+          if (typeof uai === 'string') latest.current.onSelect(uai)
+        })
         map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
         map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
+      }
+
+      readyRef.current = true
+
+      if (!prefersReducedMotion()) {
+        let last = 0
+        const animate = (t: number) => {
+          frame = requestAnimationFrame(animate)
+          if (t - last < 33) return // ~30 i/s suffit
+          last = t
+          const phase = (t % 1800) / 1800
+          map.setPaintProperty('pulse', 'circle-radius', 6 + phase * 26)
+          map.setPaintProperty('pulse', 'circle-stroke-opacity', 0.75 * (1 - phase))
+        }
+        frame = requestAnimationFrame(animate)
       }
     })
 
@@ -159,13 +269,9 @@ export function MapView({ statuses, view, onViewChange, onSelect }: Props) {
       })
     })
 
-    // Recalcule les couleurs des marqueurs si le thème système change.
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const onTheme = () => map.loaded() && addMarkerImages(map)
-    media.addEventListener('change', onTheme)
-
     return () => {
-      media.removeEventListener('change', onTheme)
+      cancelAnimationFrame(frame)
+      readyRef.current = false
       map.remove()
       mapRef.current = null
     }
@@ -173,11 +279,36 @@ export function MapView({ statuses, view, onViewChange, onSelect }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Mise à jour des données.
+  // Mise à jour des données (et du caractère « récent » des signaux).
   useEffect(() => {
-    const source = mapRef.current?.getSource<GeoJSONSource>(SOURCE_ID)
-    source?.setData(toGeoJSON(statuses))
+    const update = () =>
+      mapRef.current?.getSource<GeoJSONSource>(SOURCE_ID)?.setData(toGeoJSON(statuses, Date.now()))
+    update()
+    const id = window.setInterval(update, 60_000)
+    return () => window.clearInterval(id)
   }, [statuses])
+
+  // Sélection : repère + recentrage si le lycée est hors champ ou la vue trop large.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const apply = () => {
+      map.setFilter('selected', ['==', ['get', 'uai'], selected?.uai ?? ''])
+      if (!selected) return
+      const inView = map.getBounds().contains([selected.lng, selected.lat])
+      if (!inView || map.getZoom() < 8) {
+        map.flyTo({
+          center: [selected.lng, selected.lat],
+          zoom: Math.max(map.getZoom(), 11),
+          duration: prefersReducedMotion() ? 0 : 1200,
+          // Laisse la place au panneau en bas sur mobile.
+          padding: window.innerWidth < 768 ? { bottom: window.innerHeight * 0.4 } : undefined,
+        })
+      }
+    }
+    if (readyRef.current) apply()
+    else map.once('load', apply)
+  }, [selected])
 
   return (
     // Conteneur positionné séparé : le CSS de MapLibre impose position: relative à .maplibregl-map.
@@ -186,7 +317,7 @@ export function MapView({ statuses, view, onViewChange, onSelect }: Props) {
         ref={containerRef}
         className="h-full w-full"
         role="region"
-        aria-label="Carte des lycées concernés. Une liste textuelle est disponible via le bouton Liste."
+        aria-label="Carte des lycées concernés. Une liste textuelle est disponible à côté de la carte."
       />
     </div>
   )

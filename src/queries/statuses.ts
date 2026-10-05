@@ -45,14 +45,4 @@ export const schoolReportsQuery = (uai: string) =>
     staleTime: REFRESH_MS,
   })
 
-export interface NationalCounts {
-  bloque: number
-  filtrant: number
-  leve: number
-}
-
-export function countStatuses(rows: ReadonlyArray<Pick<SchoolStatus, 'status'>>): NationalCounts {
-  const counts: NationalCounts = { bloque: 0, filtrant: 0, leve: 0 }
-  for (const r of rows) counts[r.status]++
-  return counts
-}
+export { computeStats, type NationalStats } from './stats'

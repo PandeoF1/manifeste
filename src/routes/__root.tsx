@@ -1,4 +1,4 @@
-import { Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import { Outlet, createRootRouteWithContext, useRouterState } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { TopBar } from '@/components/layout/TopBar'
 
@@ -12,8 +12,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 function RootLayout() {
+  // La carte est toujours en thème sombre (rendu immersif) ; l'admin suit le thème système.
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
   return (
-    <div className="flex h-full flex-col">
+    <div className={`flex h-full flex-col ${pathname === '/' ? 'theme-dark' : ''}`}>
       <TopBar />
       <Outlet />
     </div>

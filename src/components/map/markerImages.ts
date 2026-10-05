@@ -1,13 +1,13 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import type { ReportStatus } from '@shared/status.ts'
+import { MAP_STATUS_COLORS } from './palette'
 
 const SIZE = 28
 
-function readVar(name: string, fallback: string): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
-}
-
+/**
+ * Forme distincte par statut (jamais la couleur seule) :
+ * bloqué = octogone barré, filtrant = triangle "!", levé = cercle coché.
+ */
 function draw(status: ReportStatus, ratio: number): ImageData {
   const px = SIZE * ratio
   const canvas = document.createElement('canvas')
@@ -17,13 +17,8 @@ function draw(status: ReportStatus, ratio: number): ImageData {
   if (!ctx) throw new Error('Canvas 2D indisponible')
   ctx.scale(ratio, ratio)
   ctx.lineWidth = 2
-  ctx.strokeStyle = '#ffffff'
-  ctx.fillStyle =
-    status === 'bloque'
-      ? readVar('--status-bloque', '#c0261f')
-      : status === 'filtrant'
-        ? readVar('--status-filtrant', '#b45309')
-        : readVar('--status-leve', '#5f6673')
+  ctx.strokeStyle = '#05070b'
+  ctx.fillStyle = MAP_STATUS_COLORS[status]
 
   const s = SIZE
   ctx.beginPath()
@@ -49,12 +44,12 @@ function draw(status: ReportStatus, ratio: number): ImageData {
   ctx.fill()
   ctx.stroke()
 
-  // Glyphe intérieur blanc : barre (bloqué), "!" (filtrant), coche (levé).
   ctx.fillStyle = '#ffffff'
   ctx.strokeStyle = '#ffffff'
   if (status === 'bloque') {
     ctx.fillRect(s * 0.25, s * 0.44, s * 0.5, s * 0.12)
   } else if (status === 'filtrant') {
+    ctx.fillStyle = '#05070b'
     ctx.fillRect(s / 2 - 1.5, s * 0.34, 3, s * 0.3)
     ctx.fillRect(s / 2 - 1.5, s * 0.7, 3, 3)
   } else {

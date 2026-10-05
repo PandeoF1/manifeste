@@ -1,17 +1,24 @@
-import { useCallback, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { List, Map as MapIcon } from 'lucide-react'
+import { List, X } from 'lucide-react'
 import { z } from 'zod'
-import { MapView, type MapViewState } from '@/components/map/MapView'
+import type { MapViewState } from '@/components/map/MapView'
+import { LiveFeed } from '@/components/map/LiveFeed'
+import { NewSignalToasts } from '@/components/map/NewSignalToasts'
 import { SchoolPanel } from '@/components/map/SchoolPanel'
-import { StatusList } from '@/components/map/StatusList'
-import { NationalCounter } from '@/components/status/NationalCounter'
-import { countStatuses, statusesQuery } from '@/queries/statuses'
+import { HeroStats, Legend } from '@/components/status/HeroStats'
+import { computeStats, statusesQuery } from '@/queries/statuses'
 import { useReportsRealtime } from '@/lib/realtime'
 
-// France métropolitaine par défaut.
-const DEFAULT_VIEW = { lat: 46.6, lng: 2.4, z: 5 }
+// MapLibre (~800 ko) est chargé à part : les chiffres et la liste s'affichent avant la carte.
+const MapView = lazy(() => import('@/components/map/MapView'))
+
+// France métropolitaine entière, cadrage adapté à la largeur d'écran.
+function defaultView(): MapViewState {
+  const narrow = typeof window !== 'undefined' && window.innerWidth < 768
+  return narrow ? { lat: 46.4, lng: 2.4, z: 4.3 } : { lat: 46.6, lng: 2.4, z: 5.2 }
+}
 
 const searchSchema = z.object({
   lat: z.number().min(-90).max(90).optional().catch(undefined),
@@ -26,41 +33,27 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute('/')({
   validateSearch: searchSchema,
-  // Préchargement non bloquant : la carte s'affiche tout de suite, les marqueurs arrivent ensuite.
+  // Préchargement non bloquant : la page s'affiche tout de suite, les données arrivent ensuite.
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(statusesQuery)
   },
   component: MapPage,
-  pendingComponent: () => <div className="flex-1 animate-pulse bg-surface" aria-busy="true" />,
-  errorComponent: ({ reset }) => (
-    <main className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <p>Les données n'ont pas pu être chargées.</p>
-      <button
-        type="button"
-        onClick={reset}
-        className="rounded-md bg-accent px-4 py-3 text-accent-fg"
-      >
-        Réessayer
-      </button>
-    </main>
-  ),
 })
 
 function MapPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: '/' })
-  const { data: statuses = [], dataUpdatedAt, isError } = useQuery(statusesQuery)
-  const [showList, setShowList] = useState(false)
+  const { data: statuses = [], dataUpdatedAt, isError, isPending } = useQuery(statusesQuery)
+  const [listOpen, setListOpen] = useState(false)
   useReportsRealtime()
 
-  const counts = useMemo(() => countStatuses(statuses), [statuses])
+  const stats = useMemo(() => computeStats(statuses), [statuses])
   const selected = statuses.find((s) => s.uai === search.uai)
 
-  const initialView: MapViewState = {
-    lat: search.lat ?? DEFAULT_VIEW.lat,
-    lng: search.lng ?? DEFAULT_VIEW.lng,
-    z: search.z ?? DEFAULT_VIEW.z,
-  }
+  const [initialView] = useState<MapViewState>(() => {
+    const d = defaultView()
+    return { lat: search.lat ?? d.lat, lng: search.lng ?? d.lng, z: search.z ?? d.z }
+  })
 
   const onViewChange = useCallback(
     (view: MapViewState) => {
@@ -74,54 +67,117 @@ function MapPage() {
     },
     [navigate],
   )
+  const selectFromList = useCallback(
+    (uai: string) => {
+      setListOpen(false)
+      onSelect(uai)
+    },
+    [onSelect],
+  )
 
   return (
-    <main className="relative flex flex-1 flex-col">
-      <h1 className="sr-only">Carte des lycées bloqués</h1>
-      <div className="z-10 flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2">
-        <NationalCounter counts={counts} updatedAt={dataUpdatedAt} />
-        <button
-          type="button"
-          onClick={() => setShowList((v) => !v)}
-          aria-pressed={showList}
-          className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-md px-3 text-sm hover:bg-bg"
-        >
-          {showList ? <MapIcon size={18} /> : <List size={18} />}
-          {showList ? 'Carte' : 'Liste'}
-        </button>
-      </div>
-      {isError && (
-        <p role="alert" className="z-10 bg-bloque px-4 py-2 text-sm text-white">
-          Connexion impossible, les données affichées peuvent être anciennes.
-        </p>
-      )}
-      <div className="relative flex-1">
-        <MapView
-          statuses={statuses}
-          view={initialView}
-          onViewChange={onViewChange}
-          onSelect={onSelect}
-        />
-        {showList && (
-          <div className="absolute inset-0 z-10 overflow-y-auto bg-surface">
-            <StatusList
-              statuses={statuses}
-              onSelect={(uai) => {
-                setShowList(false)
-                onSelect(uai)
-              }}
-            />
-          </div>
-        )}
-        {selected && !showList && (
-          <SchoolPanel school={selected} onClose={() => onSelect(undefined)} />
-        )}
-        {statuses.length === 0 && !showList && (
-          <p className="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full border border-border bg-surface px-4 py-2 text-sm shadow">
+    <main className="flex min-h-0 flex-1">
+      <h1 className="sr-only">Carte en direct des lycées bloqués en France</h1>
+
+      {/* Ordinateur : panneau latéral (chiffres + fil en direct). */}
+      <aside
+        aria-label="Situation et derniers signaux"
+        className="hidden w-[380px] shrink-0 flex-col border-r border-border md:flex"
+      >
+        <div className="space-y-4 border-b border-border p-6">
+          <HeroStats stats={stats} updatedAt={dataUpdatedAt} isError={isError} />
+          <Legend />
+        </div>
+        <h2 className="px-4 pt-4 pb-2 text-xs font-semibold tracking-wider text-muted uppercase">
+          Derniers signaux
+        </h2>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {isPending ? (
+            <FeedSkeleton />
+          ) : (
+            <LiveFeed statuses={statuses} selectedUai={search.uai} onSelect={onSelect} />
+          )}
+        </div>
+      </aside>
+
+      <div className="relative min-w-0 flex-1">
+        <Suspense fallback={<div className="absolute inset-0 bg-bg" aria-busy="true" />}>
+          <MapView
+            statuses={statuses}
+            initialView={initialView}
+            selected={selected}
+            onViewChange={onViewChange}
+            onSelect={onSelect}
+          />
+        </Suspense>
+
+        {/* Téléphone : chiffres en surimpression. */}
+        <div className="glass pointer-events-none absolute top-2 left-2 z-10 max-w-[calc(100%-4rem)] rounded-2xl border border-border px-3 py-2 shadow-2xl md:hidden">
+          <HeroStats stats={stats} updatedAt={dataUpdatedAt} isError={isError} compact />
+        </div>
+
+        <NewSignalToasts statuses={statuses} onSelect={onSelect} />
+
+        {!isPending && statuses.length === 0 && (
+          <p className="glass absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm shadow md:top-4 md:bottom-auto">
             Aucun blocus signalé pour le moment
           </p>
         )}
+
+        {selected && <SchoolPanel school={selected} onClose={() => onSelect(undefined)} />}
+
+        {/* Téléphone : accès à la liste (alternative textuelle à la carte). */}
+        {!selected && (
+          <button
+            type="button"
+            onClick={() => setListOpen(true)}
+            className="glass absolute inset-x-3 z-10 flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-border font-semibold shadow-2xl md:hidden"
+            style={{ bottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          >
+            <List size={20} /> Voir la liste ({stats.bloque + stats.filtrant + stats.leve})
+          </button>
+        )}
+
+        {listOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="list-title"
+            className="absolute inset-0 z-30 flex flex-col bg-bg md:hidden"
+          >
+            <div className="flex items-center justify-between border-b border-border px-4 py-2">
+              <h2 id="list-title" className="font-semibold">
+                Derniers signaux
+              </h2>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setListOpen(false)}
+                className="icon-btn"
+                aria-label="Fermer la liste"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="border-b border-border px-4 py-3">
+              <Legend />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <LiveFeed statuses={statuses} selectedUai={search.uai} onSelect={selectFromList} />
+            </div>
+          </div>
+        )}
       </div>
     </main>
+  )
+}
+
+function FeedSkeleton() {
+  return (
+    <ul aria-busy="true" aria-label="Chargement" className="space-y-2 p-4">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <li key={i} className="h-12 animate-pulse rounded-md bg-surface" />
+      ))}
+    </ul>
   )
 }

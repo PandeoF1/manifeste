@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
-@theme {
+@theme inline {
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -32,17 +32,34 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1115;
-    --surface: #181b22;
-    --fg: #eceef2;
-    --muted: #a3a9b7;
-    --border: #2c313c;
-    --accent: #8fa8ff;
-    --accent-fg: #0f1115;
-    --status-bloque: #ff6b63;
-    --status-filtrant: #f59e0b;
-    --status-leve: #a3a9b7;
+    --bg: #07090d;
+    --surface: #10141b;
+    --fg: #eef0f4;
+    --muted: #9aa3b2;
+    --border: #232a36;
+    --accent: #ff453a;
+    --accent-fg: #07090d;
+    --status-bloque: #ff453a;
+    --status-filtrant: #ff9f0a;
+    --status-leve: #98a2b3;
   }
+}
+
+/* Thème sombre imposé (page carte : rendu immersif, quel que soit le thème système). */
+.theme-dark {
+  color-scheme: dark;
+  --bg: #07090d;
+  --surface: #10141b;
+  --fg: #eef0f4;
+  --muted: #9aa3b2;
+  --border: #232a36;
+  --accent: #ff453a;
+  --accent-fg: #07090d;
+  --status-bloque: #ff453a;
+  --status-filtrant: #ff9f0a;
+  --status-leve: #98a2b3;
+  background: var(--bg);
+  color: var(--fg);
 }
 
 html,
@@ -89,4 +106,64 @@ body {
   kbd {
     @apply rounded border border-border bg-bg px-1 font-mono text-xs;
   }
+}
+
+/* Chiffre principal : lueur discrète, chiffres à chasse fixe. */
+.hero-number {
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 24px color-mix(in srgb, var(--status-bloque) 55%, transparent);
+}
+
+@keyframes live-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+.live-dot {
+  animation: live-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.toast-in {
+  animation: toast-in 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot,
+  .toast-in {
+    animation: none;
+  }
+}
+
+.glass {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.maplibregl-ctrl-group {
+  background: var(--surface) !important;
+}
+.theme-dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.theme-dark .maplibregl-ctrl-attrib {
+  background: rgb(7 9 13 / 0.7) !important;
+  color: #9aa3b2;
+}
+.theme-dark .maplibregl-ctrl-attrib a {
+  color: #c9ced8;
 }
