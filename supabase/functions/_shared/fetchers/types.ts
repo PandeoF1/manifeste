@@ -1,3 +1,5 @@
+import { readText } from '../text.ts'
+
 /** Un élément brut récupéré par un collecteur. Le texte n'est jamais stocké en base. */
 export interface ScrapedItem {
   /** Identifiant stable dans la source (id de post, guid RSS...). */
@@ -24,5 +26,5 @@ export async function fetchText(
     signal: AbortSignal.timeout(timeoutMs),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status} sur ${url}`)
-  return await res.text()
+  return await readText(res)
 }

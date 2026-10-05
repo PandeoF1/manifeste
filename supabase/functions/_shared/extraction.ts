@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { repairMojibake } from './text.ts'
 import { REPORT_STATUSES, type ReportStatus } from './status.ts'
 import type { ScrapedItem } from './fetchers/types.ts'
 
@@ -94,7 +95,14 @@ export function parseExtraction(raw: unknown, knownIds: ReadonlySet<string>): Ex
   const events: ExtractedEvent[] = []
   for (const candidate of result.data.events) {
     const parsed = extractedEventSchema.safeParse(candidate)
-    if (parsed.success && knownIds.has(parsed.data.item_id)) events.push(parsed.data)
+    if (parsed.success && knownIds.has(parsed.data.item_id)) {
+      // Filet de sécurité : l'IA recopie parfois un texte mal encodé (« LunÃ©ville »).
+      events.push({
+        ...parsed.data,
+        school_name: repairMojibake(parsed.data.school_name),
+        city: parsed.data.city === null ? null : repairMojibake(parsed.data.city),
+      })
+    }
   }
   return events
 }

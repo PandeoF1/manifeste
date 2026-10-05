@@ -1,6 +1,7 @@
 // Titre et résumé d'une page web (balises Open Graph, description, <title>).
 import type { FetchLike } from './fetchers/types.ts'
 import { USER_AGENT } from './fetchers/types.ts'
+import { readText } from './text.ts'
 
 const ENTITIES: Record<string, string> = {
   amp: '&',
@@ -66,7 +67,7 @@ export async function fetchPageContext(fetchFn: FetchLike, url: string): Promise
       signal: AbortSignal.timeout(6000),
     })
     if (!res.ok) return ''
-    return extractPageContext(await res.text())
+    return extractPageContext(await readText(res, 300_000))
   } catch {
     return ''
   }
