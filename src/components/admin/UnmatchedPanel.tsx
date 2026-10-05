@@ -141,7 +141,13 @@ export function UnmatchedPanel() {
                 <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
                   <StatusBadge status={u.status} />
                   <span>{dateFmt.format(new Date(u.observed_at))}</span>
+                  {u.source_domain && <span>· {u.source_domain}</span>}
                 </div>
+                {u.context && (
+                  <p className="mt-1 line-clamp-3 text-sm whitespace-pre-line text-muted">
+                    {u.context}
+                  </p>
+                )}
               </div>
               <a
                 href={u.source_url}

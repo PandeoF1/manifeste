@@ -169,7 +169,9 @@ export function createGeminiClient(config: GeminiConfig) {
   }
 }
 
-function extractionRequest(batch: ReadonlyArray<{ id: string; item: ScrapedItem }>): JsonRequest {
+export function extractionRequest(
+  batch: ReadonlyArray<{ id: string; item: ScrapedItem }>,
+): JsonRequest {
   return { system: SYSTEM_PROMPT, user: buildUserPrompt(batch), schema: GEMINI_RESPONSE_SCHEMA }
 }
 

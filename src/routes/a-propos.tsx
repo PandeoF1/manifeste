@@ -44,7 +44,9 @@ function AboutPage() {
             publics et des comptes Bluesky sont lus automatiquement toutes les 10 minutes. Une
             intelligence artificielle (Google Gemini) repère dans ces textes publics les lycées
             concernés et leur situation. Seuls le lycée, le statut, l'heure et le lien de la source
-            sont gardés.
+            sont gardés. Quand le lycée n'a pas pu être identifié automatiquement, un court extrait
+            public (titre, chapeau de l'article) est conservé au plus 7 jours, visible de l'équipe
+            uniquement, le temps de le vérifier.
           </li>
           <li>
             <strong>Signalements sur place.</strong> Toute personne près d'un lycée peut signaler la

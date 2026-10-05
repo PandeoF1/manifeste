@@ -1,16 +1,22 @@
 // Edge Function : réanalyse par l'IA des extractions non rattachées (bouton de l'admin).
-// Pour chaque extraction : lycées candidats (commune + noms proches), titre et résumé de la page
-// source, puis UN appel Gemini pour toutes, qui choisit le lycée ou aucun.
-// Les choix sûrs deviennent des signaux, soumis à la règle de validation habituelle.
-import { mapLimit } from '../_shared/collector.ts'
+// 1. Contexte : extrait conservé + titre et chapeau de la page source (l'URL réelle est
+//    retrouvée derrière les liens Google Actualités).
+// 2. Si la commune manque ou si le nom est générique : nouvelle extraction sur ce contexte.
+// 3. Lycées candidats (commune + noms proches), puis l'IA choisit le bon ou aucun.
+// Deux appels Gemini au plus pour toute la liste. Les choix sûrs deviennent des signaux,
+// soumis à la règle de validation habituelle.
+import { mapLimit } from '../_shared/collector-utils.ts'
 import { extractDomain } from '../_shared/domain.ts'
-import { createGeminiClient, modelsFromEnv } from '../_shared/gemini.ts'
+import { parseExtraction } from '../_shared/extraction.ts'
+import { isGoogleNewsUrl, resolveGoogleNewsUrls } from '../_shared/fetchers/googlenews.ts'
+import { createGeminiClient, extractionRequest, modelsFromEnv } from '../_shared/gemini.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
+import { isGenericSchoolName } from '../_shared/matching.ts'
+import { fetchPageContext } from '../_shared/page.ts'
 import {
   REANALYSIS_SCHEMA,
   REANALYSIS_SYSTEM_PROMPT,
   buildReanalysisPrompt,
-  fetchPageContext,
   parseChoices,
   type Candidate,
   type ReanalysisItem,
@@ -18,9 +24,10 @@ import {
 import { admin, isAuthorized } from '../_shared/service.ts'
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
-const GEMINI_MODELS = modelsFromEnv(
-  Deno.env.get('GEMINI_MODEL'),
-  Deno.env.get('GEMINI_FALLBACK_MODELS'),
+// Action manuelle et rare : on peut se permettre un modèle plus fin que pour la collecte.
+const MODELS = modelsFromEnv(
+  Deno.env.get('REANALYZE_MODEL') || 'gemini-3.6-flash',
+  Deno.env.get('REANALYZE_FALLBACK_MODELS') ?? 'gemini-3.5-flash,gemini-3.5-flash-lite',
 )
 const MAX_ITEMS = 40
 
@@ -28,6 +35,7 @@ interface UnmatchedRow {
   id: string
   source_id: string | null
   source_domain: string | null
+  context: string | null
   school_name: string
   city: string | null
   status: 'bloque' | 'filtrant' | 'leve'
@@ -43,6 +51,14 @@ type Outcome = {
   uai?: string
 }
 
+function mergeText(...parts: Array<string | null | undefined>): string {
+  const lines = parts
+    .flatMap((p) => (p ?? '').split('\n'))
+    .map((l) => l.trim())
+    .filter(Boolean)
+  return [...new Set(lines)].join('\n').slice(0, 1000)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
@@ -56,61 +72,116 @@ Deno.serve(async (req) => {
 
   let query = admin
     .from('unmatched_extractions')
-    .select('id, source_id, source_domain, school_name, city, status, source_url, observed_at')
+    .select(
+      'id, source_id, source_domain, context, school_name, city, status, source_url, observed_at',
+    )
     .order('created_at', { ascending: false })
     .limit(MAX_ITEMS)
   if (ids) query = query.in('id', ids.slice(0, MAX_ITEMS))
   const { data, error } = await query
   if (error) return json(500, { error: error.message })
   const rows = (data ?? []) as UnmatchedRow[]
+  const client = createGeminiClient({ apiKey: GEMINI_API_KEY, models: MODELS, fetchFn: fetch })
   const outcomes: Outcome[] = []
 
-  // Candidats et contexte, en parallèle (I/O).
-  const prepared = await mapLimit(rows, 6, async (row) => {
-    const [{ data: candidates }, context] = await Promise.all([
-      admin.rpc('unmatched_candidates', { p_unmatched_id: row.id }),
-      fetchPageContext(fetch, row.source_url),
-    ])
-    return {
-      row,
-      item: { ...row, context, candidates: (candidates ?? []) as Candidate[] } as ReanalysisItem,
-    }
-  })
-
-  const askable = prepared.filter((p) => p.item.candidates.length > 0)
-  for (const p of prepared) {
-    if (p.item.candidates.length === 0) {
-      outcomes.push({
-        id: p.row.id,
-        school_name: p.row.school_name,
-        city: p.row.city,
-        result: 'Aucun lycée candidat (commune inconnue du référentiel ?)',
-      })
-    }
-  }
-
-  let model: string | null = null
-  if (askable.length > 0) {
-    const client = createGeminiClient({
-      apiKey: GEMINI_API_KEY,
-      models: GEMINI_MODELS,
-      fetchFn: fetch,
+  try {
+    // 1. Contexte, avec l'URL réelle des articles Google Actualités.
+    const resolved = await resolveGoogleNewsUrls(
+      fetch,
+      rows.map((r) => r.source_url).filter(isGoogleNewsUrl),
+    )
+    await mapLimit(rows, 6, async (row) => {
+      const realUrl = resolved.get(row.source_url)
+      if (realUrl) {
+        row.source_url = realUrl
+        row.source_domain = row.source_domain ?? extractDomain(realUrl)
+      }
+      const page = isGoogleNewsUrl(row.source_url)
+        ? ''
+        : await fetchPageContext(fetch, row.source_url)
+      row.context = mergeText(row.context, page) || null
     })
-    let choices: Map<string, string>
-    try {
-      const raw = await client.generate({
-        system: REANALYSIS_SYSTEM_PROMPT,
-        user: buildReanalysisPrompt(askable.map((p) => p.item)),
-        schema: REANALYSIS_SCHEMA,
-      })
-      choices = parseChoices(
-        raw,
-        askable.map((p) => p.item),
+
+    // 2. Nouvelle extraction quand la commune manque ou que le nom est générique.
+    const vague = rows.filter(
+      (r) => r.context && (!r.city || isGenericSchoolName(r.school_name, r.city)),
+    )
+    if (vague.length > 0) {
+      const batch = vague.map((r) => ({
+        id: r.id,
+        item: {
+          externalId: r.id,
+          url: r.source_url,
+          text: r.context ?? '',
+          publishedAt: new Date(r.observed_at),
+        },
+      }))
+      const events = parseExtraction(
+        await client.generate(extractionRequest(batch)),
+        new Set(vague.map((r) => r.id)),
       )
-      model = [...client.served][0] ?? null
-    } catch (e) {
-      return json(502, { error: e instanceof Error ? e.message : 'Gemini indisponible' })
+      for (const row of vague) {
+        const better = events.find((e) => e.item_id === row.id && e.city)
+        if (better) {
+          row.school_name = better.school_name
+          row.city = better.city
+        }
+      }
     }
+
+    // Enregistre les corrections (nom, commune, URL réelle, extrait) avant de chercher les candidats.
+    await mapLimit(rows, 6, async (row) => {
+      await admin
+        .from('unmatched_extractions')
+        .update({
+          school_name: row.school_name,
+          city: row.city,
+          source_url: row.source_url,
+          source_domain: row.source_domain,
+          context: row.context,
+        })
+        .eq('id', row.id)
+    })
+
+    // 3. Candidats puis choix par l'IA.
+    const prepared = await mapLimit(rows, 6, async (row) => {
+      const { data: candidates } = await admin.rpc('unmatched_candidates', {
+        p_unmatched_id: row.id,
+      })
+      const item: ReanalysisItem = {
+        id: row.id,
+        school_name: row.school_name,
+        city: row.city,
+        status: row.status,
+        context: row.context ?? '',
+        candidates: (candidates ?? []) as Candidate[],
+      }
+      return { row, item }
+    })
+    const askable = prepared.filter((p) => p.item.candidates.length > 0)
+    for (const p of prepared) {
+      if (p.item.candidates.length === 0) {
+        outcomes.push({
+          id: p.row.id,
+          school_name: p.row.school_name,
+          city: p.row.city,
+          result: p.row.city
+            ? `Aucun lycée trouvé à ${p.row.city} dans le référentiel`
+            : 'Commune introuvable, même dans la page source',
+        })
+      }
+    }
+    const choices =
+      askable.length > 0
+        ? parseChoices(
+            await client.generate({
+              system: REANALYSIS_SYSTEM_PROMPT,
+              user: buildReanalysisPrompt(askable.map((p) => p.item)),
+              schema: REANALYSIS_SCHEMA,
+            }),
+            askable.map((p) => p.item),
+          )
+        : new Map<string, string>()
 
     for (const { row, item } of askable) {
       const uai = choices.get(row.id)
@@ -119,7 +190,7 @@ Deno.serve(async (req) => {
           id: row.id,
           school_name: row.school_name,
           city: row.city,
-          result: "L'IA n'a pas trouvé avec certitude",
+          result: `Pas de choix sûr parmi ${item.candidates.length} lycée${item.candidates.length > 1 ? 's' : ''} candidat${item.candidates.length > 1 ? 's' : ''} : à rattacher à la main`,
         })
         continue
       }
@@ -161,10 +232,13 @@ Deno.serve(async (req) => {
         result: `Rattaché à ${chosen?.name ?? uai} (${chosen?.city ?? ''})`,
       })
     }
+  } catch (e) {
+    return json(502, { error: e instanceof Error ? e.message : 'Gemini indisponible' })
   }
 
   return json(200, {
-    model,
+    model: [...client.served].join(', ') || null,
+    gemini_calls: client.calls,
     linked: outcomes.filter((o) => o.uai).length,
     total: rows.length,
     outcomes,

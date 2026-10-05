@@ -164,6 +164,7 @@ export type Database = {
           id: string
           source_id: string | null
           source_domain: string | null
+          context: string | null
           school_name: string
           city: string | null
           status: ReportStatus
@@ -175,6 +176,7 @@ export type Database = {
           id?: string
           source_id?: string | null
           source_domain?: string | null
+          context?: string | null
           school_name: string
           city?: string | null
           status: ReportStatus

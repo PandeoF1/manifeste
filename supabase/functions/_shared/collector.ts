@@ -1,4 +1,6 @@
+import { chunk, mapLimit } from './collector-utils.ts'
 import { extractDomain } from './domain.ts'
+import { enrichItems } from './enrich.ts'
 import {
   isRelevant,
   meetsCertainty,
@@ -34,6 +36,7 @@ export interface NewUnmatched {
   source_id: string
   /** Domaine de l'éditeur réel (utile pour Google Actualités). */
   source_domain: string | null
+  context: string
   school_name: string
   city: string | null
   status: ReportStatus
@@ -82,29 +85,7 @@ export interface SourceRunResult {
   error: string | null
 }
 
-/** Exécute `fn` sur chaque élément avec au plus `limit` appels simultanés (ordre conservé). */
-export async function mapLimit<T, R>(
-  items: ReadonlyArray<T>,
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length)
-  let next = 0
-  const worker = async () => {
-    while (next < items.length) {
-      const i = next++
-      results[i] = await fn(items[i] as T, i)
-    }
-  }
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker))
-  return results
-}
-
-export function chunk<T>(items: ReadonlyArray<T>, size: number): T[][] {
-  const out: T[][] = []
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
-  return out
-}
+export { chunk, mapLimit } from './collector-utils.ts'
 
 function emptyResult(source: CollectorSource): SourceRunResult {
   return {
@@ -144,7 +125,11 @@ export function pendingFromJson(p: PendingJson): Pending {
 type GatherOptions = Pick<
   CollectorOptions,
   'db' | 'fetchFn' | 'now' | 'lookbackHours' | 'maxItemsPerSource'
-> & { fetchConcurrency?: number }
+> & {
+  fetchConcurrency?: number
+  /** Lecture des pages et décodage Google Actualités (désactivable dans les tests). */
+  enrich?: boolean
+}
 
 /**
  * Phase 1 : récupère les sources en parallèle (I/O, peu de CPU) et garde les éléments
@@ -177,7 +162,12 @@ export async function gatherSources(
       r.relevant = relevant.length
       const irrelevant = fresh.filter((i) => !isRelevant(i.text)).map((i) => i.externalId)
       if (irrelevant.length) await opts.db.markSeen(source.id, irrelevant)
-      for (const item of relevant) pending.push({ source, item })
+      // Flux RSS (dont Google Actualités) : souvent un simple titre, on lit l'article.
+      const ready =
+        opts.enrich === false || source.kind !== 'rss'
+          ? relevant
+          : await enrichItems(opts.fetchFn, relevant)
+      for (const item of ready) pending.push({ source, item })
     } catch (e) {
       r.error = e instanceof Error ? e.message : String(e)
     }
@@ -281,6 +271,8 @@ async function handleEvent(
     await db.insertUnmatched({
       source_id: source.id,
       source_domain: item.publisherDomain ?? extractDomain(item.url),
+      // Extrait du texte, pour le staff et la réanalyse (supprimé avec l'extraction, 7 jours max).
+      context: item.text.slice(0, 600),
       school_name: event.school_name,
       city: event.city,
       status: event.status,
