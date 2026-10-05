@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  chunk,
   collectSource,
+  collectSources,
+  mapLimit,
   type CollectorDb,
   type NewReport,
   type NewUnmatched,
@@ -145,5 +148,60 @@ describe('collectSource', () => {
     })
     expect(r.new_items).toBe(0)
     expect(extract).not.toHaveBeenCalled()
+  })
+})
+
+describe('collectSources : plusieurs sources, lots communs', () => {
+  it("regroupe les éléments de toutes les sources dans un seul appel à l'IA", async () => {
+    const { db, reports } = fakeDb({ 'Lycée Victor-Hugo': [besancon] })
+    const sourceB = { ...source, id: 'src-2', identifier: 'autre', label: 'Autre' }
+    const extract = vi.fn(async (batch: ReadonlyArray<{ id: string }>): Promise<ExtractedEvent[]> =>
+      batch.map((b) => ({
+        item_id: b.id,
+        school_name: 'Lycée Victor-Hugo',
+        city: 'Besançon',
+        status: 'bloque' as const,
+        observed_at: null,
+        certainty: 'haute' as const,
+      })),
+    )
+    const results = await collectSources([source, sourceB], { db, fetchFn, extract, now })
+    expect(extract).toHaveBeenCalledTimes(1)
+    expect(extract.mock.calls[0]?.[0]).toHaveLength(2)
+    // Les deux sources de test lisent la même page : le 2e signal est un doublon (même lien).
+    expect(results.map((r) => [r.source_id, r.events, r.reports, r.duplicates, r.error])).toEqual([
+      ['src-1', 1, 1, 0, null],
+      ['src-2', 1, 0, 1, null],
+    ])
+    expect(reports.map((r) => r.source_id)).toEqual(['src-1'])
+  })
+
+  it("une source en erreur n'empêche pas les autres", async () => {
+    const { db } = fakeDb({ 'Lycée Victor-Hugo': [besancon] })
+    const failing = vi.fn(async (url: string) =>
+      url.includes('cassee')
+        ? new Response('', { status: 500 })
+        : new Response(html, { status: 200 }),
+    )
+    const broken = { ...source, id: 'src-x', identifier: 'cassee', label: 'Cassée' }
+    const extract = async (): Promise<ExtractedEvent[]> => []
+    const results = await collectSources([broken, source], { db, fetchFn: failing, extract, now })
+    expect(results[0]?.error).toMatch(/HTTP 500/)
+    expect(results[1]).toMatchObject({ error: null, relevant: 1 })
+  })
+
+  it('mapLimit respecte la limite de concurrence et l’ordre', async () => {
+    let active = 0
+    let peak = 0
+    const out = await mapLimit([1, 2, 3, 4, 5], 2, async (n) => {
+      active++
+      peak = Math.max(peak, active)
+      await new Promise((r) => setTimeout(r, 5))
+      active--
+      return n * 10
+    })
+    expect(out).toEqual([10, 20, 30, 40, 50])
+    expect(peak).toBe(2)
+    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]])
   })
 })

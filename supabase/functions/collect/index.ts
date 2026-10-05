@@ -1,7 +1,13 @@
 // Edge Function : collecte automatique des sources (Telegram, RSS, Bluesky) + extraction IA.
 // Déclenchée par pg_cron (en-tête x-collect-secret) ou par un admin connecté (bouton "Lancer").
 import { createClient } from '@supabase/supabase-js'
-import { collectAll, type CollectorDb, type CollectorSource } from '../_shared/collector.ts'
+import {
+  chunk,
+  collectSources,
+  mapLimit,
+  type CollectorDb,
+  type CollectorSource,
+} from '../_shared/collector.ts'
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
 import { extractEvents, modelsFromEnv } from '../_shared/gemini.ts'
 import type { SchoolCandidate } from '../_shared/matching.ts'
@@ -97,41 +103,102 @@ const db: CollectorDb = {
   },
 }
 
+/** Sources traitées par un sous-appel : chacun a son propre budget CPU (2 s) et mémoire. */
+const SOURCES_PER_WORKER = Number(Deno.env.get('COLLECT_SOURCES_PER_WORKER') ?? 4)
+/** Sous-appels simultanés (limite aussi les appels parallèles à Gemini). */
+const WORKER_CONCURRENCY = Number(Deno.env.get('COLLECT_WORKER_CONCURRENCY') ?? 4)
+/** Sources traitées par passage ; les autres (les plus récemment collectées) attendent le suivant. */
+const MAX_SOURCES_PER_RUN = Number(Deno.env.get('COLLECT_MAX_SOURCES_PER_RUN') ?? 80)
+
+type RunResult = Awaited<ReturnType<typeof collectSources>>[number]
+
+/** Mode « travailleur » : collecte une liste précise de sources. */
+async function work(sourceIds: string[]): Promise<RunResult[]> {
+  const { data, error } = await admin
+    .from('scrape_sources')
+    .select('id, kind, identifier, label, source_type')
+    .in('id', sourceIds)
+    .eq('enabled', true)
+  if (error) throw new Error(error.message)
+  return collectSources((data ?? []) as CollectorSource[], {
+    db,
+    fetchFn: fetch,
+    minCertainty: MIN_CERTAINTY,
+    budgetMs: 120_000,
+    extract: (batch) =>
+      extractEvents({ apiKey: GEMINI_API_KEY, models: GEMINI_MODELS, fetchFn: fetch }, batch),
+  })
+}
+
+/**
+ * Mode « répartiteur » (cron, bouton « Lancer la collecte ») : découpe les sources en petits
+ * groupes et lance un sous-appel par groupe. Le répartiteur ne fait qu'attendre (pas de CPU),
+ * la charge est répartie : ajouter des sources n'épuise jamais le budget d'un seul appel.
+ */
+async function dispatch(): Promise<RunResult[]> {
+  const { data, error } = await admin
+    .from('scrape_sources')
+    .select('id, label')
+    .eq('enabled', true)
+    .order('last_run_at', { ascending: true, nullsFirst: true })
+    .limit(MAX_SOURCES_PER_RUN)
+  if (error) throw new Error(error.message)
+  const groups = chunk(data ?? [], SOURCES_PER_WORKER)
+  const nested = await mapLimit(groups, WORKER_CONCURRENCY, async (group) => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/collect`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-collect-secret': COLLECT_SECRET },
+        body: JSON.stringify({ source_ids: group.map((s) => s.id) }),
+        signal: AbortSignal.timeout(145_000),
+      })
+      const body = (await res.json()) as { results?: RunResult[]; error?: string }
+      if (!res.ok || !body.results) throw new Error(body.error ?? `HTTP ${res.status}`)
+      return body.results
+    } catch (e) {
+      // Sous-appel coupé (limite CPU, délai) : on le signale sans bloquer les autres groupes.
+      const message = `Sous-appel interrompu : ${e instanceof Error ? e.message : String(e)}`
+      return group.map((s) => ({
+        source_id: s.id,
+        label: s.label,
+        fetched: 0,
+        new_items: 0,
+        relevant: 0,
+        events: 0,
+        reports: 0,
+        duplicates: 0,
+        unmatched: 0,
+        low_certainty: 0,
+        error: message,
+      }))
+    }
+  })
+  return nested.flat()
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   if (!(await isAuthorized(req))) return json(401, { error: 'unauthorized' })
   if (!GEMINI_API_KEY) return json(500, { error: 'missing_gemini_api_key' })
+  if (!COLLECT_SECRET) return json(500, { error: 'missing_collect_secret' })
 
-  let sourceId: string | null = null
-  try {
-    const body = (await req.json().catch(() => ({}))) as { source_id?: unknown }
-    if (typeof body.source_id === 'string') sourceId = body.source_id
-  } catch {
-    // corps vide accepté
-  }
-
-  let query = admin
-    .from('scrape_sources')
-    .select('id, kind, identifier, label, source_type')
-    .eq('enabled', true)
-    .order('last_run_at', { ascending: true, nullsFirst: true })
-  if (sourceId) query = query.eq('id', sourceId)
-  const { data: sources, error } = await query
-  if (error) return json(500, { error: 'sources_unavailable', detail: error.message })
+  const body = (await req.json().catch(() => ({}))) as { source_id?: unknown; source_ids?: unknown }
+  const ids = Array.isArray(body.source_ids)
+    ? body.source_ids.filter((v): v is string => typeof v === 'string').slice(0, 20)
+    : typeof body.source_id === 'string'
+      ? [body.source_id]
+      : null
 
   const startedAt = Date.now()
-  const results = await collectAll((sources ?? []) as CollectorSource[], {
-    db,
-    fetchFn: fetch,
-    minCertainty: MIN_CERTAINTY,
-    extract: (batch) =>
-      extractEvents({ apiKey: GEMINI_API_KEY, models: GEMINI_MODELS, fetchFn: fetch }, batch),
-  })
-
-  return json(200, {
-    model: GEMINI_MODELS.join(' > '),
-    duration_ms: Date.now() - startedAt,
-    results,
-  })
+  try {
+    const results = ids ? await work(ids) : await dispatch()
+    return json(200, {
+      model: GEMINI_MODELS.join(' > '),
+      duration_ms: Date.now() - startedAt,
+      results,
+    })
+  } catch (e) {
+    return json(500, { error: e instanceof Error ? e.message : 'erreur inconnue' })
+  }
 })

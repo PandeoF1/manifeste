@@ -66,7 +66,7 @@ npx supabase functions deploy purge-submissions --no-verify-jwt
 ```
 
 Si Gemini est saturé (erreur 503), la collecte réessaie puis bascule sur un modèle de secours
-(`GEMINI_FALLBACK_MODELS`, par défaut `gemini-3.6-flash,gemini-2.5-flash`).
+(`GEMINI_FALLBACK_MODELS`, par défaut `gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite`).
 
 ## 5. Référentiel des lycées et compte admin
 
@@ -130,6 +130,12 @@ Sur iPhone : Partager > _Sur l'écran d'accueil_. Coupe le réseau : la carte af
 « Hors ligne · données de HH:MM ».
 
 ## À savoir
+
+- **Montée en charge de la collecte** : chaque passage est découpé en sous-appels de 4 sources
+  (chacun a son propre budget de 2 s de CPU et 256 Mo), 4 en parallèle, 80 sources maximum par
+  passage (les moins récemment collectées d'abord). Réglable avec `COLLECT_SOURCES_PER_WORKER`,
+  `COLLECT_WORKER_CONCURRENCY` et `COLLECT_MAX_SOURCES_PER_RUN`. Les éléments pertinents de
+  plusieurs sources partagent le même appel Gemini (lots de 20).
 
 - **Supabase gratuit** met le projet en pause après 7 jours sans activité. La collecte toutes les
   10 minutes le garde actif, mais passe sur l'offre Pro si l'audience grossit.

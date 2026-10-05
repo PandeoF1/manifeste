@@ -35,10 +35,7 @@ const ok = () =>
     ],
   })
 const err = (status: number) =>
-  Response.json(
-    { error: { code: status, message: 'This model is currently experiencing high demand.' } },
-    { status },
-  )
+  Response.json({ error: { code: status, message: 'Gemini error message.' } }, { status })
 
 function fakeFetch(responses: Response[]) {
   const calls: string[] = []
@@ -51,48 +48,47 @@ function fakeFetch(responses: Response[]) {
   return { fetchFn, calls }
 }
 const sleep = async () => {}
+const run = (fetchFn: (url: string) => Promise<Response>) =>
+  extractEvents({ apiKey: 'k', models: ['m1', 'm2'], fetchFn, sleep }, batch)
 
 describe('extractEvents : résistance aux erreurs Gemini', () => {
   it('réessaie le même modèle après un 503', async () => {
     const { fetchFn, calls } = fakeFetch([err(503), ok()])
-    const events = await extractEvents({ apiKey: 'k', models: ['m1', 'm2'], fetchFn, sleep }, batch)
-    expect(events).toHaveLength(1)
+    expect(await run(fetchFn)).toHaveLength(1)
     expect(calls).toEqual(['m1', 'm1'])
   })
 
   it('bascule sur le modèle de secours si le principal reste saturé', async () => {
     const { fetchFn, calls } = fakeFetch([err(503), err(503), ok()])
-    const events = await extractEvents({ apiKey: 'k', models: ['m1', 'm2'], fetchFn, sleep }, batch)
-    expect(events).toHaveLength(1)
+    expect(await run(fetchFn)).toHaveLength(1)
     expect(calls).toEqual(['m1', 'm1', 'm2'])
   })
 
-  it('remonte un message lisible si tous les modèles échouent', async () => {
-    const { fetchFn } = fakeFetch([err(503), err(503), err(429), err(429)])
-    await expect(
-      extractEvents({ apiKey: 'k', models: ['m1', 'm2'], fetchFn, sleep }, batch),
-    ).rejects.toThrow(
-      /Gemini indisponible \(m1, m2\)\. m2 HTTP 429 : This model is currently experiencing high demand\./,
+  it('passe directement au suivant si le modèle est fermé pour ce compte (404)', async () => {
+    const { fetchFn, calls } = fakeFetch([err(404), ok()])
+    expect(await run(fetchFn)).toHaveLength(1)
+    expect(calls).toEqual(['m1', 'm2'])
+  })
+
+  it('résume chaque modèle si tous échouent', async () => {
+    const { fetchFn } = fakeFetch([err(503), err(503), err(404)])
+    await expect(run(fetchFn)).rejects.toThrow(
+      'Gemini indisponible, repris au prochain passage. m1 : saturé (503) ; m2 : indisponible pour ce compte (404)',
     )
   })
 
   it("n'insiste pas sur une erreur définitive (clé invalide)", async () => {
     const { fetchFn, calls } = fakeFetch([err(400), ok()])
-    await expect(
-      extractEvents({ apiKey: 'k', models: ['m1', 'm2'], fetchFn, sleep }, batch),
-    ).rejects.toThrow(/HTTP 400/)
+    await expect(run(fetchFn)).rejects.toThrow(/HTTP 400/)
     expect(calls).toEqual(['m1'])
   })
 
-  it('construit la liste des modèles depuis l’environnement', () => {
+  it("construit la liste des modèles depuis l'environnement", () => {
     expect(modelsFromEnv(undefined, undefined)).toEqual([
       'gemini-3.8-flash',
       'gemini-3.6-flash',
-      'gemini-2.5-flash',
-    ])
-    expect(modelsFromEnv('gemini-3.6-flash', undefined)).toEqual([
-      'gemini-3.6-flash',
-      'gemini-2.5-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
     ])
     expect(modelsFromEnv('a', 'b, c,,a')).toEqual(['a', 'b', 'c'])
     expect(modelsFromEnv('a', '')).toEqual(['a'])

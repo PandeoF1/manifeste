@@ -10,13 +10,21 @@ import type { FetchLike, ScrapedItem } from './fetchers/types.ts'
 /** Modèle par défaut, surchargeable via GEMINI_MODEL. Vérifié sur ai.google.dev le 2026-10-04. */
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash'
 /**
- * Modèles de secours si le principal est saturé (503) ou limité (429), surchargeables via
- * GEMINI_FALLBACK_MODELS (liste séparée par des virgules). Identifiants vérifiés sur ai.google.dev.
+ * Modèles de secours si le principal est saturé (503), limité (429) ou indisponible pour ce
+ * compte (404), surchargeables via GEMINI_FALLBACK_MODELS (liste séparée par des virgules).
+ * Modèles stables vérifiés sur ai.google.dev le 2026-10-05 (la famille 2.5 n'est plus ouverte
+ * aux nouveaux comptes).
  */
-export const DEFAULT_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash']
+export const DEFAULT_FALLBACK_MODELS = [
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+]
 
-/** Codes HTTP temporaires : on réessaie puis on change de modèle. */
+/** Codes HTTP temporaires : on réessaie le même modèle avant de passer au suivant. */
 const RETRYABLE = new Set([429, 500, 502, 503, 504])
+/** Modèle inconnu ou fermé pour ce compte : on passe directement au suivant. */
+const SKIP_MODEL = new Set([404])
 
 export interface GeminiConfig {
   apiKey: string
@@ -97,23 +105,36 @@ export async function extractEvents(
   if (batch.length === 0) return []
   const sleep = config.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
   const retries = config.retriesPerModel ?? 1
-  let lastError: Error | null = null
+  const failures: string[] = []
 
   for (const model of config.models) {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         return await callModel(config, model, batch)
       } catch (e) {
-        const temporary = !(e instanceof GeminiError) || RETRYABLE.has(e.status) // délai dépassé, réseau : temporaire
-        lastError = e instanceof Error ? e : new Error(String(e))
-        if (!temporary) throw lastError
-        if (attempt < retries) await sleep(1500 * (attempt + 1))
+        // Délai dépassé ou réseau : temporaire.
+        const status = e instanceof GeminiError ? e.status : 0
+        const message = e instanceof Error ? e.message : String(e)
+        if (SKIP_MODEL.has(status)) {
+          failures.push(`${model} : indisponible pour ce compte (404)`)
+          break
+        }
+        if (status !== 0 && !RETRYABLE.has(status)) throw e // clé invalide, requête refusée...
+        if (attempt < retries) {
+          await sleep(1500 * (attempt + 1))
+        } else {
+          failures.push(
+            status === 503
+              ? `${model} : saturé (503)`
+              : status === 429
+                ? `${model} : quota atteint (429)`
+                : message,
+          )
+        }
       }
     }
   }
-  throw new Error(
-    `Gemini indisponible (${config.models.join(', ')}). ${lastError?.message ?? ''}`.trim(),
-  )
+  throw new Error(`Gemini indisponible, repris au prochain passage. ${failures.join(' ; ')}`)
 }
 
 /** Liste des modèles depuis l'environnement : principal puis secours, sans doublon. */

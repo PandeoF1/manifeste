@@ -16,12 +16,15 @@ une administration pour gérer les sources et modérer.
 
 ```
 pg_cron (toutes les 10 min)
-  └─> Edge Function `collect`
-        pour chaque source active (les plus anciennes d'abord, budget ~110 s) :
+  └─> Edge Function `collect` (répartiteur) : jusqu'à 80 sources, les moins récentes d'abord,
+      découpées en groupes de 4, un sous-appel `collect` par groupe (4 en parallèle) ;
+      chaque sous-appel a son propre budget (2 s CPU, 256 Mo) :
         1. récupère les derniers éléments (t.me/s/<canal>, flux RSS, API publique Bluesky)
         2. ignore ceux déjà traités (table scraped_items, purgée après 7 j) et ceux de plus de 48 h
         3. filtre lexical (lycée, blocus, barrage filtrant…) pour limiter les appels IA
-        4. Gemini extrait { lycée, ville, statut, date du fait, certitude } (schéma JSON strict, validé par zod)
+        4. Gemini extrait { lycée, ville, statut, date du fait, certitude } (schéma JSON strict, validé par zod),
+           par lots de 20 éléments toutes sources confondues ; 503/429 -> nouvel essai puis modèle
+           de secours ; 404 -> modèle suivant
         5. écarte les certitudes "faible" (appels à bloquer, rumeurs, futur)
         6. rattache à un UAI via public.match_school (trigrammes nom + ville) ; un homonyme sans
            ville n'est jamais rattaché -> table unmatched_extractions

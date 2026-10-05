@@ -78,15 +78,32 @@ export interface SourceRunResult {
   error: string | null
 }
 
-export async function collectSource(
-  source: CollectorSource,
-  opts: CollectorOptions,
-): Promise<SourceRunResult> {
-  const now = opts.now ?? new Date()
-  const minCertainty = opts.minCertainty ?? 'moyenne'
-  const lookbackMs = (opts.lookbackHours ?? 48) * 3_600_000
-  const batchSize = opts.batchSize ?? 15
-  const result: SourceRunResult = {
+/** Exécute `fn` sur chaque élément avec au plus `limit` appels simultanés (ordre conservé). */
+export async function mapLimit<T, R>(
+  items: ReadonlyArray<T>,
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++
+      results[i] = await fn(items[i] as T, i)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker))
+  return results
+}
+
+export function chunk<T>(items: ReadonlyArray<T>, size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
+function emptyResult(source: CollectorSource): SourceRunResult {
+  return {
     source_id: source.id,
     label: source.label,
     fetched: 0,
@@ -99,100 +116,146 @@ export async function collectSource(
     low_certainty: 0,
     error: null,
   }
+}
 
-  try {
-    const fetched = await fetchSource(opts.fetchFn, source.kind, source.identifier)
-    result.fetched = fetched.length
-    const recent = fetched
-      .filter((i) => now.getTime() - i.publishedAt.getTime() <= lookbackMs)
-      .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
-      .slice(0, opts.maxItemsPerSource ?? 30)
-    const seen = await opts.db.seenIds(
-      source.id,
-      recent.map((i) => i.externalId),
-    )
-    const fresh = recent.filter((i) => !seen.has(i.externalId))
-    result.new_items = fresh.length
-
-    const relevant = fresh.filter((i) => isRelevant(i.text))
-    result.relevant = relevant.length
-    // Les éléments hors-sujet sont marqués traités tout de suite.
-    const irrelevantIds = fresh.filter((i) => !isRelevant(i.text)).map((i) => i.externalId)
-    if (irrelevantIds.length) await opts.db.markSeen(source.id, irrelevantIds)
-
-    for (let start = 0; start < relevant.length; start += batchSize) {
-      const chunk = relevant.slice(start, start + batchSize)
-      const batch = chunk.map((item, idx) => ({ id: String(start + idx), item }))
-      const byId = new Map(batch.map((b) => [b.id, b.item]))
-      // En cas d'échec de l'IA, le lot n'est pas marqué traité : il sera retenté au prochain passage.
-      const events = await opts.extract(batch)
-      result.events += events.length
-
-      for (const event of events) {
-        const item = byId.get(event.item_id)
-        if (!item) continue
-        if (!meetsCertainty(event.certainty, minCertainty)) {
-          result.low_certainty++
-          continue
-        }
-        const observedAt = resolveObservedAt(event.observed_at, item.publishedAt).toISOString()
-        const candidates = await opts.db.matchSchool(event.school_name, event.city)
-        const match = pickMatch(candidates, Boolean(event.city))
-        if (!match) {
-          result.unmatched++
-          await opts.db.insertUnmatched({
-            source_id: source.id,
-            school_name: event.school_name,
-            city: event.city,
-            status: event.status,
-            source_url: item.url,
-            observed_at: observedAt,
-          })
-          continue
-        }
-        const domain = item.publisherDomain ?? extractDomain(item.url)
-        if (!domain) continue
-        const outcome = await opts.db.insertReport({
-          school_uai: match.uai,
-          status: event.status,
-          source_type: source.source_type,
-          source_url: item.url,
-          source_domain: domain,
-          source_id: source.id,
-          certainty: event.certainty,
-          observed_at: observedAt,
-        })
-        if (outcome === 'inserted') result.reports++
-        else result.duplicates++
-      }
-      await opts.db.markSeen(
-        source.id,
-        chunk.map((i) => i.externalId),
-      )
-    }
-  } catch (e) {
-    result.error = e instanceof Error ? e.message : String(e)
-  }
-
-  await opts.db.recordRun(source.id, result.error)
-  return result
+interface Pending {
+  source: CollectorSource
+  item: ScrapedItem
 }
 
 /**
- * Traite les sources séquentiellement (limite les appels simultanés à l'IA).
- * S'arrête une fois `budgetMs` écoulé : les sources restantes passent au tour suivant
- * (elles sont triées par last_run_at, les plus anciennes d'abord).
+ * Collecte un groupe de sources :
+ * 1. récupération en parallèle (I/O, ne consomme presque pas de CPU) ;
+ * 2. les éléments pertinents de TOUTES les sources sont envoyés à l'IA par lots communs
+ *    (un appel pour ~20 éléments au lieu d'un appel par source) ;
+ * 3. rattachement et insertion.
+ * Un élément n'est marqué traité qu'une fois analysé : en cas d'échec de l'IA ou de budget
+ * de temps dépassé, il est repris au passage suivant.
  */
-export async function collectAll(
+export async function collectSources(
   sources: ReadonlyArray<CollectorSource>,
-  opts: CollectorOptions,
-  budgetMs = 110_000,
+  opts: CollectorOptions & { budgetMs?: number; fetchConcurrency?: number },
 ): Promise<SourceRunResult[]> {
-  const deadline = Date.now() + budgetMs
-  const results: SourceRunResult[] = []
-  for (const source of sources) {
-    if (Date.now() > deadline) break
-    results.push(await collectSource(source, opts))
+  const startedAt = Date.now()
+  const now = opts.now ?? new Date()
+  const minCertainty = opts.minCertainty ?? 'moyenne'
+  const lookbackMs = (opts.lookbackHours ?? 48) * 3_600_000
+  const batchSize = opts.batchSize ?? 20
+  const budgetMs = opts.budgetMs ?? 110_000
+  const results = new Map(sources.map((s) => [s.id, emptyResult(s)]))
+  const res = (s: CollectorSource) => results.get(s.id) as SourceRunResult
+
+  // 1. Récupération.
+  const pending: Pending[] = []
+  await mapLimit(sources, opts.fetchConcurrency ?? 4, async (source) => {
+    const r = res(source)
+    try {
+      const fetched = await fetchSource(opts.fetchFn, source.kind, source.identifier)
+      r.fetched = fetched.length
+      const recent = fetched
+        .filter((i) => now.getTime() - i.publishedAt.getTime() <= lookbackMs)
+        .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
+        .slice(0, opts.maxItemsPerSource ?? 30)
+      const seen = await opts.db.seenIds(
+        source.id,
+        recent.map((i) => i.externalId),
+      )
+      const fresh = recent.filter((i) => !seen.has(i.externalId))
+      r.new_items = fresh.length
+      const relevant = fresh.filter((i) => isRelevant(i.text))
+      r.relevant = relevant.length
+      // Les éléments hors-sujet sont marqués traités tout de suite.
+      const irrelevant = fresh.filter((i) => !isRelevant(i.text)).map((i) => i.externalId)
+      if (irrelevant.length) await opts.db.markSeen(source.id, irrelevant)
+      for (const item of relevant) pending.push({ source, item })
+    } catch (e) {
+      r.error = e instanceof Error ? e.message : String(e)
+    }
+  })
+
+  // 2 et 3. Extraction par lots communs, puis rattachement.
+  for (const group of chunk(pending, batchSize)) {
+    if (Date.now() - startedAt > budgetMs) break // repris au prochain passage
+    const batch = group.map((p, idx) => ({ id: String(idx), item: p.item, source: p.source }))
+    let events: ExtractedEvent[]
+    try {
+      events = await opts.extract(batch)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      for (const p of group) res(p.source).error = message
+      continue
+    }
+    const byId = new Map(batch.map((b) => [b.id, b]))
+    for (const event of events) {
+      const entry = byId.get(event.item_id)
+      if (!entry) continue
+      const r = res(entry.source)
+      r.events++
+      try {
+        await handleEvent(event, entry.item, entry.source, r, minCertainty, opts.db)
+      } catch (e) {
+        r.error = e instanceof Error ? e.message : String(e)
+      }
+    }
+    // Marque traités, par source, les éléments de ce lot.
+    const bySource = new Map<string, string[]>()
+    for (const p of group)
+      bySource.set(p.source.id, [...(bySource.get(p.source.id) ?? []), p.item.externalId])
+    for (const [sourceId, ids] of bySource) await opts.db.markSeen(sourceId, ids)
   }
-  return results
+
+  for (const source of sources) await opts.db.recordRun(source.id, res(source).error)
+  return sources.map(res)
+}
+
+async function handleEvent(
+  event: ExtractedEvent,
+  item: ScrapedItem,
+  source: CollectorSource,
+  r: SourceRunResult,
+  minCertainty: Certainty,
+  db: CollectorDb,
+) {
+  if (!meetsCertainty(event.certainty, minCertainty)) {
+    r.low_certainty++
+    return
+  }
+  const observedAt = resolveObservedAt(event.observed_at, item.publishedAt).toISOString()
+  const candidates = await db.matchSchool(event.school_name, event.city)
+  const match = pickMatch(candidates, Boolean(event.city))
+  if (!match) {
+    r.unmatched++
+    await db.insertUnmatched({
+      source_id: source.id,
+      school_name: event.school_name,
+      city: event.city,
+      status: event.status,
+      source_url: item.url,
+      observed_at: observedAt,
+    })
+    return
+  }
+  const domain = item.publisherDomain ?? extractDomain(item.url)
+  if (!domain) return
+  const outcome = await db.insertReport({
+    school_uai: match.uai,
+    status: event.status,
+    source_type: source.source_type,
+    source_url: item.url,
+    source_domain: domain,
+    source_id: source.id,
+    certainty: event.certainty,
+    observed_at: observedAt,
+  })
+  if (outcome === 'inserted') r.reports++
+  else r.duplicates++
+}
+
+/** Une seule source (bouton « collecter maintenant », tests). */
+export async function collectSource(
+  source: CollectorSource,
+  opts: CollectorOptions,
+): Promise<SourceRunResult> {
+  const [result] = await collectSources([source], opts)
+  return result as SourceRunResult
 }
