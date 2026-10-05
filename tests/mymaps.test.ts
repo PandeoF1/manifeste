@@ -11,7 +11,7 @@ const now = new Date('2026-10-06T08:00:00Z')
 describe('cartes Google My Maps', () => {
   it('lit les points (dossiers compris) avec position et contexte', () => {
     const items = parseMyMapsKml(kml, 'MID123456789', now)
-    expect(items).toHaveLength(2)
+    expect(items).toHaveLength(3)
     expect(items[0]).toMatchObject({
       geo: { lat: 50.6371, lng: 3.0612 },
       alwaysRelevant: true,
@@ -22,6 +22,17 @@ describe('cartes Google My Maps', () => {
       'Carte « Plus de 35 lycées fermés dans le Nord et le Pas-de-Calais » / Lycées fermés le 2 octobre\nLycée Pasteur\nLille\nFermé toute la journée',
     )
     expect(items[1]?.geo).toEqual({ lat: 50.2912, lng: 2.7801 })
+  })
+
+  it('accepte les points placés par adresse (sans coordonnées)', () => {
+    const byAddress = parseMyMapsKml(kml, 'MID123456789', now)[2]
+    expect(byAddress?.geo).toBeUndefined()
+    expect(byAddress?.externalId).toBe(
+      'MID123456789:Lycée Elisa LEMONNIER:Lycée Elisa LEMONNIER Douai Nord',
+    )
+    expect(byAddress?.text).toBe(
+      'Carte « Plus de 35 lycées fermés dans le Nord et le Pas-de-Calais » / NPDC Lycées fermés - Feuille 1.csv\nLycée Elisa LEMONNIER\nAdresse : Lycée Elisa LEMONNIER Douai Nord\nVille: Douai\nDépartement: Nord',
+    )
   })
 
   it("accepte le lien de la carte ou l'identifiant", () => {

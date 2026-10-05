@@ -3,6 +3,7 @@
 // l'URL d'origine s'obtient via le service interne « batchexecute » de Google News
 // (même méthode que les bibliothèques google-news-url-decoder / googlenewsdecoder).
 // Non documenté : tout échec est silencieux et l'on garde le lien Google.
+import { mapLimit } from '../collector-utils.ts'
 import type { FetchLike } from './types.ts'
 
 const BROWSER_UA =
@@ -87,7 +88,6 @@ export function parseBatchResponse(text: string, count: number): Array<string | 
 export async function resolveGoogleNewsUrls(
   fetchFn: FetchLike,
   urls: ReadonlyArray<string>,
-  maxBatch = 10,
 ): Promise<Map<string, string>> {
   const resolved = new Map<string, string>()
   const ids = [...new Set(urls)]
@@ -107,7 +107,9 @@ export async function resolveGoogleNewsUrls(
           signal: AbortSignal.timeout(8000),
         })
         if (!res.ok) return
-        const p = parseDecodingParams(id, (await res.text()).slice(0, 400_000))
+        // Les attributs sont en fin de page (~600 Ko) : on lit tout, en cherchant d'abord la fin.
+        const html = await res.text()
+        const p = parseDecodingParams(id, html.slice(-150_000)) ?? parseDecodingParams(id, html)
         if (p) params.push({ ...p, url })
       } catch {
         // page indisponible
@@ -115,8 +117,9 @@ export async function resolveGoogleNewsUrls(
     }),
   )
 
-  for (let i = 0; i < params.length; i += maxBatch) {
-    const group = params.slice(i, i + maxBatch)
+  // Une requête par article : Google renvoie les réponses d'un lot dans le désordre, sans
+  // identifiant permettant de les rattacher (vérifié sur le service réel).
+  await mapLimit(params, 4, async (p) => {
     try {
       const res = await fetchFn(BATCH_URL, {
         method: 'POST',
@@ -126,17 +129,15 @@ export async function resolveGoogleNewsUrls(
           origin: 'https://news.google.com',
           referer: 'https://news.google.com/',
         },
-        body: buildBatchBody(group),
+        body: buildBatchBody([p]),
         signal: AbortSignal.timeout(10_000),
       })
-      if (!res.ok) continue
-      parseBatchResponse(await res.text(), group.length).forEach((url, j) => {
-        const source = group[j]
-        if (url && source) resolved.set(source.url, url)
-      })
+      if (!res.ok) return
+      const [url] = parseBatchResponse(await res.text(), 1)
+      if (url) resolved.set(p.url, url)
     } catch {
-      // service indisponible : liens Google conservés
+      // service indisponible : lien Google conservé
     }
-  }
+  })
   return resolved
 }

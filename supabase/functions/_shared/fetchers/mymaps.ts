@@ -45,21 +45,32 @@ export function parseMyMapsKml(xml: string, mid: string, now: Date): ScrapedItem
 
   const visit = (node: Node, folder: string) => {
     for (const p of asArray(node.Placemark as Node | Node[] | undefined)) {
+      // Points placés par coordonnées, ou seulement par adresse (cartes importées d'un tableur).
       const coords = text((p.Point as Node | undefined)?.coordinates).trim()
-      const [lng, lat] = coords.split(',').map(Number)
-      if (lat === undefined || lng === undefined || !Number.isFinite(lat) || !Number.isFinite(lng))
-        continue
+      const [lng, lat] = coords ? coords.split(',').map(Number) : []
+      const geo =
+        lat !== undefined && lng !== undefined && Number.isFinite(lat) && Number.isFinite(lng)
+          ? { lat, lng }
+          : undefined
       const name = stripHtml(text(p.name))
+      const address = stripHtml(text(p.address))
       const description = stripHtml(text(p.description)).slice(0, 1500)
       if (!name && !description) continue
+      if (!geo && !address && !description) continue // ni position ni adresse : inexploitable
+      const where = geo ? `${geo.lat.toFixed(4)},${geo.lng.toFixed(4)}` : address
       items.push({
-        externalId: `${mid}:${name}:${lat.toFixed(4)},${lng.toFixed(4)}`.slice(0, 500),
+        externalId: `${mid}:${name}:${where}`.slice(0, 500),
         url: myMapsUrl(mid),
-        text: [`Carte « ${mapTitle} »${folder ? ` / ${folder}` : ''}`, name, description]
+        text: [
+          `Carte « ${mapTitle} »${folder ? ` / ${folder}` : ''}`,
+          name,
+          address && address !== name ? `Adresse : ${address}` : '',
+          description,
+        ]
           .filter(Boolean)
           .join('\n'),
         publishedAt: now,
-        geo: { lat, lng },
+        ...(geo ? { geo } : {}),
         alwaysRelevant: true,
       })
     }

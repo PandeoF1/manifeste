@@ -21,6 +21,12 @@ const ENTITIES: Record<string, string> = {
 }
 
 function decodeEntities(s: string): string {
+  // Certaines pages encodent deux fois (« lyc&amp;eacute;es ») : seconde passe si besoin.
+  const once = decodeEntitiesOnce(s)
+  return /&(#\d+|#x[0-9a-f]+|[a-z]+);/i.test(once) ? decodeEntitiesOnce(once) : once
+}
+
+function decodeEntitiesOnce(s: string): string {
   return s
     .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)))

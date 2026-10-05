@@ -19,5 +19,13 @@
     <Placemark>
       <name>Zone sans coordonnées</name>
     </Placemark>
+    <Folder>
+      <name>NPDC Lycées fermés - Feuille 1.csv</name>
+      <Placemark>
+        <name>Lycée Elisa LEMONNIER</name>
+        <address>Lycée Elisa LEMONNIER Douai Nord</address>
+        <description><![CDATA[Ville: Douai<br>Département: Nord]]></description>
+      </Placemark>
+    </Folder>
   </Document>
 </kml>

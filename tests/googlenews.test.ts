@@ -59,6 +59,29 @@ describe('Google Actualités', () => {
     expect(parseBatchResponse('garbage', 1)).toEqual([null])
   })
 
+  it('associe chaque URL au bon article (une requête par article)', async () => {
+    const ids = ['AAA1', 'BBB2', 'CCC3']
+    const pageFor = (id: string) => `<div data-n-a-ts="1759680000" data-n-a-sg="SIG_${id}"></div>`
+    const fetchFn = async (url: string, init?: RequestInit) => {
+      const id = ids.find((i) => url.endsWith(`/rss/articles/${i}`))
+      if (id) return new Response(pageFor(id))
+      if (url.includes('batchexecute')) {
+        // Répond selon l'article demandé, quel que soit l'ordre d'arrivée.
+        const body = decodeURIComponent(String(init?.body))
+        const asked = ids.find((i) => body.includes(`SIG_${i}`))
+        await new Promise((r) => setTimeout(r, asked === 'AAA1' ? 20 : 1))
+        return new Response(batchResponse([`https://journal.fr/${asked}`]))
+      }
+      throw new Error(url)
+    }
+    const map = await resolveGoogleNewsUrls(
+      fetchFn,
+      ids.map((i) => `https://news.google.com/rss/articles/${i}`),
+    )
+    for (const i of ids)
+      expect(map.get(`https://news.google.com/rss/articles/${i}`)).toBe(`https://journal.fr/${i}`)
+  })
+
   it('décode de bout en bout, et garde le lien Google en cas d’échec', async () => {
     const fetchFn = async (url: string) => {
       if (url.startsWith('https://news.google.com/rss/articles/CBMiAAA')) return new Response(page)

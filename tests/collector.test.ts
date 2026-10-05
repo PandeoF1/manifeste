@@ -309,7 +309,8 @@ describe('carte My Maps dans la collecte', () => {
       label: 'Carte',
     }
     const r = await collectSource(mapSource, { db, fetchFn: mapsFetch, extract, now: new Date() })
-    expect(r).toMatchObject({ relevant: 2, events: 2, reports: 1, unmatched: 1 })
+    // 3 points : Pasteur (rattaché par position), Gambetta (hors zone simulée), Lemonnier (par adresse, inconnu ici).
+    expect(r).toMatchObject({ relevant: 3, events: 3, reports: 1, unmatched: 2 })
     expect(reports[0]).toMatchObject({
       school_uai: '0590001A',
       source_url: 'https://www.google.com/maps/d/viewer?mid=MID123456789',
