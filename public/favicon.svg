@@ -3,23 +3,18 @@
   <g clip-path="url(#c)">
     <rect width="512" height="512" fill="#ff453a"/>
     <g transform="translate(0 0) scale(1)"><g id="mark">
-    <!-- Crayon brandi, incliné (tenu dans le poing) -->
-    <g transform="rotate(28 262 240)">
-      <rect x="240" y="60" width="44" height="190" fill="#ffffff"/>
-      <rect x="240" y="60" width="44" height="14" fill="#07090d" opacity="0.18"/>
-      <polygon points="240,62 284,62 262,8" fill="#f6d7a7"/>
-      <polygon points="254,28 270,28 262,8" fill="#07090d"/>
-    </g>
-    <!-- Avant-bras + paume d'un seul tenant -->
-    <path d="M146 214 H366 V372 L340 512 H172 L146 372 Z" fill="#07090d"/>
-    <!-- Doigts repliés (phalanges vues de face), séparés par un liseré couleur fond -->
-    <g fill="#07090d" stroke="#ff453a" stroke-width="9" stroke-linejoin="round">
-      <rect x="138" y="178" width="64" height="94" rx="30"/>
-      <rect x="198" y="166" width="62" height="100" rx="30"/>
-      <rect x="256" y="170" width="62" height="98" rx="30"/>
-      <rect x="314" y="186" width="58" height="88" rx="28"/>
-      <!-- Pouce replié devant les doigts -->
-      <rect x="120" y="250" width="186" height="62" rx="31"/>
+    <g transform="translate(256 258) scale(0.88) rotate(8) translate(-256 -258)">
+      <!-- crayon : corps, cône taillé, mine -->
+      <path fill="#0b0b0b" d="M206 36 L306 36 L306 296 L256 376 L206 296 Z"/>
+      <!-- coupes couleur fond : virole, pans du corps, début de taille, mine -->
+      <g stroke="#ff453a" fill="none">
+        <path d="M206 70 L306 70" stroke-width="10"/>
+        <path d="M240 80 L240 290 M272 80 L272 290" stroke-width="6"/>
+        <path d="M206 296 L306 296" stroke-width="9"/>
+        <path d="M234 344 L278 344" stroke-width="8"/>
+      </g>
+      <!-- le point -->
+      <path fill="#0b0b0b" d="M212 402 L300 398 L304 478 L216 482 Z"/>
     </g>
   </g>
 </g>

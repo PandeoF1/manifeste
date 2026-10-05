@@ -178,7 +178,7 @@ Avant la mise en ligne : compléter `src/config/legal.ts` (email de contact, adr
 
 ## Logo
 
-Poing levé tenant un crayon : le symbole de lutte devient lycéen. Source : `brand/logo-mark.svg`.
+Un point d'exclamation dont la barre est un crayon taillé : écrire, prendre la parole, s'exclamer. Style affiche sérigraphiée, une encre noire sur fond rouge. Source : `brand/logo-mark.svg`.
 `npm run brand` régénère favicon, icônes PWA (192, 512, maskable), apple-touch-icon, image de
 partage par défaut et logo horizontal.
 
