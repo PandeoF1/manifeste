@@ -23,3 +23,10 @@ enable_signup = false
 [functions.collect]
 # L'authentification est faite dans la fonction (secret cron ou JWT admin).
 verify_jwt = false
+
+[functions.submit-report]
+# Formulaire public : pas de JWT, protégé par Turnstile + limitation par empreinte d'IP.
+verify_jwt = false
+
+[functions.purge-submissions]
+verify_jwt = false

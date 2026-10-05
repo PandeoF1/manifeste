@@ -11,6 +11,10 @@ export type Unmatched = Tables<'unmatched_extractions'>
 export type PendingReport = Tables<'reports'> & {
   schools: { name: string; city: string } | null
   scrape_sources: { label: string } | null
+  report_submissions: Pick<
+    Tables<'report_submissions'>,
+    'photo_path' | 'distance_m' | 'lat' | 'lng'
+  > | null
 }
 
 export function isAdminSession(session: Session | null): boolean {
@@ -52,7 +56,9 @@ export const pendingQuery = queryOptions({
   queryFn: async (): Promise<PendingReport[]> => {
     const { data, error } = await supabase
       .from('reports')
-      .select('*, schools(name, city), scrape_sources(label)')
+      .select(
+        '*, schools(name, city), scrape_sources(label), report_submissions(photo_path, distance_m, lat, lng)',
+      )
       .eq('moderation', 'pending')
       .order('observed_at', { ascending: false })
       .limit(200)
@@ -109,4 +115,47 @@ export async function runCollect(sourceId?: string): Promise<CollectRunResult> {
   if (error) throw error
   if (!data) throw new Error('Réponse vide')
   return data
+}
+
+/** URL temporaire (5 min) d'une photo originale, lisible par le staff uniquement. */
+export async function originalPhotoUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from('submissions').createSignedUrl(path, 300)
+  if (error) throw error
+  return data.signedUrl
+}
+
+export type Decision = { kind: 'validate'; photo?: Blob } | { kind: 'reject' }
+
+/**
+ * Applique la décision du staff. Pour un signalement avec photo :
+ * - la version floutée (si publiée) va dans le bucket public "photos" ;
+ * - l'original est supprimé dans tous les cas.
+ */
+export async function moderate(report: PendingReport, decision: Decision): Promise<void> {
+  let photoPublicPath: string | null = null
+  if (decision.kind === 'validate' && decision.photo) {
+    photoPublicPath = `${report.id}.jpg`
+    const { error } = await supabase.storage
+      .from('photos')
+      .upload(photoPublicPath, decision.photo, { contentType: 'image/jpeg', upsert: true })
+    if (error) throw error
+  }
+  const { error } = await supabase
+    .from('reports')
+    .update({
+      moderation: decision.kind === 'validate' ? 'validated' : 'rejected',
+      photo_public_path: photoPublicPath,
+    })
+    .eq('id', report.id)
+  if (error) throw error
+
+  const original = report.report_submissions?.photo_path
+  if (original) {
+    const { error: removeError } = await supabase.storage.from('submissions').remove([original])
+    if (removeError) throw removeError
+    await supabase
+      .from('report_submissions')
+      .update({ photo_path: null })
+      .eq('report_id', report.id)
+  }
 }

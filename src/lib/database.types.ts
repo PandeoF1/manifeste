@@ -84,11 +84,12 @@ export type Database = {
           school_uai: string
           status: ReportStatus
           source_type: SourceType
-          source_url: string
-          source_domain: string
+          source_url: string | null
+          source_domain: string | null
           source_id: string | null
           moderation: ModerationStatus
           certainty: 'haute' | 'moyenne' | 'faible' | null
+          photo_public_path: string | null
           observed_at: string
           created_at: string
         }
@@ -97,11 +98,12 @@ export type Database = {
           school_uai: string
           status: ReportStatus
           source_type: SourceType
-          source_url: string
-          source_domain: string
+          source_url?: string | null
+          source_domain?: string | null
           source_id?: string | null
           moderation?: ModerationStatus
           certainty?: 'haute' | 'moyenne' | 'faible' | null
+          photo_public_path?: string | null
           observed_at: string
           created_at?: string
         }
@@ -119,6 +121,34 @@ export type Database = {
             columns: ['source_id']
             isOneToOne: false
             referencedRelation: 'scrape_sources'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      report_submissions: {
+        Row: {
+          report_id: string
+          photo_path: string | null
+          lat: number
+          lng: number
+          distance_m: number
+          created_at: string
+        }
+        Insert: {
+          report_id: string
+          photo_path?: string | null
+          lat: number
+          lng: number
+          distance_m: number
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['report_submissions']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'report_submissions_report_id_fkey'
+            columns: ['report_id']
+            isOneToOne: true
+            referencedRelation: 'reports'
             referencedColumns: ['id']
           },
         ]
@@ -188,6 +218,14 @@ export type Database = {
         }[]
       }
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
+      nearby_schools: {
+        Args: { p_lat: number; p_lng: number; p_radius_m?: number }
+        Returns: { uai: string; name: string; city: string; distance_m: number }[]
+      }
+      search_schools: {
+        Args: { p_query: string }
+        Returns: { uai: string; name: string; city: string; department: string | null }[]
+      }
     }
     Enums: {
       report_status: ReportStatus

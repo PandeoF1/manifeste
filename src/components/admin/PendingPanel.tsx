@@ -1,10 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, X } from 'lucide-react'
+import { Check, ExternalLink, Image as ImageIcon, MapPin, X } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import { supabase } from '@/lib/supabase'
+import { PhotoRedactor } from '@/components/report/PhotoRedactor'
+import { loadImage, toJpeg } from '@/lib/photo'
 import { queryKeys } from '@/lib/queryKeys'
-import { pendingQuery } from '@/queries/admin'
+import {
+  moderate,
+  originalPhotoUrl,
+  pendingQuery,
+  type Decision,
+  type PendingReport,
+} from '@/queries/admin'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -15,21 +22,13 @@ export function PendingPanel() {
   const items = pending.data ?? []
   const current = items[Math.min(cursor, items.length - 1)]
 
-  const moderate = useMutation({
-    mutationFn: async ({
-      id,
-      moderation,
-    }: {
-      id: string
-      moderation: 'validated' | 'rejected'
-    }) => {
-      const { error } = await supabase.from('reports').update({ moderation }).eq('id', id)
-      if (error) throw error
-    },
-    onMutate: async ({ id }) => {
+  const decide = useMutation({
+    mutationFn: ({ report, decision }: { report: PendingReport; decision: Decision }) =>
+      moderate(report, decision),
+    onMutate: async ({ report }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.admin.pending() })
-      queryClient.setQueryData(queryKeys.admin.pending(), (old: typeof items | undefined) =>
-        old?.filter((r) => r.id !== id),
+      queryClient.setQueryData(queryKeys.admin.pending(), (old: PendingReport[] | undefined) =>
+        old?.filter((r) => r.id !== report.id),
       )
     },
     onSettled: () => {
@@ -38,7 +37,8 @@ export function PendingPanel() {
     },
   })
 
-  // Raccourcis : j/k naviguer, v valider, r rejeter, o ouvrir la source.
+  // Raccourcis (hors signalements avec photo, qui demandent une vérification visuelle) :
+  // j/k naviguer, v valider, r rejeter, o ouvrir la source.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null
@@ -46,14 +46,15 @@ export function PendingPanel() {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'j') setCursor((c) => Math.min(c + 1, Math.max(0, items.length - 1)))
       else if (e.key === 'k') setCursor((c) => Math.max(c - 1, 0))
-      else if (!current) return
-      else if (e.key === 'v') moderate.mutate({ id: current.id, moderation: 'validated' })
-      else if (e.key === 'r') moderate.mutate({ id: current.id, moderation: 'rejected' })
-      else if (e.key === 'o') window.open(current.source_url, '_blank', 'noopener,noreferrer')
+      else if (!current || current.report_submissions?.photo_path) return
+      else if (e.key === 'v') decide.mutate({ report: current, decision: { kind: 'validate' } })
+      else if (e.key === 'r') decide.mutate({ report: current, decision: { kind: 'reject' } })
+      else if (e.key === 'o' && current.source_url)
+        window.open(current.source_url, '_blank', 'noopener,noreferrer')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [current, items.length, moderate])
+  }, [current, items.length, decide])
 
   if (pending.isPending) return <div className="h-24 animate-pulse rounded-lg bg-surface" />
   if (pending.isError) return <p className="text-bloque">Erreur de chargement.</p>
@@ -63,61 +64,161 @@ export function PendingPanel() {
     <div>
       <p className="text-sm text-muted">
         Raccourcis : <kbd>j</kbd>/<kbd>k</kbd> naviguer · <kbd>v</kbd> valider · <kbd>r</kbd>{' '}
-        rejeter · <kbd>o</kbd> ouvrir la source
+        rejeter · <kbd>o</kbd> ouvrir la source. Les signalements avec photo se valident à la main,
+        après floutage.
       </p>
+      {decide.error && (
+        <p role="alert" className="mt-2 text-sm text-bloque">
+          Échec : {decide.error.message}
+        </p>
+      )}
       <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-surface">
         {items.map((r) => {
           const active = r.id === current?.id
+          const sub = r.report_submissions
           return (
             <li
               key={r.id}
               aria-current={active ? 'true' : undefined}
-              className={`flex flex-wrap items-center gap-3 p-3 ${active ? 'bg-bg ring-2 ring-inset ring-accent' : ''}`}
+              className={`p-3 ${active ? 'bg-bg ring-2 ring-accent ring-inset' : ''}`}
               onClick={() => setCursor(items.indexOf(r))}
             >
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">
-                  {r.schools?.name ?? r.school_uai}{' '}
-                  <span className="font-normal text-muted">· {r.schools?.city}</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">
+                    {r.schools?.name ?? r.school_uai}{' '}
+                    <span className="font-normal text-muted">· {r.schools?.city}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                    <StatusBadge status={r.status} />
+                    <span>{dateFmt.format(new Date(r.observed_at))}</span>
+                    <span>
+                      {r.source_type === 'utilisateur'
+                        ? 'Signalement sur place'
+                        : (r.scrape_sources?.label ?? r.source_type)}
+                      {r.source_domain ? ` · ${r.source_domain}` : ''}
+                    </span>
+                    {r.certainty && <span>certitude {r.certainty}</span>}
+                    {sub && (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin size={14} aria-hidden="true" /> à {sub.distance_m} m du lycée
+                      </span>
+                    )}
+                    {sub?.photo_path && (
+                      <span className="inline-flex items-center gap-1 text-fg">
+                        <ImageIcon size={14} aria-hidden="true" /> photo
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
-                  <StatusBadge status={r.status} />
-                  <span>{dateFmt.format(new Date(r.observed_at))}</span>
-                  <span>
-                    {r.scrape_sources?.label ?? r.source_type} · {r.source_domain}
-                  </span>
-                  {r.certainty && <span>certitude {r.certainty}</span>}
-                </div>
+                {r.source_url && (
+                  <a
+                    href={r.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="icon-btn"
+                    aria-label="Ouvrir la source"
+                  >
+                    <ExternalLink size={18} />
+                  </a>
+                )}
+                {!sub?.photo_path && (
+                  <>
+                    <button
+                      type="button"
+                      className="icon-btn text-leve"
+                      aria-label="Valider"
+                      onClick={() => decide.mutate({ report: r, decision: { kind: 'validate' } })}
+                    >
+                      <Check size={20} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn text-bloque"
+                      aria-label="Rejeter"
+                      onClick={() => decide.mutate({ report: r, decision: { kind: 'reject' } })}
+                    >
+                      <X size={20} />
+                    </button>
+                  </>
+                )}
               </div>
-              <a
-                href={r.source_url}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                className="icon-btn"
-                aria-label="Ouvrir la source"
-              >
-                <ExternalLink size={18} />
-              </a>
-              <button
-                type="button"
-                className="icon-btn text-leve"
-                aria-label="Valider"
-                onClick={() => moderate.mutate({ id: r.id, moderation: 'validated' })}
-              >
-                <Check size={20} />
-              </button>
-              <button
-                type="button"
-                className="icon-btn text-bloque"
-                aria-label="Rejeter"
-                onClick={() => moderate.mutate({ id: r.id, moderation: 'rejected' })}
-              >
-                <X size={20} />
-              </button>
+              {active && sub?.photo_path && (
+                <PhotoReview
+                  path={sub.photo_path}
+                  busy={decide.isPending}
+                  onDecide={(decision) => decide.mutate({ report: r, decision })}
+                />
+              )}
             </li>
           )
         })}
       </ul>
+    </div>
+  )
+}
+
+function PhotoReview({
+  path,
+  busy,
+  onDecide,
+}: {
+  path: string
+  busy: boolean
+  onDecide: (d: Decision) => void
+}) {
+  const original = useQuery({
+    queryKey: ['admin', 'photo', path],
+    queryFn: async () => {
+      const res = await fetch(await originalPhotoUrl(path))
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return loadImage(await res.blob())
+    },
+    staleTime: 4 * 60_000,
+    gcTime: 0,
+  })
+  const [redacted, setRedacted] = useState<HTMLCanvasElement | null>(null)
+  const onChange = useCallback((c: HTMLCanvasElement) => setRedacted(c), [])
+
+  if (original.isPending) return <div className="mt-3 h-48 animate-pulse rounded-lg bg-surface" />
+  if (original.isError)
+    return <p className="mt-3 text-sm text-bloque">Photo introuvable (déjà purgée ?).</p>
+
+  return (
+    <div className="mt-3 space-y-3" onClick={(e) => e.stopPropagation()}>
+      <PhotoRedactor image={original.data} onChange={onChange} />
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={busy || !redacted}
+          onClick={async () =>
+            redacted && onDecide({ kind: 'validate', photo: await toJpeg(redacted) })
+          }
+        >
+          <Check size={18} /> Valider et publier la photo floutée
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={busy}
+          onClick={() => onDecide({ kind: 'validate' })}
+        >
+          Valider sans publier la photo
+        </button>
+        <button
+          type="button"
+          className="btn-secondary text-bloque"
+          disabled={busy}
+          onClick={() => onDecide({ kind: 'reject' })}
+        >
+          <X size={18} /> Rejeter
+        </button>
+      </div>
+      <p className="text-xs text-muted">
+        Vérifie qu'aucun visage, plaque ou signe distinctif n'est reconnaissable. Dans tous les cas,
+        l'original est supprimé définitivement.
+      </p>
     </div>
   )
 }

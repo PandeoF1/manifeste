@@ -2,7 +2,8 @@
 
 Carte en temps quasi réel des lycées bloqués en France, avec la source de chaque information.
 
-Cette première version contient : la carte, la **collecte automatique** de sources publiques
+Cette version contient : la carte, les **signalements sur place** (géolocalisés, photo facultative,
+validés par le staff), la **collecte automatique** de sources publiques
 (canaux Telegram, flux RSS/Atom dont Google Actualités, comptes Bluesky), l'**extraction par IA**
 (Gemini, sortie JSON structurée), le rattachement automatique au référentiel des lycées (UAI) et
 une administration pour gérer les sources et modérer.
@@ -30,6 +31,29 @@ pg_cron (toutes les 10 min)
 Aucun texte collecté n'est conservé en base : seuls l'identifiant de l'élément (pour la
 déduplication) et le lien public de la source sont stockés. Le prompt interdit au modèle de
 reprendre des noms de personnes, pseudos ou descriptions.
+
+## Signalements sur place (`/signaler`)
+
+```
+téléphone
+  1. géolocalisation -> arrondie à ~100 m sur l'appareil (la position exacte ne part jamais)
+  2. choix du lycée parmi ceux à moins de 2 km (public.nearby_schools)
+  3. statut ; photo facultative : réencodée via canvas (toutes métadonnées supprimées),
+     floutage des visages par l'utilisateur
+  4. Cloudflare Turnstile
+Edge Function submit-report
+  - zod, Turnstile (sans transmettre l'IP), photo JPEG/WebP <= 5 Mo et SANS métadonnées
+  - distance au lycée <= 2 km
+  - 5 envois / jour par empreinte SHA-256(IP + sel du jour) ; le sel est détruit chaque nuit
+  - report "utilisateur" toujours en pending ; photo originale dans le bucket privé "submissions" ;
+    position arrondie + distance dans report_submissions (lisible par le staff uniquement)
+/admin > Modération
+  - le staff voit l'original (URL signée 5 min), floute, puis : publier la version floutée
+    (bucket public "photos"), valider sans photo, ou rejeter
+  - l'original est supprimé dans tous les cas ; purge-submissions efface ceux restés 48 h sans décision
+```
+
+Aucun compte, aucun nom, aucune IP en clair, aucune métadonnée de photo n'est conservé.
 
 ## Prérequis
 
@@ -59,6 +83,7 @@ Puis activer la collecte planifiée (SQL editor) :
 ```sql
 select vault.create_secret('https://<ref>.supabase.co/functions/v1/collect', 'collect_url');
 select vault.create_secret('<COLLECT_SECRET>', 'collect_secret');
+select vault.create_secret('https://<ref>.supabase.co/functions/v1/purge-submissions', 'purge_url');
 ```
 
 La migration `20261004000008_cron.sql` planifie l'appel toutes les 10 minutes. Si les extensions
@@ -75,13 +100,19 @@ set raw_app_meta_data = raw_app_meta_data || '{"role": "admin"}'
 where email = '<email admin>';
 ```
 
-## Edge Function `collect`
+## Edge Functions
 
 ```bash
 supabase secrets set GEMINI_API_KEY=... COLLECT_SECRET=$(openssl rand -hex 32) \
-  GEMINI_MODEL=gemini-3.8-flash COLLECT_MIN_CERTAINTY=moyenne
+  GEMINI_MODEL=gemini-3.8-flash COLLECT_MIN_CERTAINTY=moyenne TURNSTILE_SECRET_KEY=...
 supabase functions deploy collect --no-verify-jwt
+supabase functions deploy submit-report --no-verify-jwt
+supabase functions deploy purge-submissions --no-verify-jwt
 ```
+
+Turnstile : créer un widget sur le dashboard Cloudflare, mettre la clé site dans
+`VITE_TURNSTILE_SITE_KEY` (front) et la clé secrète dans `TURNSTILE_SECRET_KEY` (fonction).
+Sans ces clés, la vérification est désactivée (développement uniquement).
 
 L'authentification est faite dans la fonction : en-tête `x-collect-secret` (cron) ou JWT d'un
 compte admin (bouton « Lancer la collecte » dans `/admin`).
@@ -123,10 +154,13 @@ npm run check     # typecheck + lint + tests
 
 ## Déploiement front
 
-Vercel, preset Vite. Variables : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
-`vercel.json` gère les réécritures SPA et les en-têtes de sécurité (CSP sans aucun tiers hors
-Supabase et OpenFreeMap).
+Vercel, preset Vite. Variables : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+`VITE_TURNSTILE_SITE_KEY`.
+`vercel.json` gère les réécritures SPA et les en-têtes de sécurité (CSP limitée à Supabase,
+OpenFreeMap et Cloudflare Turnstile).
+
+Avant la mise en ligne : compléter `src/config/legal.ts` (email de contact, adresses des hébergeurs).
 
 ## Hors périmètre de cette version
 
-Formulaire public de signalement, liste, fiche lycée, page À propos, PWA/hors ligne.
+Liste filtrable et fiche lycée dédiées, PWA/hors ligne.

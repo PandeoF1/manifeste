@@ -38,8 +38,8 @@ export function HeroStats({ stats, updatedAt, isError, compact = false }: Props)
   return (
     <section aria-labelledby="hero-title" className={compact ? 'space-y-0.5' : 'space-y-3'}>
       <LiveIndicator updatedAt={updatedAt} isError={isError} />
-      <h2 id="hero-title" className="sr-only">
-        Situation nationale
+      <h2 id="hero-title" className={compact ? 'sr-only' : 'text-sm font-semibold text-muted'}>
+        Partout en France, les lycéens se font entendre.
       </h2>
       {/* Lecteurs d'écran : une phrase complète, mise à jour sans annoncer l'animation. */}
       <p className="sr-only" aria-live="polite">

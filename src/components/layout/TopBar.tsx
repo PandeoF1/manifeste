@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Megaphone } from 'lucide-react'
 
 export function TopBar() {
   return (
@@ -24,14 +25,26 @@ export function TopBar() {
         <Link
           to="/"
           search={{}}
-          className="rounded-md px-3 py-2 hover:bg-bg"
-          activeProps={{
-            className: 'font-semibold underline underline-offset-4',
-            'aria-current': 'page',
-          }}
+          className="hidden rounded-md px-3 py-3 hover:bg-surface sm:block"
+          activeProps={{ className: 'font-semibold', 'aria-current': 'page' }}
           activeOptions={{ includeSearch: false }}
         >
           Carte
+        </Link>
+        <Link
+          to="/a-propos"
+          className="rounded-md px-3 py-3 hover:bg-surface"
+          activeProps={{ className: 'font-semibold', 'aria-current': 'page' }}
+        >
+          À propos
+        </Link>
+        <Link
+          to="/signaler"
+          search={{}}
+          className="ml-1 inline-flex min-h-10 items-center gap-1.5 rounded-full bg-bloque px-4 font-bold text-white"
+          activeProps={{ 'aria-current': 'page' }}
+        >
+          <Megaphone size={16} aria-hidden="true" /> Signaler
         </Link>
       </nav>
     </header>

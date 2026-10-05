@@ -12,10 +12,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 function RootLayout() {
-  // La carte est toujours en thème sombre (rendu immersif) ; l'admin suit le thème système.
+  // Partie publique toujours en thème sombre (identité visuelle) ; l'admin suit le thème système.
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   return (
-    <div className={`flex h-full flex-col ${pathname === '/' ? 'theme-dark' : ''}`}>
+    <div className={`flex h-full flex-col ${pathname.startsWith('/admin') ? '' : 'theme-dark'}`}>
       <TopBar />
       <Outlet />
     </div>

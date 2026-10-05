@@ -6,7 +6,13 @@ import type { Tables, Views } from '@/lib/database.types'
 export type SchoolStatus = Views<'school_current_status'>
 export type PublicReport = Pick<
   Tables<'reports'>,
-  'id' | 'status' | 'source_type' | 'source_url' | 'source_domain' | 'observed_at'
+  | 'id'
+  | 'status'
+  | 'source_type'
+  | 'source_url'
+  | 'source_domain'
+  | 'observed_at'
+  | 'photo_public_path'
 >
 
 const REFRESH_MS = 60_000
@@ -33,7 +39,9 @@ export const schoolReportsQuery = (uai: string) =>
       const since = new Date(Date.now() - 24 * 3_600_000).toISOString()
       const { data, error } = await supabase
         .from('reports')
-        .select('id, status, source_type, source_url, source_domain, observed_at')
+        .select(
+          'id, status, source_type, source_url, source_domain, observed_at, photo_public_path',
+        )
         .eq('school_uai', uai)
         .eq('moderation', 'validated')
         .gte('observed_at', since)
