@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, Link2, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { Check, ExternalLink, Link2, RefreshCw, Search, Sparkles, Trash2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
-import { unmatchedQuery } from '@/queries/admin'
+import { reanalyze, unmatchedQuery, type ReanalyzeResult } from '@/queries/admin'
 import { searchSchoolsQuery } from '@/queries/report'
 import { initialQuery } from '@/lib/unmatched'
 
@@ -34,6 +34,15 @@ export function UnmatchedPanel() {
     },
     onSuccess: () => {
       setOpenId(null)
+      invalidate()
+    },
+  })
+
+  const [aiResult, setAiResult] = useState<ReanalyzeResult | null>(null)
+  const ai = useMutation({
+    mutationFn: reanalyze,
+    onSuccess: (data) => {
+      setAiResult(data)
       invalidate()
     },
   })
@@ -79,6 +88,42 @@ export function UnmatchedPanel() {
       <p className="mt-1 text-xs text-muted">
         Utile après l'import ou la mise à jour du référentiel des lycées.
       </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={ai.isPending}
+          onClick={() => ai.mutate(undefined)}
+        >
+          <Sparkles size={16} aria-hidden="true" />
+          {ai.isPending ? 'Analyse en cours…' : "Réanalyser avec l'IA"}
+        </button>
+        <span className="text-xs text-muted">
+          L'IA relit la page source et choisit parmi les lycées de la commune (un seul appel pour
+          toute la liste).
+        </span>
+      </div>
+      {ai.error && (
+        <p role="alert" className="mt-2 text-sm text-bloque">
+          Échec : {ai.error.message}
+        </p>
+      )}
+      {aiResult && (
+        <div className="card mt-3 text-sm" aria-live="polite">
+          <p className="font-semibold">
+            {aiResult.linked} rattaché{aiResult.linked > 1 ? 's' : ''} sur {aiResult.total}
+            {aiResult.model ? ` · ${aiResult.model}` : ''}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {aiResult.outcomes.map((o) => (
+              <li key={o.id} className={o.uai ? '' : 'text-muted'}>
+                {o.school_name}
+                {o.city ? ` (${o.city})` : ''} : {o.result}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {link.error && (
         <p role="alert" className="mt-2 text-sm text-bloque">
           Échec du rattachement : {link.error.message}
@@ -107,6 +152,16 @@ export function UnmatchedPanel() {
               >
                 <ExternalLink size={18} />
               </a>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Réanalyser cette ligne avec l'IA"
+                title="Réanalyser avec l'IA"
+                disabled={ai.isPending}
+                onClick={() => ai.mutate([u.id])}
+              >
+                <Sparkles size={18} />
+              </button>
               <button
                 type="button"
                 className="btn-secondary"

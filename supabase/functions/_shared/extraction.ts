@@ -72,6 +72,8 @@ Règles strictes :
 - Uniquement des lycées (pas de collèges, universités, entreprises).
 - Un appel ou un projet de blocus n'est pas un blocage : certainty "faible".
 - Ne recopie jamais de nom de personne, de pseudo, de chiffre de participants ni de description de la scène.
+- school_name : le nom propre du lycée tel qu'il apparaît dans le texte (ex. "Lycée Joséphine-Baker"), même s'il n'est cité qu'une fois. N'utilise le nom de la commune ("lycée de Hanches") que si le texte ne donne aucun autre nom.
+- city : la commune du lycée, même si elle n'apparaît que dans le titre.
 - Si un message cite plusieurs lycées, produis un événement par lycée.
 - Si aucun fait exploitable, ne produis rien pour ce message.
 Réponds uniquement avec le JSON demandé.`

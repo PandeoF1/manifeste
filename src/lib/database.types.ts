@@ -163,6 +163,7 @@ export type Database = {
         Row: {
           id: string
           source_id: string | null
+          source_domain: string | null
           school_name: string
           city: string | null
           status: ReportStatus
@@ -173,6 +174,7 @@ export type Database = {
         Insert: {
           id?: string
           source_id?: string | null
+          source_domain?: string | null
           school_name: string
           city?: string | null
           status: ReportStatus

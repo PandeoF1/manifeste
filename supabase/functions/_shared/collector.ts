@@ -7,7 +7,7 @@ import {
   type ExtractedEvent,
 } from './extraction.ts'
 import { fetchSource, type FetchLike, type ScrapedItem } from './fetchers/index.ts'
-import { pickMatch, type SchoolCandidate } from './matching.ts'
+import { isGenericSchoolName, pickMatch, type SchoolCandidate } from './matching.ts'
 import type { ScrapeKind } from './sources.ts'
 import type { ReportStatus } from './status.ts'
 
@@ -32,6 +32,8 @@ export interface NewReport {
 
 export interface NewUnmatched {
   source_id: string
+  /** Domaine de l'éditeur réel (utile pour Google Actualités). */
+  source_domain: string | null
   school_name: string
   city: string | null
   status: ReportStatus
@@ -44,6 +46,8 @@ export interface CollectorDb {
   seenIds(sourceId: string, externalIds: string[]): Promise<Set<string>>
   markSeen(sourceId: string, externalIds: string[]): Promise<void>
   matchSchool(name: string, city: string | null): Promise<SchoolCandidate[]>
+  /** Lycées de la commune (au plus 2 suffisent pour savoir s'il y en a un seul). */
+  schoolsInCity(city: string): Promise<Array<{ uai: string }>>
   insertReport(report: NewReport): Promise<'inserted' | 'duplicate'>
   insertUnmatched(row: NewUnmatched): Promise<void>
   recordRun(sourceId: string, error: string | null): Promise<void>
@@ -118,37 +122,44 @@ function emptyResult(source: CollectorSource): SourceRunResult {
   }
 }
 
-interface Pending {
+export interface Pending {
   source: CollectorSource
   item: ScrapedItem
 }
 
-/**
- * Collecte un groupe de sources :
- * 1. récupération en parallèle (I/O, ne consomme presque pas de CPU) ;
- * 2. les éléments pertinents de TOUTES les sources sont envoyés à l'IA par lots communs
- *    (un appel pour ~20 éléments au lieu d'un appel par source) ;
- * 3. rattachement et insertion.
- * Un élément n'est marqué traité qu'une fois analysé : en cas d'échec de l'IA ou de budget
- * de temps dépassé, il est repris au passage suivant.
- */
-export async function collectSources(
-  sources: ReadonlyArray<CollectorSource>,
-  opts: CollectorOptions & { budgetMs?: number; fetchConcurrency?: number },
-): Promise<SourceRunResult[]> {
-  const startedAt = Date.now()
-  const now = opts.now ?? new Date()
-  const minCertainty = opts.minCertainty ?? 'moyenne'
-  const lookbackMs = (opts.lookbackHours ?? 48) * 3_600_000
-  const batchSize = opts.batchSize ?? 20
-  const budgetMs = opts.budgetMs ?? 110_000
-  const results = new Map(sources.map((s) => [s.id, emptyResult(s)]))
-  const res = (s: CollectorSource) => results.get(s.id) as SourceRunResult
+/** Forme JSON d'un élément en attente (échange entre sous-appels et répartiteur). */
+export interface PendingJson {
+  source: CollectorSource
+  item: Omit<ScrapedItem, 'publishedAt'> & { publishedAt: string }
+}
 
-  // 1. Récupération.
+export function pendingToJson(p: Pending): PendingJson {
+  return { source: p.source, item: { ...p.item, publishedAt: p.item.publishedAt.toISOString() } }
+}
+
+export function pendingFromJson(p: PendingJson): Pending {
+  return { source: p.source, item: { ...p.item, publishedAt: new Date(p.item.publishedAt) } }
+}
+
+type GatherOptions = Pick<
+  CollectorOptions,
+  'db' | 'fetchFn' | 'now' | 'lookbackHours' | 'maxItemsPerSource'
+> & { fetchConcurrency?: number }
+
+/**
+ * Phase 1 : récupère les sources en parallèle (I/O, peu de CPU) et garde les éléments
+ * nouveaux et pertinents. Les éléments hors-sujet sont marqués traités tout de suite.
+ */
+export async function gatherSources(
+  sources: ReadonlyArray<CollectorSource>,
+  opts: GatherOptions,
+): Promise<{ results: SourceRunResult[]; pending: Pending[] }> {
+  const now = opts.now ?? new Date()
+  const lookbackMs = (opts.lookbackHours ?? 48) * 3_600_000
+  const results = sources.map(emptyResult)
   const pending: Pending[] = []
-  await mapLimit(sources, opts.fetchConcurrency ?? 4, async (source) => {
-    const r = res(source)
+  await mapLimit(sources, opts.fetchConcurrency ?? 4, async (source, index) => {
+    const r = results[index] as SourceRunResult
     try {
       const fetched = await fetchSource(opts.fetchFn, source.kind, source.identifier)
       r.fetched = fetched.length
@@ -164,7 +175,6 @@ export async function collectSources(
       r.new_items = fresh.length
       const relevant = fresh.filter((i) => isRelevant(i.text))
       r.relevant = relevant.length
-      // Les éléments hors-sujet sont marqués traités tout de suite.
       const irrelevant = fresh.filter((i) => !isRelevant(i.text)).map((i) => i.externalId)
       if (irrelevant.length) await opts.db.markSeen(source.id, irrelevant)
       for (const item of relevant) pending.push({ source, item })
@@ -172,8 +182,35 @@ export async function collectSources(
       r.error = e instanceof Error ? e.message : String(e)
     }
   })
+  return { results, pending }
+}
 
-  // 2 et 3. Extraction par lots communs, puis rattachement.
+/**
+ * Phase 2 : envoie à l'IA les éléments pertinents de TOUTES les sources par gros lots
+ * (un ou deux appels par passage, au lieu d'un par source), puis rattache et insère.
+ * Un élément n'est marqué traité qu'une fois analysé : en cas d'échec de l'IA ou de budget
+ * de temps dépassé, il est repris au passage suivant. Enregistre le passage de chaque source.
+ */
+export async function analyzePending(
+  pending: ReadonlyArray<Pending>,
+  results: SourceRunResult[],
+  opts: CollectorOptions & { budgetMs?: number; startedAt?: number },
+): Promise<SourceRunResult[]> {
+  const startedAt = opts.startedAt ?? Date.now()
+  const minCertainty = opts.minCertainty ?? 'moyenne'
+  const batchSize = opts.batchSize ?? 50
+  const budgetMs = opts.budgetMs ?? 110_000
+  const byId = new Map(results.map((r) => [r.source_id, r]))
+  const res = (s: CollectorSource) => {
+    let r = byId.get(s.id)
+    if (!r) {
+      r = emptyResult(s)
+      byId.set(s.id, r)
+      results.push(r)
+    }
+    return r
+  }
+
   for (const group of chunk(pending, batchSize)) {
     if (Date.now() - startedAt > budgetMs) break // repris au prochain passage
     const batch = group.map((p, idx) => ({ id: String(idx), item: p.item, source: p.source }))
@@ -185,9 +222,9 @@ export async function collectSources(
       for (const p of group) res(p.source).error = message
       continue
     }
-    const byId = new Map(batch.map((b) => [b.id, b]))
+    const entries = new Map(batch.map((b) => [b.id, b]))
     for (const event of events) {
-      const entry = byId.get(event.item_id)
+      const entry = entries.get(event.item_id)
       if (!entry) continue
       const r = res(entry.source)
       r.events++
@@ -197,15 +234,24 @@ export async function collectSources(
         r.error = e instanceof Error ? e.message : String(e)
       }
     }
-    // Marque traités, par source, les éléments de ce lot.
     const bySource = new Map<string, string[]>()
     for (const p of group)
       bySource.set(p.source.id, [...(bySource.get(p.source.id) ?? []), p.item.externalId])
     for (const [sourceId, ids] of bySource) await opts.db.markSeen(sourceId, ids)
   }
 
-  for (const source of sources) await opts.db.recordRun(source.id, res(source).error)
-  return sources.map(res)
+  for (const r of results) await opts.db.recordRun(r.source_id, r.error)
+  return results
+}
+
+/** Les deux phases d'un coup (une source depuis l'admin, tests). */
+export async function collectSources(
+  sources: ReadonlyArray<CollectorSource>,
+  opts: CollectorOptions & { budgetMs?: number; fetchConcurrency?: number },
+): Promise<SourceRunResult[]> {
+  const startedAt = Date.now()
+  const { results, pending } = await gatherSources(sources, opts)
+  return analyzePending(pending, results, { ...opts, startedAt })
 }
 
 async function handleEvent(
@@ -221,12 +267,20 @@ async function handleEvent(
     return
   }
   const observedAt = resolveObservedAt(event.observed_at, item.publishedAt).toISOString()
-  const candidates = await db.matchSchool(event.school_name, event.city)
-  const match = pickMatch(candidates, Boolean(event.city))
-  if (!match) {
+  let uai: string | null = null
+  if (event.city && isGenericSchoolName(event.school_name, event.city)) {
+    // « Lycée de Hanches » : rattaché seulement si la commune n'a qu'un lycée.
+    const inCity = await db.schoolsInCity(event.city)
+    if (inCity.length === 1) uai = inCity[0]?.uai ?? null
+  } else {
+    const candidates = await db.matchSchool(event.school_name, event.city)
+    uai = pickMatch(candidates, Boolean(event.city))?.uai ?? null
+  }
+  if (!uai) {
     r.unmatched++
     await db.insertUnmatched({
       source_id: source.id,
+      source_domain: item.publisherDomain ?? extractDomain(item.url),
       school_name: event.school_name,
       city: event.city,
       status: event.status,
@@ -238,7 +292,7 @@ async function handleEvent(
   const domain = item.publisherDomain ?? extractDomain(item.url)
   if (!domain) return
   const outcome = await db.insertReport({
-    school_uai: match.uai,
+    school_uai: uai,
     status: event.status,
     source_type: source.source_type,
     source_url: item.url,

@@ -24,6 +24,7 @@ function fakeDb(candidates: Record<string, SchoolCandidate[]>) {
     seenIds: async (_s, ids) => new Set(ids.filter((i) => seen.has(i))),
     markSeen: async (_s, ids) => void ids.forEach((i) => seen.add(i)),
     matchSchool: async (name) => candidates[name] ?? [],
+    schoolsInCity: async (city) => (city === 'Hanches' ? [{ uai: '0280000A' }] : []),
     insertReport: async (r) => {
       if (reports.some((x) => x.source_url === r.source_url && x.school_uai === r.school_uai))
         return 'duplicate'
@@ -203,5 +204,36 @@ describe('collectSources : plusieurs sources, lots communs', () => {
     expect(out).toEqual([10, 20, 30, 40, 50])
     expect(peak).toBe(2)
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]])
+  })
+})
+
+describe('nom générique et commune à lycée unique', () => {
+  it('« Lycée de Hanches » est rattaché au seul lycée de la commune', async () => {
+    const { db, reports, unmatched } = fakeDb({})
+    const extract = async (batch: ReadonlyArray<{ id: string }>): Promise<ExtractedEvent[]> => [
+      {
+        item_id: batch[0]?.id ?? '',
+        school_name: 'Lycée de Hanches',
+        city: 'Hanches',
+        status: 'bloque',
+        observed_at: null,
+        certainty: 'haute',
+      },
+      {
+        item_id: batch[0]?.id ?? '',
+        school_name: 'Lycée',
+        city: 'Paris',
+        status: 'bloque',
+        observed_at: null,
+        certainty: 'haute',
+      },
+    ]
+    const r = await collectSource(source, { db, fetchFn, extract, now })
+    expect(reports.map((x) => x.school_uai)).toEqual(['0280000A'])
+    // Paris : plusieurs lycées (ou aucun connu) -> non rattaché, avec le domaine conservé.
+    expect(unmatched).toEqual([
+      expect.objectContaining({ school_name: 'Lycée', source_domain: 't.me' }),
+    ])
+    expect(r).toMatchObject({ reports: 1, unmatched: 1 })
   })
 })

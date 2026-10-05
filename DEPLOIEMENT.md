@@ -55,7 +55,7 @@ de `20261005000010_user_submissions.sql`.
 ```bash
 npx supabase secrets set \
   GEMINI_API_KEY=<clé gemini> \
-  GEMINI_MODEL=gemini-3.8-flash \
+  GEMINI_MODEL=gemini-3.5-flash-lite \
   COLLECT_SECRET=<le même secret qu'à l'étape 2> \
   COLLECT_MIN_CERTAINTY=moyenne \
   TURNSTILE_SECRET_KEY=<secret key turnstile>
@@ -63,10 +63,16 @@ npx supabase secrets set \
 npx supabase functions deploy collect --no-verify-jwt
 npx supabase functions deploy submit-report --no-verify-jwt
 npx supabase functions deploy purge-submissions --no-verify-jwt
+npx supabase functions deploy reanalyze --no-verify-jwt
 ```
 
+**Quotas Gemini (offre gratuite)** : les modèles Flash sont limités à 5 requêtes/min et 20/jour,
+Flash-Lite à 15/min et 500/jour. Le modèle par défaut est donc `gemini-3.5-flash-lite`, et la
+collecte envoie tous les éléments d'un passage en un seul appel (60 éléments par requête). Avec la
+facturation activée, tu peux passer `GEMINI_MODEL=gemini-3.8-flash`.
+
 Si Gemini est saturé (erreur 503), la collecte réessaie puis bascule sur un modèle de secours
-(`GEMINI_FALLBACK_MODELS`, par défaut `gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite`).
+(`GEMINI_FALLBACK_MODELS`, par défaut `gemini-3.5-flash,gemini-3.6-flash,gemini-3.8-flash`).
 
 ## 5. Référentiel des lycées et compte admin
 

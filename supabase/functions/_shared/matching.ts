@@ -38,3 +38,53 @@ export function pickMatch(
   if (second && best.score - second.score < t.minMargin) return null
   return best
 }
+
+const GENERIC_WORDS = new Set([
+  'lycee',
+  'lycees',
+  'lp',
+  'lgt',
+  'lpo',
+  'general',
+  'generale',
+  'polyvalent',
+  'professionnel',
+  'technologique',
+  'public',
+  'prive',
+  'des',
+  'du',
+  'de',
+  'la',
+  'le',
+  'les',
+  'l',
+  'd',
+  'et',
+  'a',
+])
+
+function normalizeWords(s: string): string[] {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+}
+
+/** Nom sans les mots génériques (miroir de public.strip_generic_words). */
+export function stripGenericWords(name: string): string {
+  return normalizeWords(name)
+    .filter((w) => !GENERIC_WORDS.has(w))
+    .join(' ')
+}
+
+/**
+ * Vrai si le nom ne désigne aucun lycée précis : « Lycée », « lycée de Hanches »
+ * (miroir de public.is_generic_school_name).
+ */
+export function isGenericSchoolName(name: string, city: string | null): boolean {
+  const stripped = stripGenericWords(name)
+  return stripped === '' || stripped === stripGenericWords(city ?? '')
+}

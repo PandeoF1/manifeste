@@ -258,7 +258,8 @@ function RunSummary({ run }: { run: CollectRunResult }) {
   return (
     <div className="mt-3 overflow-x-auto rounded-lg border border-border bg-surface p-3 text-sm">
       <p className="text-muted">
-        Modèle {run.model} · {(run.duration_ms / 1000).toFixed(1)} s
+        Modèle {run.model} · {run.gemini_calls ?? '?'} appel{(run.gemini_calls ?? 0) > 1 ? 's' : ''}{' '}
+        Gemini · {(run.duration_ms / 1000).toFixed(1)} s
       </p>
       <table className="mt-2 w-full text-left tabular-nums">
         <thead className="text-muted">

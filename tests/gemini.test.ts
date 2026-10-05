@@ -64,6 +64,12 @@ describe('extractEvents : résistance aux erreurs Gemini', () => {
     expect(calls).toEqual(['m1', 'm1', 'm2'])
   })
 
+  it('passe directement au suivant sur quota atteint (429), sans réessayer', async () => {
+    const { fetchFn, calls } = fakeFetch([err(429), ok()])
+    expect(await run(fetchFn)).toHaveLength(1)
+    expect(calls).toEqual(['m1', 'm2'])
+  })
+
   it('passe directement au suivant si le modèle est fermé pour ce compte (404)', async () => {
     const { fetchFn, calls } = fakeFetch([err(404), ok()])
     expect(await run(fetchFn)).toHaveLength(1)
@@ -85,10 +91,10 @@ describe('extractEvents : résistance aux erreurs Gemini', () => {
 
   it("construit la liste des modèles depuis l'environnement", () => {
     expect(modelsFromEnv(undefined, undefined)).toEqual([
-      'gemini-3.8-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
       'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
+      'gemini-3.6-flash',
+      'gemini-3.8-flash',
     ])
     expect(modelsFromEnv('a', 'b, c,,a')).toEqual(['a', 'b', 'c'])
     expect(modelsFromEnv('a', '')).toEqual(['a'])

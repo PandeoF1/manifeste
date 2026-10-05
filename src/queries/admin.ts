@@ -92,6 +92,7 @@ export const trustedDomainsQuery = queryOptions({
 
 export interface CollectRunResult {
   model: string
+  gemini_calls?: number
   duration_ms: number
   results: Array<{
     source_id: string
@@ -158,4 +159,27 @@ export async function moderate(report: PendingReport, decision: Decision): Promi
       .update({ photo_path: null })
       .eq('report_id', report.id)
   }
+}
+
+export interface ReanalyzeResult {
+  model: string | null
+  linked: number
+  total: number
+  outcomes: Array<{
+    id: string
+    school_name: string
+    city: string | null
+    result: string
+    uai?: string
+  }>
+}
+
+/** Réanalyse par l'IA (Edge Function reanalyze) : toutes les extractions, ou une liste. */
+export async function reanalyze(ids?: string[]): Promise<ReanalyzeResult> {
+  const { data, error } = await supabase.functions.invoke<ReanalyzeResult>('reanalyze', {
+    body: ids ? { ids } : {},
+  })
+  if (error) throw error
+  if (!data) throw new Error('Réponse vide')
+  return data
 }
