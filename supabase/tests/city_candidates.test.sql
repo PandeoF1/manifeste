@@ -2,6 +2,11 @@ begin;
 create temp table t (name text, ok boolean);
 grant all on t to authenticated;
 
+-- Les sections d'enseignement sont retirées par la migration (vérifié sur une insertion directe).
+insert into public.schools (uai, name, city, department) values ('0000007G', 'Section d''enseignement professionnel du Lycée Test', 'Rennes', '35');
+delete from public.schools where public.normalize_text(name) ~ '^(section d enseignement|sep |segt |ecole secondaire)';
+insert into t select 'section retirée', not exists (select 1 from public.schools where uai = '0000007G');
+
 -- Noms génériques.
 insert into t select 'générique : lycée de Hanches', public.is_generic_school_name('Lycée de Hanches', 'Hanches');
 insert into t select 'générique : Lycée', public.is_generic_school_name('Lycée', 'Briançon');

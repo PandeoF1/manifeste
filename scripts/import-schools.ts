@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import type { Database } from '../src/lib/database.types.ts'
+import { isExcludedEstablishment } from './school-filter.ts'
 
 const DATASET = 'fr-en-annuaire-education'
 const EXPORT_URL =
@@ -131,6 +132,7 @@ async function main() {
   const byUai = new Map<string, SourceRecord>()
   let skipped = 0
   let merged = 0
+  let excluded = 0
   for (const [i, item] of raw.entries()) {
     const parsed = recordSchema.safeParse(item)
     if (!parsed.success) {
@@ -148,6 +150,10 @@ async function main() {
       skipped++
       continue
     }
+    if (isExcludedEstablishment(r.nom_etablissement)) {
+      excluded++
+      continue
+    }
     const uai = r.identifiant_de_l_etablissement
     if (!/^[0-9]{7}[A-Z]$/.test(uai)) {
       skipped++
@@ -158,7 +164,9 @@ async function main() {
     byUai.set(uai, previous ? mergeRecords(previous, r) : r)
   }
   const rows = [...byUai.values()].map((r) => toRow(r, now))
-  console.log(`${rows.length} lycées valides, ${skipped} ignorés, ${merged} doublons fusionnés.`)
+  console.log(
+    `${rows.length} lycées valides, ${excluded} sections et écoles exclues, ${skipped} ignorés, ${merged} doublons fusionnés.`,
+  )
   if (dryRun) {
     console.log('Exemple :', rows.slice(0, 3))
     return
