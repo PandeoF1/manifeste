@@ -154,7 +154,7 @@ npm run backfill -- retry-errors                         # remet en file les art
 - `fetch` interroge chaque requête des préréglages jour par jour. Un jour de pic (Google coupe à
   100 articles), le flux est relancé région par région. Les articles hors sujet ne sont pas gardés.
 - `process` traite les plus anciens d'abord, 60 articles par appel Gemini, 10 appels par minute au
-  plus (`--rpm`). Environ 2 700 articles, soit une cinquantaine d'appels : ça passe dans le quota
+  plus (`--rpm`). Environ 3 900 articles depuis le 14 septembre, soit 65 appels : ça passe dans le quota
   gratuit du jour. Si le quota est épuisé, il s'arrête proprement : relance-le plus tard, il
   reprend où il en était. `--max-calls 20` pour faire par petits bouts.
 - Les signaux du rattrapage ont leur date réelle : ils remplissent l'historique des fiches lycée
