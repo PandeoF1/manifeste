@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { Check, ExternalLink, Link2, Search, Trash2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
 import { unmatchedQuery } from '@/queries/admin'
+import { searchSchoolsQuery } from '@/queries/report'
+import { initialQuery } from '@/lib/unmatched'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -11,12 +14,28 @@ const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle
 export function UnmatchedPanel() {
   const queryClient = useQueryClient()
   const unmatched = useQuery(unmatchedQuery)
+  const [openId, setOpenId] = useState<string | null>(null)
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.admin.unmatched() })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
+  }
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('unmatched_extractions').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.unmatched() }),
+    onSuccess: invalidate,
+  })
+  const link = useMutation({
+    mutationFn: async ({ id, uai }: { id: string; uai: string }) => {
+      const { error } = await supabase.rpc('link_unmatched', { p_unmatched_id: id, p_uai: uai })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      setOpenId(null)
+      invalidate()
+    },
   })
 
   if (unmatched.isPending) return <div className="h-24 animate-pulse rounded-lg bg-surface" />
@@ -26,42 +45,127 @@ export function UnmatchedPanel() {
   return (
     <>
       <p className="text-sm text-muted">
-        Conservés 7 jours. Un nom fréquent sans ville (ex. « Victor-Hugo ») n'est jamais rattaché
-        automatiquement.
+        Faits repérés par l'IA sans lycée identifié avec certitude (nom fréquent, nom incomplet,
+        ville manquante). Ouvre la source, puis rattache au bon lycée : le signal est publié
+        aussitôt. Conservés 7 jours.
       </p>
+      {link.error && (
+        <p role="alert" className="mt-2 text-sm text-bloque">
+          Échec du rattachement : {link.error.message}
+        </p>
+      )}
       <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-surface">
         {unmatched.data.map((u) => (
-          <li key={u.id} className="flex flex-wrap items-center gap-3 p-3">
-            <div className="min-w-0 flex-1">
-              <div className="font-medium">
-                {u.school_name}{' '}
-                <span className="font-normal text-muted">· {u.city ?? 'ville inconnue'}</span>
+          <li key={u.id} className="p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">
+                  {u.school_name}{' '}
+                  <span className="font-normal text-muted">· {u.city ?? 'ville inconnue'}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                  <StatusBadge status={u.status} />
+                  <span>{dateFmt.format(new Date(u.observed_at))}</span>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
-                <StatusBadge status={u.status} />
-                <span>{dateFmt.format(new Date(u.observed_at))}</span>
-              </div>
+              <a
+                href={u.source_url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="icon-btn"
+                aria-label="Ouvrir la source"
+              >
+                <ExternalLink size={18} />
+              </a>
+              <button
+                type="button"
+                className="btn-secondary"
+                aria-expanded={openId === u.id}
+                onClick={() => setOpenId(openId === u.id ? null : u.id)}
+              >
+                <Link2 size={16} aria-hidden="true" /> Rattacher
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Ignorer (supprimer)"
+                onClick={() => remove.mutate(u.id)}
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
-            <a
-              href={u.source_url}
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-              className="icon-btn"
-              aria-label="Ouvrir la source"
-            >
-              <ExternalLink size={18} />
-            </a>
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Supprimer"
-              onClick={() => remove.mutate(u.id)}
-            >
-              <Trash2 size={18} />
-            </button>
+            {openId === u.id && (
+              <SchoolSearch
+                initial={initialQuery(u)}
+                busy={link.isPending}
+                onPick={(uai) => link.mutate({ id: u.id, uai })}
+              />
+            )}
           </li>
         ))}
       </ul>
     </>
+  )
+}
+
+function SchoolSearch({
+  initial,
+  busy,
+  onPick,
+}: {
+  initial: string
+  busy: boolean
+  onPick: (uai: string) => void
+}) {
+  const [query, setQuery] = useState(initial)
+  const results = useQuery(searchSchoolsQuery(query))
+
+  return (
+    <div className="mt-3 space-y-2 rounded-lg border border-border bg-bg p-3">
+      <label className="relative block">
+        <span className="sr-only">Chercher le lycée</span>
+        <Search
+          size={16}
+          className="absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+          aria-hidden="true"
+        />
+        <input
+          type="search"
+          autoFocus
+          className="input w-full pl-9"
+          placeholder="Nom du lycée, ville"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </label>
+      {query.trim().length < 2 && <p className="text-sm text-muted">Tape au moins 2 caractères.</p>}
+      {results.isFetching && <div className="h-10 animate-pulse rounded bg-surface" />}
+      {results.data?.length === 0 && (
+        <p className="text-sm text-muted">
+          Aucun lycée trouvé. Essaie avec moins de mots (juste la ville, ou juste le nom).
+        </p>
+      )}
+      <ul className="divide-y divide-border">
+        {results.data?.map((s) => (
+          <li key={s.uai} className="flex items-center gap-3 py-2">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{s.name}</span>
+              <span className="block text-sm text-muted">
+                {s.city}
+                {s.department ? ` (${s.department})` : ''} · {s.uai}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="btn-primary min-h-10 px-3 text-sm"
+              disabled={busy}
+              onClick={() => onPick(s.uai)}
+            >
+              <Check size={16} aria-hidden="true" /> Ce lycée
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
