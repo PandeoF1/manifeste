@@ -40,6 +40,15 @@ export const db: CollectorDb = {
     )
     if (error) throw new Error(`scraped_items: ${error.message}`)
   },
+  async nearbySchools(lat, lng) {
+    const { data, error } = await admin.rpc('nearby_schools', {
+      p_lat: lat,
+      p_lng: lng,
+      p_radius_m: 1500,
+    })
+    if (error) throw new Error(`nearby_schools: ${error.message}`)
+    return (data ?? []) as Array<{ uai: string; name: string; distance_m: number }>
+  },
   async schoolsInCity(city) {
     const { data, error } = await admin.rpc('schools_in_city', { p_city: city, p_limit: 2 })
     if (error) throw new Error(`schools_in_city: ${error.message}`)

@@ -9,7 +9,13 @@ import {
   type ExtractedEvent,
 } from './extraction.ts'
 import { fetchSource, type FetchLike, type ScrapedItem } from './fetchers/index.ts'
-import { isGenericSchoolName, pickMatch, type SchoolCandidate } from './matching.ts'
+import {
+  isGenericSchoolName,
+  pickByGeo,
+  pickMatch,
+  type NearbyCandidate,
+  type SchoolCandidate,
+} from './matching.ts'
 import type { ScrapeKind } from './sources.ts'
 import type { ReportStatus } from './status.ts'
 
@@ -49,6 +55,8 @@ export interface CollectorDb {
   seenIds(sourceId: string, externalIds: string[]): Promise<Set<string>>
   markSeen(sourceId: string, externalIds: string[]): Promise<void>
   matchSchool(name: string, city: string | null): Promise<SchoolCandidate[]>
+  /** Lycées proches d'un point (cartes My Maps). */
+  nearbySchools(lat: number, lng: number): Promise<NearbyCandidate[]>
   /** Lycées de la commune (au plus 2 suffisent pour savoir s'il y en a un seul). */
   schoolsInCity(city: string): Promise<Array<{ uai: string }>>
   insertReport(report: NewReport): Promise<'inserted' | 'duplicate'>
@@ -177,16 +185,17 @@ export async function gatherSources(
       const recent = fetched
         .filter((i) => now.getTime() - i.publishedAt.getTime() <= lookbackMs)
         .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
-        .slice(0, opts.maxItemsPerSource ?? 30)
+        // Une carte peut compter des centaines de points ; un fil d'actu, on lit les 30 derniers.
+        .slice(0, source.kind === 'mymaps' ? 300 : (opts.maxItemsPerSource ?? 30))
       const seen = await opts.db.seenIds(
         source.id,
         recent.map((i) => i.externalId),
       )
       const fresh = recent.filter((i) => !seen.has(i.externalId))
       r.new_items = fresh.length
-      const relevant = fresh.filter((i) => isRelevant(i.text))
+      const relevant = fresh.filter((i) => i.alwaysRelevant || isRelevant(i.text))
       r.relevant = relevant.length
-      const irrelevantItems = fresh.filter((i) => !isRelevant(i.text))
+      const irrelevantItems = fresh.filter((i) => !i.alwaysRelevant && !isRelevant(i.text))
       const irrelevant = irrelevantItems.map((i) => i.externalId)
       if (irrelevant.length) await opts.db.markSeen(source.id, irrelevant)
       for (const i of irrelevantItems)
@@ -328,7 +337,14 @@ async function handleEvent(
   }
   const observedAt = resolveObservedAt(event.observed_at, item.publishedAt).toISOString()
   let uai: string | null = null
-  if (event.city && isGenericSchoolName(event.school_name, event.city)) {
+  if (item.geo) {
+    // Point d'une carte : la position désigne le lycée bien mieux qu'un nom approximatif.
+    const near = await db.nearbySchools(item.geo.lat, item.geo.lng)
+    uai = pickByGeo(near, event.school_name)?.uai ?? null
+  }
+  if (uai) {
+    // déjà rattaché par la position
+  } else if (event.city && isGenericSchoolName(event.school_name, event.city)) {
     // « Lycée de Hanches » : rattaché seulement si la commune n'a qu'un lycée.
     const inCity = await db.schoolsInCity(event.city)
     if (inCity.length === 1) uai = inCity[0]?.uai ?? null

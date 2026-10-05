@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Plus de 35 lycées fermés dans le Nord et le Pas-de-Calais</name>
+    <Folder>
+      <name>Lycées fermés le 2 octobre</name>
+      <Placemark>
+        <name>Lycée Pasteur</name>
+        <description><![CDATA[Lille<br>Fermé toute la journée]]></description>
+        <Point><coordinates>3.0612,50.6371,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>Lycée Gambetta</name>
+        <Point><coordinates>
+          2.7801,50.2912,0
+        </coordinates></Point>
+      </Placemark>
+    </Folder>
+    <Placemark>
+      <name>Zone sans coordonnées</name>
+    </Placemark>
+  </Document>
+</kml>

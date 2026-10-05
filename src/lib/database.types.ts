@@ -5,7 +5,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 type ReportStatus = 'bloque' | 'filtrant' | 'leve'
 type SourceType = 'presse' | 'syndicat' | 'utilisateur' | 'collecteur'
 type ModerationStatus = 'pending' | 'validated' | 'rejected'
-type ScrapeKind = 'telegram' | 'rss' | 'bluesky'
+type ScrapeKind = 'telegram' | 'rss' | 'bluesky' | 'mymaps'
 
 export type Database = {
   public: {

@@ -10,6 +10,10 @@ export interface ScrapedItem {
   publishedAt: Date
   /** Domaine de l'éditeur quand il diffère de l'URL (agrégateurs type Google Actualités). */
   publisherDomain?: string
+  /** Position du point (cartes My Maps) : sert à retrouver le lycée exact. */
+  geo?: { lat: number; lng: number }
+  /** Toujours envoyé à l'IA (pas de filtre par mots-clés) : point d'une carte de blocages. */
+  alwaysRelevant?: boolean
 }
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>

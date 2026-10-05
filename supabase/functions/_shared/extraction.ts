@@ -63,7 +63,7 @@ export const GEMINI_RESPONSE_SCHEMA = {
 export const SYSTEM_PROMPT = `Tu extrais des faits sur des blocages de lycées français à partir de messages publics (presse, canaux Telegram, Bluesky).
 
 Pour chaque lycée explicitement cité comme bloqué, sous barrage filtrant ou débloqué, produis un événement :
-- status "bloque" : entrée du lycée bloquée (blocus).
+- status "bloque" : entrée du lycée bloquée (blocus), ou lycée fermé / « porte close » à cause de la mobilisation.
 - status "filtrant" : barrage filtrant, entrée partiellement bloquée.
 - status "leve" : blocus levé, fin du blocage, lycée rouvert.
 - observed_at : moment du fait. Déduis-le du texte et de la date de publication fournie ("ce matin", "hier"). null si impossible.
@@ -75,7 +75,8 @@ Règles strictes :
 - Ne recopie jamais de nom de personne, de pseudo, de chiffre de participants ni de description de la scène.
 - school_name : le nom propre du lycée tel qu'il apparaît dans le texte (ex. "Lycée Joséphine-Baker"), même s'il n'est cité qu'une fois. N'utilise le nom de la commune ("lycée de Hanches") que si le texte ne donne aucun autre nom.
 - city : la commune du lycée, même si elle n'apparaît que dans le titre.
-- Si un message cite plusieurs lycées, produis un événement par lycée.
+- Si un message cite plusieurs lycées (par exemple un article qui en dresse la liste), produis un événement par lycée.
+- Un texte qui commence par « Carte « … » » est un point d'une carte collaborative des lycées bloqués ou fermés : sauf indication contraire, c'est un lycée bloqué (certainty "moyenne"), daté de la publication.
 - Si aucun fait exploitable, ne produis rien pour ce message.
 Réponds uniquement avec le JSON demandé.`
 
@@ -83,7 +84,7 @@ export function buildUserPrompt(items: ReadonlyArray<{ id: string; item: Scraped
   const payload = items.map(({ id, item }) => ({
     id,
     publie_le: item.publishedAt.toISOString(),
-    texte: item.text.slice(0, 2500),
+    texte: item.text.slice(0, 4500),
   }))
   return `Messages à analyser (JSON) :\n${JSON.stringify(payload)}`
 }

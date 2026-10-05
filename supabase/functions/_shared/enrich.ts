@@ -34,7 +34,7 @@ export async function enrichItems(
       const context = await fetchPageContext(fetchFn, next.url)
       const known = new Set(next.text.split('\n').map((l) => l.trim()))
       const extra = context.split('\n').filter((l) => !known.has(l.trim()))
-      if (extra.length) next.text = [next.text, ...extra].join('\n').slice(0, 4000)
+      if (extra.length) next.text = [next.text, ...extra].join('\n').slice(0, 4500)
     }
     return next
   })

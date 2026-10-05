@@ -1,12 +1,13 @@
 import { z } from 'zod'
 
-export const SCRAPE_KINDS = ['telegram', 'rss', 'bluesky'] as const
+export const SCRAPE_KINDS = ['telegram', 'rss', 'bluesky', 'mymaps'] as const
 export type ScrapeKind = (typeof SCRAPE_KINDS)[number]
 
 export const SCRAPE_KIND_LABELS: Record<ScrapeKind, string> = {
   telegram: 'Canal Telegram public',
   rss: 'Flux RSS / Atom',
   bluesky: 'Compte Bluesky',
+  mymaps: 'Carte Google My Maps',
 }
 
 export const SOURCE_TYPES_FOR_SCRAPE = ['presse', 'syndicat', 'collecteur'] as const
@@ -34,6 +35,14 @@ export function normalizeSourceIdentifier(kind: ScrapeKind, input: string): stri
         throw new Error('Handle Bluesky invalide (ex. syndicat.bsky.social).')
       }
       return handle
+    }
+    case 'mymaps': {
+      // Accepte le lien de la carte (viewer, edit, embed, kml) ou directement son identifiant.
+      const mid = raw.match(/[?&]mid=([A-Za-z0-9_-]+)/)?.[1] ?? raw
+      if (!/^[A-Za-z0-9_-]{10,}$/.test(mid)) {
+        throw new Error('Lien de carte My Maps invalide (il doit contenir « mid= »).')
+      }
+      return mid
     }
     case 'rss': {
       let url: URL
@@ -110,6 +119,30 @@ export const SOURCE_PRESETS: ReadonlyArray<SourcePreset> = [
     kind: 'rss',
     identifier: gnews('"barrage filtrant" lycée'),
     label: 'Google Actualités : barrage filtrant lycée',
+    source_type: 'presse',
+    trusted: false,
+  },
+  {
+    group: 'Presse (Google Actualités)',
+    kind: 'rss',
+    identifier: gnews('lycées fermés mobilisation'),
+    label: 'Google Actualités : lycées fermés',
+    source_type: 'presse',
+    trusted: false,
+  },
+  {
+    group: 'Presse (Google Actualités)',
+    kind: 'rss',
+    identifier: gnews('blocage lycées'),
+    label: 'Google Actualités : blocage lycées',
+    source_type: 'presse',
+    trusted: false,
+  },
+  {
+    group: 'Presse (Google Actualités)',
+    kind: 'rss',
+    identifier: gnews('mobilisation lycéenne'),
+    label: 'Google Actualités : mobilisation lycéenne',
     source_type: 'presse',
     trusted: false,
   },

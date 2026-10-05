@@ -24,6 +24,13 @@ function fakeDb(candidates: Record<string, SchoolCandidate[]>) {
     seenIds: async (_s, ids) => new Set(ids.filter((i) => seen.has(i))),
     markSeen: async (_s, ids) => void ids.forEach((i) => seen.add(i)),
     matchSchool: async (name) => candidates[name] ?? [],
+    nearbySchools: async (lat) =>
+      lat > 50.6
+        ? [
+            { uai: '0590001A', name: 'Lycée Pasteur', distance_m: 120 },
+            { uai: '0590002B', name: 'Lycée Faidherbe', distance_m: 600 },
+          ]
+        : [],
     schoolsInCity: async (city) => (city === 'Hanches' ? [{ uai: '0280000A' }] : []),
     insertReport: async (r) => {
       if (reports.some((x) => x.source_url === r.source_url && x.school_uai === r.school_uai))
@@ -276,6 +283,36 @@ describe('journal du collecteur', () => {
     expect(r.items.find((i) => i.external_id === 'mobilycee/101')).toMatchObject({
       outcome: 'erreur',
       detail: 'IA : Gemini indisponible',
+    })
+  })
+})
+
+describe('carte My Maps dans la collecte', () => {
+  it('rattache un point par sa position, même sans mot-clé', async () => {
+    const kml = readFileSync(new URL('./fixtures/mymaps.kml', import.meta.url), 'utf8')
+    const { db, reports } = fakeDb({})
+    const mapsFetch = vi.fn(async () => new Response(kml))
+    const extract = async (batch: ReadonlyArray<{ id: string }>): Promise<ExtractedEvent[]> =>
+      batch.map((b) => ({
+        item_id: b.id,
+        school_name: 'Lycée Pasteur',
+        city: null,
+        status: 'bloque' as const,
+        observed_at: null,
+        certainty: 'moyenne' as const,
+      }))
+    const mapSource = {
+      ...source,
+      id: 'map-1',
+      kind: 'mymaps' as const,
+      identifier: 'MID123456789',
+      label: 'Carte',
+    }
+    const r = await collectSource(mapSource, { db, fetchFn: mapsFetch, extract, now: new Date() })
+    expect(r).toMatchObject({ relevant: 2, events: 2, reports: 1, unmatched: 1 })
+    expect(reports[0]).toMatchObject({
+      school_uai: '0590001A',
+      source_url: 'https://www.google.com/maps/d/viewer?mid=MID123456789',
     })
   })
 })

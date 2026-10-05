@@ -20,6 +20,7 @@ const PLACEHOLDER: Record<NewSource['kind'], string> = {
   telegram: 'nom_du_canal ou https://t.me/nom_du_canal',
   rss: 'https://exemple.fr/feed.xml',
   bluesky: 'compte.bsky.social',
+  mymaps: 'https://www.google.com/maps/d/viewer?mid=…',
 }
 
 export function SourcesPanel() {

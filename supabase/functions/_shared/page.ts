@@ -59,6 +59,34 @@ export function extractPageContext(html: string): string {
   return [...new Set(parts)].join('\n').slice(0, 1500)
 }
 
+/**
+ * Corps d'un article : paragraphes, listes et intertitres de <article> (sinon <main>, sinon la
+ * page), sans scripts, menus ni pied de page. Utile quand l'article dresse une liste de lycées.
+ */
+export function extractArticleText(html: string, max = 3000): string {
+  const scope =
+    html.match(/<article[\s>][\s\S]*?<\/article>/i)?.[0] ??
+    html.match(/<main[\s>][\s\S]*?<\/main>/i)?.[0] ??
+    html.match(/<body[\s>][\s\S]*<\/body>/i)?.[0] ??
+    html
+  const cleaned = scope.replace(
+    /<(script|style|noscript|nav|aside|footer|form|figure|svg|button)[\s>][\s\S]*?<\/\1>/gi,
+    ' ',
+  )
+  const lines: string[] = []
+  let length = 0
+  for (const m of cleaned.matchAll(/<(p|li|h2|h3)[^>]*>([\s\S]*?)<\/\1>/gi)) {
+    const line = decodeEntities((m[2] ?? '').replace(/<[^>]+>/g, ' '))
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (line.length < 3) continue
+    lines.push(m[1]?.toLowerCase() === 'li' ? `- ${line}` : line)
+    length += line.length + 1
+    if (length >= max) break
+  }
+  return [...new Set(lines)].join('\n').slice(0, max)
+}
+
 export async function fetchPageContext(fetchFn: FetchLike, url: string): Promise<string> {
   try {
     const res = await fetchFn(url, {
@@ -67,7 +95,8 @@ export async function fetchPageContext(fetchFn: FetchLike, url: string): Promise
       signal: AbortSignal.timeout(6000),
     })
     if (!res.ok) return ''
-    return extractPageContext(await readText(res, 300_000))
+    const html = await readText(res, 600_000)
+    return [extractPageContext(html), extractArticleText(html)].filter(Boolean).join('\n')
   } catch {
     return ''
   }

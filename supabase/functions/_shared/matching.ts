@@ -88,3 +88,38 @@ export function isGenericSchoolName(name: string, city: string | null): boolean 
   const stripped = stripGenericWords(name)
   return stripped === '' || stripped === stripGenericWords(city ?? '')
 }
+
+export interface NearbyCandidate {
+  uai: string
+  name: string
+  distance_m: number
+}
+
+/**
+ * Rattachement par position (point d'une carte) : parmi les lycées proches du point, celui dont
+ * le nom partage le plus de mots significatifs avec le nom extrait (le plus proche en cas
+ * d'égalité) ; à défaut de nom concordant, le seul lycée à moins de 250 m.
+ */
+export function pickByGeo(
+  candidates: ReadonlyArray<NearbyCandidate>,
+  extractedName: string,
+): NearbyCandidate | null {
+  if (candidates.length === 0) return null
+  const words = new Set(
+    stripGenericWords(extractedName)
+      .split(' ')
+      .filter((w) => w.length > 2),
+  )
+  const scored = candidates
+    .map((c) => ({
+      c,
+      overlap: stripGenericWords(c.name)
+        .split(' ')
+        .filter((w) => words.has(w)).length,
+    }))
+    .sort((a, b) => b.overlap - a.overlap || a.c.distance_m - b.c.distance_m)
+  const best = scored[0]
+  if (best && best.overlap > 0) return best.c
+  const veryClose = candidates.filter((c) => c.distance_m <= 250)
+  return veryClose.length === 1 ? (veryClose[0] ?? null) : null
+}

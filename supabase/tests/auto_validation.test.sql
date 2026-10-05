@@ -14,6 +14,14 @@ insert into public.reports (school_uai, status, source_type, source_url, source_
 values ('0000001A', 'bloque', 'presse', 'https://www.lemonde.fr/a', 'lemonde.fr', now());
 insert into t select 'domaine de confiance', moderation = 'validated' from public.reports where source_url = 'https://www.lemonde.fr/a';
 
+-- 1b. Sous-domaine d'un domaine de confiance -> validated
+insert into public.trusted_domains (domain, label, kind) values ('franceinfo.fr', 'franceinfo', 'presse') on conflict do nothing;
+insert into public.schools (uai, name, city) values ('0000008H', 'Lycée Sous-Domaine', 'Lille');
+insert into public.reports (school_uai, status, source_type, source_url, source_domain, observed_at)
+values ('0000008H', 'filtrant', 'presse', 'https://france3-regions.franceinfo.fr/x', 'france3-regions.franceinfo.fr', now() - interval '4 hours');
+insert into t select 'sous-domaine de confiance', moderation = 'validated' from public.reports where source_url = 'https://france3-regions.franceinfo.fr/x';
+insert into t select 'faux sous-domaine refusé', not public.is_trusted_domain('fakefranceinfo.fr');
+
 -- 2. Source collectée de confiance -> validated
 insert into public.reports (school_uai, status, source_type, source_url, source_domain, source_id, observed_at)
 values ('0000002B', 'filtrant', 'collecteur', 'https://t.me/canal_confiance/1', 't.me', '00000000-0000-0000-0000-00000000000a', now());
