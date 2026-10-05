@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import type { MapViewState } from '@/components/map/MapView'
 import { LiveFeed } from '@/components/map/LiveFeed'
@@ -8,7 +8,10 @@ import { NewSignalToasts } from '@/components/map/NewSignalToasts'
 import { SchoolPanel } from '@/components/map/SchoolPanel'
 import { HeroStats, Legend } from '@/components/status/HeroStats'
 import { ShareButton } from '@/components/ShareButton'
-import { computeStats, statusesQuery } from '@/queries/statuses'
+import { computeStats, periodStatusesQuery, statusesQuery } from '@/queries/statuses'
+import { settingsQuery } from '@/queries/settings'
+import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib/periods'
+import { PeriodPicker } from '@/components/status/PeriodPicker'
 import { useReportsRealtime } from '@/lib/realtime'
 
 // MapLibre (~800 ko) est chargé à part : les chiffres et la liste s'affichent avant la carte.
@@ -29,6 +32,8 @@ const searchSchema = z.object({
     .regex(/^[0-9]{7}[A-Z]$/)
     .optional()
     .catch(undefined),
+  // Absente = direct (URL partagée par défaut inchangée).
+  periode: z.enum(PERIODS).optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/')({
@@ -36,6 +41,7 @@ export const Route = createFileRoute('/')({
   // Préchargement non bloquant : la page s'affiche tout de suite, les données arrivent ensuite.
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(statusesQuery)
+    void context.queryClient.prefetchQuery(settingsQuery)
   },
   component: MapPage,
 })
@@ -43,10 +49,34 @@ export const Route = createFileRoute('/')({
 function MapPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: '/' })
-  const { data: statuses = [], dataUpdatedAt, isError, isPending } = useQuery(statusesQuery)
+  const period: Period = search.periode ?? 'direct'
+  const { data: settings = DEFAULT_SETTINGS } = useQuery(settingsQuery)
+  const {
+    data: statuses = [],
+    dataUpdatedAt,
+    isError,
+    isPending,
+  } = useQuery({ ...periodStatusesQuery(period, settings), placeholderData: keepPreviousData })
+  // Alertes « nouveau signal » : toujours sur le direct, quelle que soit la période affichée
+  // (changer de période ferait sinon apparaître de faux nouveaux lycées).
+  const { data: live = [] } = useQuery(statusesQuery)
   useReportsRealtime()
+  const history = period === 'direct' ? undefined : periodDescription(period, settings)
+  const setPeriod = useCallback(
+    (p: Period) => {
+      void navigate({
+        search: (prev) => ({ ...prev, periode: p === 'direct' ? undefined : p }),
+        replace: true,
+      })
+    },
+    [navigate],
+  )
 
   const stats = useMemo(() => computeStats(statuses), [statuses])
+  const shareUrl = period === 'direct' ? '/' : `/?periode=${period}`
+  const shareText = history
+    ? `${stats.bloque} lycées ont été bloqués ${history} en France.`
+    : `${stats.bloque} lycées bloqués en ce moment en France.`
   const selected = statuses.find((s) => s.uai === search.uai)
 
   const [initialView] = useState<MapViewState>(() => {
@@ -77,12 +107,18 @@ function MapPage() {
         className="hidden w-[380px] shrink-0 flex-col border-r border-border md:flex"
       >
         <div className="space-y-4 border-b border-border p-6">
-          <HeroStats stats={stats} updatedAt={dataUpdatedAt} isError={isError} />
+          <HeroStats
+            stats={stats}
+            updatedAt={dataUpdatedAt}
+            isError={isError}
+            history={history}
+            picker={<PeriodPicker value={period} onChange={setPeriod} />}
+          />
           <Legend />
           <ShareButton
-            url="/"
+            url={shareUrl}
             title="Manifeste - les lycées mobilisés, en direct"
-            text={`${stats.bloque} lycées bloqués en ce moment en France.`}
+            text={shareText}
             label="Partager la carte"
           />
         </div>
@@ -111,17 +147,30 @@ function MapPage() {
 
         {/* Téléphone : chiffres en surimpression. */}
         <div className="glass pointer-events-none absolute top-2 left-2 z-10 max-w-[calc(100%-4rem)] rounded-2xl border border-border px-3 py-2 shadow-2xl md:hidden">
-          <HeroStats stats={stats} updatedAt={dataUpdatedAt} isError={isError} compact />
+          <HeroStats
+            stats={stats}
+            updatedAt={dataUpdatedAt}
+            isError={isError}
+            history={history}
+            compact
+            picker={
+              <PeriodPicker
+                value={period}
+                onChange={setPeriod}
+                className="pointer-events-auto my-1"
+              />
+            }
+          />
         </div>
 
-        <NewSignalToasts statuses={statuses} onSelect={onSelect} />
+        <NewSignalToasts statuses={live} onSelect={onSelect} />
 
         {/* Téléphone : partage de la carte, en bas à gauche (le bouton Signaler est à droite). */}
         {!selected && (
           <ShareButton
-            url="/"
+            url={shareUrl}
             title="Manifeste - les lycées mobilisés, en direct"
-            text={`${stats.bloque} lycées bloqués en ce moment en France.`}
+            text={shareText}
             label="Partager"
             className="glass absolute left-4 z-10 inline-flex h-12 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold shadow-2xl md:hidden"
             style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
@@ -130,7 +179,7 @@ function MapPage() {
 
         {!isPending && statuses.length === 0 && (
           <p className="glass absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm whitespace-nowrap shadow md:top-4 md:bottom-auto">
-            Aucun blocus signalé pour le moment
+            {history ? `Aucun blocus signalé ${history}` : 'Aucun blocus signalé pour le moment'}
           </p>
         )}
 

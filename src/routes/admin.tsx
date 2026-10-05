@@ -4,13 +4,14 @@ import { z } from 'zod'
 import { LoginForm } from '@/components/admin/LoginForm'
 import { PendingPanel } from '@/components/admin/PendingPanel'
 import { ReportsPanel } from '@/components/admin/ReportsPanel'
+import { SettingsPanel } from '@/components/admin/SettingsPanel'
 import { SourcesPanel } from '@/components/admin/SourcesPanel'
 import { TrustedDomainsPanel } from '@/components/admin/TrustedDomainsPanel'
 import { UnmatchedPanel } from '@/components/admin/UnmatchedPanel'
 import { supabase } from '@/lib/supabase'
 import { isAdminSession, pendingQuery, useSession } from '@/queries/admin'
 
-const TABS = ['sources', 'moderation', 'signaux', 'non-rattaches', 'domaines'] as const
+const TABS = ['sources', 'moderation', 'signaux', 'non-rattaches', 'domaines', 'reglages'] as const
 type Tab = (typeof TABS)[number]
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -19,6 +20,7 @@ const TAB_LABELS: Record<Tab, string> = {
   signaux: 'Signaux',
   'non-rattaches': 'Non rattachés',
   domaines: 'Domaines de confiance',
+  reglages: 'Réglages',
 }
 
 export const Route = createFileRoute('/admin')({
@@ -84,6 +86,7 @@ function AdminPage() {
         {tab === 'signaux' && <ReportsPanel />}
         {tab === 'non-rattaches' && <UnmatchedPanel />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
+        {tab === 'reglages' && <SettingsPanel />}
       </div>
     </main>
   )

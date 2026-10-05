@@ -1,11 +1,14 @@
 import { useMemo } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
 import { z } from 'zod'
 import { REPORT_STATUSES, STATUS_LABELS, formatRelative } from '@shared/status.ts'
 import { StatusIcon } from '@/components/status/StatusIcon'
-import { statusesQuery, type SchoolStatus } from '@/queries/statuses'
+import { periodStatusesQuery, statusesQuery, type SchoolStatus } from '@/queries/statuses'
+import { settingsQuery } from '@/queries/settings'
+import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib/periods'
+import { PeriodPicker } from '@/components/status/PeriodPicker'
 import { useNow } from '@/lib/useNow'
 
 const searchSchema = z.object({
@@ -13,12 +16,14 @@ const searchSchema = z.object({
   academie: z.string().max(80).optional().catch(undefined),
   dep: z.string().max(3).optional().catch(undefined),
   statut: z.enum(REPORT_STATUSES).optional().catch(undefined),
+  periode: z.enum(PERIODS).optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/liste')({
   validateSearch: searchSchema,
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(statusesQuery)
+    void context.queryClient.prefetchQuery(settingsQuery)
   },
   component: ListPage,
 })
@@ -36,7 +41,15 @@ const TEXT: Record<SchoolStatus['status'], string> = {
 function ListPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: '/liste' })
-  const { data: statuses = [], isPending, isError, refetch } = useQuery(statusesQuery)
+  const period: Period = search.periode ?? 'direct'
+  const { data: settings = DEFAULT_SETTINGS } = useQuery(settingsQuery)
+  const {
+    data: statuses = [],
+    isPending,
+    isError,
+    refetch,
+  } = useQuery({ ...periodStatusesQuery(period, settings), placeholderData: keepPreviousData })
+  const description = periodDescription(period, settings)
   const now = useNow()
 
   const academies = useMemo(
@@ -68,8 +81,15 @@ function ListPage() {
     <main className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4 pb-28 md:pb-8">
       <h1 className="text-2xl font-black">Lycées mobilisés</h1>
       <p className="text-muted">
-        Tous les lycées avec un signal en cours, du plus récent au plus ancien.
+        {period === 'direct'
+          ? `Les lycées signalés ${description}, du plus récent au plus ancien.`
+          : `Tous les lycées mobilisés ${description}, avec le statut le plus fort de la période.`}
       </p>
+      <PeriodPicker
+        className="mt-3"
+        value={period}
+        onChange={(p) => set({ periode: p === 'direct' ? undefined : p })}
+      />
 
       <div className="mt-4 space-y-3" role="search">
         <label className="relative block">
@@ -137,7 +157,7 @@ function ListPage() {
         {hasFilters && (
           <Link
             to="/liste"
-            search={{}}
+            search={{ periode: search.periode }}
             className="inline-flex min-h-11 items-center gap-1 underline"
           >
             <X size={14} aria-hidden="true" /> Effacer les filtres
@@ -164,7 +184,7 @@ function ListPage() {
         <p className="card mt-2 text-center text-muted">
           {hasFilters
             ? 'Aucun lycée ne correspond à ces filtres.'
-            : 'Aucun blocus signalé pour le moment.'}
+            : `Aucun blocus signalé ${description}.`}
         </p>
       )}
       <ol className="mt-2 divide-y divide-border rounded-lg border border-border bg-surface empty:hidden">
@@ -188,9 +208,12 @@ function ListPage() {
                 <span className={`block font-semibold ${TEXT[s.status]}`}>
                   {STATUS_LABELS[s.status]}
                 </span>
-                <time dateTime={s.last_signal_at} className="text-muted">
+                <time dateTime={s.last_signal_at} className="block text-muted">
                   {formatRelative(new Date(s.last_signal_at), now)}
                 </time>
+                {s.signal_days != null && s.signal_days > 1 && (
+                  <span className="block text-muted">{s.signal_days} jours mobilisé</span>
+                )}
               </span>
             </Link>
           </li>

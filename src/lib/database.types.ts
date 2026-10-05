@@ -260,6 +260,26 @@ export type Database = {
       }
     }
     Functions: {
+      school_status_since: {
+        Args: { p_since: string }
+        Returns: {
+          uai: string
+          name: string
+          city: string
+          department: string | null
+          academy: string | null
+          lat: number
+          lng: number
+          status: ReportStatus
+          last_signal_at: string
+          source_count: number
+          signal_days: number
+        }[]
+      }
+      admin_set_setting: {
+        Args: { p_key: string; p_value: string }
+        Returns: undefined
+      }
       national_counts: {
         Args: Record<PropertyKey, never>
         Returns: { bloque: number; filtrant: number; leve: number; last_signal_at: string | null }[]

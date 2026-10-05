@@ -4,7 +4,10 @@ export const queryKeys = {
     all: ['statuses'] as const,
     list: () => [...queryKeys.statuses.all, 'list'] as const,
     counts: () => [...queryKeys.statuses.all, 'counts'] as const,
+    period: (period: string, start: string) =>
+      [...queryKeys.statuses.all, 'period', period, start] as const,
   },
+  settings: ['settings'] as const,
   school: (uai: string) => ['school', uai] as const,
   schoolReports: (uai: string) => ['school', uai, 'reports'] as const,
   schoolDetail: (uai: string) => ['school', uai, 'detail'] as const,

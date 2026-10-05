@@ -1,5 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { DEFAULT_SETTINGS, periodDescription } from '@/lib/periods'
+import { settingsQuery } from '@/queries/settings'
 import { CONTACT_EMAIL, HOST_SUPABASE, HOST_VERCEL } from '@/config/legal'
 
 export const Route = createFileRoute('/a-propos')({
@@ -18,6 +21,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 
 function AboutPage() {
+  const { data: settings = DEFAULT_SETTINGS } = useQuery(settingsQuery)
   const mail = (
     <a href={`mailto:${CONTACT_EMAIL}`} className="underline">
       {CONTACT_EMAIL}
@@ -61,8 +65,11 @@ function AboutPage() {
           heures. Sinon, l'équipe la vérifie avant publication.
         </p>
         <p>
-          <strong>Expiration.</strong> Sans nouveau signal pendant 5 heures, un lycée disparaît de
-          la carte. La carte montre la situation du moment, pas un historique.
+          <strong>Direct et bilan.</strong> En direct, un lycée sort de la carte sans nouveau signal
+          pendant {settings.statusTtlHours} heure{settings.statusTtlHours > 1 ? 's' : ''}. Les
+          boutons « 24 h », « 7 jours » et « Tout » montrent le bilan sur la période : chaque lycée
+          concerné au moins une fois, avec le statut le plus fort qu'il a connu. « Tout » remonte{' '}
+          {periodDescription('tout', settings)}.
         </p>
       </Section>
 

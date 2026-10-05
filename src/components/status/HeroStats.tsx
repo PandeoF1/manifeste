@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+import { History } from 'lucide-react'
 import { formatRelative } from '@shared/status.ts'
 import type { NationalStats } from '@/queries/statuses'
 import { useCountUp } from '@/lib/useCountUp'
@@ -10,6 +12,10 @@ interface Props {
   isError: boolean
   /** Variante compacte (overlay mobile). */
   compact?: boolean
+  /** Période passée : « ces 7 derniers jours »… (absent en direct). */
+  history?: string
+  /** Sélecteur de période, affiché sous l'en-tête. */
+  picker?: ReactNode
 }
 
 export function LiveIndicator({ updatedAt, isError }: { updatedAt: number; isError: boolean }) {
@@ -30,21 +36,38 @@ export function LiveIndicator({ updatedAt, isError }: { updatedAt: number; isErr
   )
 }
 
-export function HeroStats({ stats, updatedAt, isError, compact = false }: Props) {
+function HistoryIndicator({ label }: { label: string }) {
+  return (
+    <p className="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
+      <History size={14} aria-hidden="true" className="text-muted" />
+      <span>Bilan</span>
+      <span className="font-normal tracking-normal normal-case text-muted">· {label}</span>
+    </p>
+  )
+}
+
+export function HeroStats({ stats, updatedAt, isError, compact = false, history, picker }: Props) {
   const bloque = useCountUp(stats.bloque)
   const filtrant = useCountUp(stats.filtrant)
   const plural = (n: number) => (n > 1 ? 's' : '')
 
   return (
     <section aria-labelledby="hero-title" className={compact ? 'space-y-0.5' : 'space-y-3'}>
-      <LiveIndicator updatedAt={updatedAt} isError={isError} />
+      {history ? (
+        <HistoryIndicator label={history} />
+      ) : (
+        <LiveIndicator updatedAt={updatedAt} isError={isError} />
+      )}
+      {picker}
       <h2 id="hero-title" className={compact ? 'sr-only' : 'text-sm font-semibold text-muted'}>
         Partout en France, les lycéens se font entendre.
       </h2>
       {/* Lecteurs d'écran : une phrase complète, mise à jour sans annoncer l'animation. */}
       <p className="sr-only" aria-live="polite">
-        {stats.bloque} lycée{plural(stats.bloque)} bloqué{plural(stats.bloque)}, {stats.filtrant} en
-        barrage filtrant, dans {stats.departments} département{plural(stats.departments)}.
+        {history ? `${history[0]?.toUpperCase()}${history.slice(1)}, ` : ''}
+        {stats.bloque} lycée{plural(stats.bloque)} {history ? 'ont été ' : ''}bloqué
+        {plural(stats.bloque)}, {stats.filtrant} en barrage filtrant, dans {stats.departments}{' '}
+        département{plural(stats.departments)}.
       </p>
       <div aria-hidden="true">
         <p className="flex items-baseline gap-3">
@@ -56,6 +79,7 @@ export function HeroStats({ stats, updatedAt, isError, compact = false }: Props)
           <span className={`font-bold leading-tight ${compact ? 'text-base' : 'text-xl'}`}>
             lycée{plural(stats.bloque)}
             {compact ? ' ' : <br />}
+            {history ? (stats.bloque > 1 ? 'ont été ' : 'a été ') : ''}
             bloqué{plural(stats.bloque)}
           </span>
         </p>
@@ -66,7 +90,7 @@ export function HeroStats({ stats, updatedAt, isError, compact = false }: Props)
         <p className={`text-muted ${compact ? 'text-xs' : 'mt-1 text-sm'}`}>
           dans <strong className="text-fg">{stats.departments}</strong> département
           {plural(stats.departments)}
-          {stats.lastHour > 0 && (
+          {!history && stats.lastHour > 0 && (
             <>
               {' '}
               · <strong className="text-fg">+{stats.lastHour}</strong> en 1 h
