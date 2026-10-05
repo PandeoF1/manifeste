@@ -141,9 +141,29 @@ body {
   animation: toast-in 0.25s ease-out;
 }
 
+/* Bouton flottant « Signaler » : lueur rouge, apparition, retour tactile. */
+.fab {
+  box-shadow:
+    0 10px 30px color-mix(in srgb, var(--status-bloque) 45%, transparent),
+    0 2px 8px rgb(0 0 0 / 0.5);
+  animation: fab-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transition: transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fab:active {
+  transform: scale(0.94);
+}
+@keyframes fab-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.9);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .live-dot,
-  .toast-in {
+  .toast-in,
+  .fab {
     animation: none;
   }
 }

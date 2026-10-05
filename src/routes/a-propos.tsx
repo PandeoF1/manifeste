@@ -24,7 +24,7 @@ function AboutPage() {
     </a>
   )
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 space-y-10 overflow-y-auto p-4 pb-16">
+    <main className="mx-auto w-full max-w-2xl flex-1 space-y-10 overflow-y-auto p-4 pb-28 md:pb-16">
       <header className="space-y-3 pt-4">
         <h1 className="text-3xl font-black">Aucun lycée mobilisé n'est seul.</h1>
         <p className="text-lg">

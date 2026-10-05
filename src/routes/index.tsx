@@ -116,8 +116,20 @@ function MapPage() {
 
         <NewSignalToasts statuses={statuses} onSelect={onSelect} />
 
+        {/* Téléphone : partage de la carte, en bas à gauche (le bouton Signaler est à droite). */}
+        {!selected && (
+          <ShareButton
+            url="/"
+            title="Manifeste - les lycées mobilisés, en direct"
+            text={`${stats.bloque} lycées bloqués en ce moment en France.`}
+            label="Partager"
+            className="glass absolute left-4 z-10 inline-flex h-12 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold shadow-2xl md:hidden"
+            style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+          />
+        )}
+
         {!isPending && statuses.length === 0 && (
-          <p className="glass absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm shadow md:top-4 md:bottom-auto">
+          <p className="glass absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm whitespace-nowrap shadow md:top-4 md:bottom-auto">
             Aucun blocus signalé pour le moment
           </p>
         )}

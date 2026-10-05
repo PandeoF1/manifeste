@@ -65,7 +65,7 @@ function ListPage() {
   const hasFilters = Boolean(search.q || search.academie || search.dep || search.statut)
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4 pb-8">
+    <main className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4 pb-28 md:pb-8">
       <h1 className="text-2xl font-black">Lycées mobilisés</h1>
       <p className="text-muted">
         Tous les lycées avec un signal en cours, du plus récent au plus ancien.

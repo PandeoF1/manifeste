@@ -1,7 +1,7 @@
 import { Outlet, createRootRouteWithContext, useRouterState } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { TopBar } from '@/components/layout/TopBar'
-import { BottomTabs } from '@/components/layout/BottomTabs'
+import { ReportFab } from '@/components/layout/ReportFab'
 import { InstallPrompt, OfflineBanner, UpdatePrompt } from '@/components/layout/AppNotices'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -29,7 +29,7 @@ function RootLayout() {
       <div id="contenu" className="flex min-h-0 flex-1 flex-col">
         <Outlet />
       </div>
-      <BottomTabs />
+      <ReportFab />
       <UpdatePrompt />
       <InstallPrompt />
     </div>

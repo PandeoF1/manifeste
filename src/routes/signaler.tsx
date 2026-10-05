@@ -143,7 +143,7 @@ function ReportPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-xl flex-1 overflow-y-auto p-4 pb-16">
+    <main className="mx-auto w-full max-w-xl flex-1 overflow-y-auto p-4 pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <h1 className="text-2xl font-black">Signaler un blocus</h1>
       <p className="mt-1 text-muted">
         Tu es devant ton lycée ? Fais-le savoir : chaque signalement vérifié rejoint la carte

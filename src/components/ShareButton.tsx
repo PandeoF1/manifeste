@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Check, Share2 } from 'lucide-react'
 
 /** Partage natif (téléphone) ou copie du lien (ordinateur). */
@@ -8,12 +8,14 @@ export function ShareButton({
   text,
   className = 'btn-secondary',
   label = 'Partager',
+  style,
 }: {
   url: string
   title: string
   text?: string
   className?: string
   label?: string
+  style?: CSSProperties
 }) {
   const [copied, setCopied] = useState(false)
   async function share() {
@@ -36,7 +38,7 @@ export function ShareButton({
     }
   }
   return (
-    <button type="button" onClick={() => void share()} className={className}>
+    <button type="button" onClick={() => void share()} className={className} style={style}>
       {copied ? <Check size={18} aria-hidden="true" /> : <Share2 size={18} aria-hidden="true" />}
       <span aria-live="polite">{copied ? 'Lien copié' : label}</span>
     </button>

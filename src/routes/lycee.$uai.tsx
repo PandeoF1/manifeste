@@ -86,7 +86,7 @@ function SchoolPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 overflow-y-auto p-4 pb-10">
+    <main className="mx-auto w-full max-w-2xl flex-1 overflow-y-auto p-4 pb-28 md:pb-10">
       <header className="space-y-1">
         <h1 className="text-3xl leading-tight font-black">{school.name}</h1>
         <p className="text-muted">

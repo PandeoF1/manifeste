@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useIsRestoring, useQuery } from '@tanstack/react-query'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { Download, RefreshCw, WifiOff, X } from 'lucide-react'
 import { statusesQuery } from '@/queries/statuses'
+
+/**
+ * Bandeaux du bas : au-dessus du bouton « Signaler » flottant sur téléphone, en bas sur ordinateur.
+ */
+const NOTICE_CLASS =
+  'fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-border p-3 shadow-2xl md:bottom-4'
 
 const timeFmt = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
@@ -41,38 +47,71 @@ export function OfflineBanner() {
 
 /** Nouvelle version disponible : l'utilisateur recharge quand il veut. */
 export function UpdatePrompt() {
+  const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined)
+  const [updating, setUpdating] = useState(false)
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_url, registration) {
-      // Vérifie les mises à jour toutes les heures pour les onglets restés ouverts.
-      if (registration) window.setInterval(() => void registration.update(), 3_600_000)
+      if (!registration) return
+      registrationRef.current = registration
+      // Onglets restés ouverts et app réouverte depuis l'écran d'accueil : on revérifie.
+      const check = () => {
+        if (!registration.installing && navigator.onLine) void registration.update()
+      }
+      window.setInterval(check, 30 * 60_000)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check()
+      })
     },
   })
+
+  async function reload() {
+    setUpdating(true)
+    // workbox ne recharge la page que pour une mise à jour trouvée par cet onglet au chargement :
+    // trouvée plus tard (vérification périodique, autre onglet), la nouvelle version s'activait
+    // sans que la page se recharge. On recharge donc nous-mêmes dès qu'elle prend la main.
+    let done = false
+    const go = () => {
+      if (done) return
+      done = true
+      window.location.reload()
+    }
+    navigator.serviceWorker?.addEventListener('controllerchange', go, { once: true })
+    registrationRef.current?.waiting?.postMessage({ type: 'SKIP_WAITING' })
+    await updateServiceWorker(true)
+    // Filet de sécurité : rechargement même si l'événement ne vient pas.
+    window.setTimeout(go, 3000)
+  }
+
   if (!needRefresh) return null
   return (
-    <div
-      role="status"
-      className="glass fixed inset-x-3 bottom-20 z-50 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-border p-3 shadow-2xl md:bottom-4"
-    >
-      <RefreshCw size={18} aria-hidden="true" className="shrink-0" />
-      <p className="flex-1 text-sm">Nouvelle version disponible.</p>
+    <div role="status" className={`glass ${NOTICE_CLASS} z-50`}>
+      <RefreshCw
+        size={18}
+        aria-hidden="true"
+        className={`shrink-0 ${updating ? 'animate-spin' : ''}`}
+      />
+      <p className="flex-1 text-sm">{updating ? 'Mise à jour…' : 'Nouvelle version disponible.'}</p>
       <button
         type="button"
         className="btn-primary min-h-10 px-3 text-sm"
-        onClick={() => void updateServiceWorker(true)}
+        disabled={updating}
+        onClick={() => void reload()}
       >
         Recharger
       </button>
-      <button
-        type="button"
-        className="icon-btn size-10"
-        aria-label="Plus tard"
-        onClick={() => setNeedRefresh(false)}
-      >
-        <X size={18} />
-      </button>
+      {!updating && (
+        <button
+          type="button"
+          className="icon-btn size-10"
+          aria-label="Plus tard"
+          onClick={() => setNeedRefresh(false)}
+        >
+          <X size={18} />
+        </button>
+      )}
     </div>
   )
 }
@@ -123,7 +162,7 @@ export function InstallPrompt() {
     <div
       role="dialog"
       aria-label="Installer l'application"
-      className="glass fixed inset-x-3 bottom-20 z-40 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-border p-3 shadow-2xl md:bottom-4"
+      className={`glass ${NOTICE_CLASS} z-40`}
     >
       <img src="/favicon.svg" alt="" width={36} height={36} className="rounded-lg" />
       <p className="flex-1 text-sm">Installe Manifeste pour suivre la mobilisation en un geste.</p>

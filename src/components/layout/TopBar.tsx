@@ -1,6 +1,6 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Megaphone } from 'lucide-react'
+import { Info, List, Map as MapIcon, Megaphone } from 'lucide-react'
 import { statusesQuery } from '@/queries/statuses'
 import { StatusIcon } from '@/components/status/StatusIcon'
 
@@ -27,20 +27,31 @@ function MiniCounter() {
 }
 
 export function TopBar() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const onList = pathname === '/liste'
   return (
     <header
-      className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-bg px-4"
+      className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-bg px-2 md:px-4"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
+      {/* Téléphone : bascule carte / liste en haut à gauche. */}
+      <Link
+        to={onList ? '/' : '/liste'}
+        search={{}}
+        aria-label={onList ? 'Voir la carte' : 'Voir la liste des lycées'}
+        className="icon-btn md:hidden"
+      >
+        {onList ? <MapIcon size={22} aria-hidden="true" /> : <List size={22} aria-hidden="true" />}
+      </Link>
       <Link
         to="/"
         search={{}}
-        className="flex items-center gap-2 text-lg font-black tracking-tight uppercase"
+        className="flex items-center gap-2 text-lg font-black tracking-tight uppercase max-md:absolute max-md:left-1/2 max-md:-translate-x-1/2"
       >
         <img src="/favicon.svg" alt="" width={28} height={28} className="rounded-md" />
         Manifeste
       </Link>
-      {/* Ordinateur : navigation au centre. Téléphone : barre d'onglets en bas. */}
+      {/* Ordinateur : navigation au centre. */}
       <nav aria-label="Navigation principale" className="hidden items-center gap-1 text-sm md:flex">
         {NAV.map((item) => (
           <Link
@@ -66,6 +77,15 @@ export function TopBar() {
           className="hidden min-h-11 items-center gap-1.5 rounded-full bg-bloque px-4 font-bold text-white md:inline-flex"
         >
           <Megaphone size={16} aria-hidden="true" /> Signaler
+        </Link>
+        <Link
+          to="/a-propos"
+          search={{}}
+          aria-label="À propos"
+          className="icon-btn md:hidden"
+          activeProps={{ className: 'text-bloque', 'aria-current': 'page' }}
+        >
+          <Info size={22} aria-hidden="true" />
         </Link>
       </div>
     </header>

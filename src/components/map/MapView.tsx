@@ -24,6 +24,8 @@ const STYLE_URL =
 const SOURCE_ID = 'schools'
 /** Un signal de moins de 30 min « pulse » sur la carte. */
 const RECENT_MS = 30 * 60_000
+/** Durée d'une onde. */
+const PULSE_MS = 2000
 
 export interface MapViewState {
   lat: number
@@ -82,6 +84,7 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const readyRef = useRef(false)
+  const hasRecentRef = useRef(false)
   const latest = useRef({ statuses, onViewChange, onSelect })
   useEffect(() => {
     latest.current = { statuses, onViewChange, onSelect }
@@ -106,7 +109,9 @@ export default function MapView({
     })
     mapRef.current = map
     map.touchZoomRotate.disableRotation()
-    map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
+    // Téléphone : zoom au doigt, pas de boutons +/- qui encombrent l'écran.
+    if (window.matchMedia('(min-width: 768px)').matches)
+      map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
     // Géolocalisation : calculée dans le navigateur, jamais envoyée au serveur.
     map.addControl(
       new GeolocateControl({
@@ -198,8 +203,12 @@ export default function MapView({
           'circle-color': 'rgba(0,0,0,0)',
           'circle-stroke-color': STATUS_COLOR,
           'circle-stroke-width': 2,
-          'circle-radius': 10,
-          'circle-stroke-opacity': 0.6,
+          'circle-radius': 6,
+          'circle-stroke-opacity': 0,
+          // Animé image par image : sans ça, MapLibre lisse chaque changement sur 300 ms et
+          // l'onde, toujours en retard, se rétracte visiblement en repartant de zéro.
+          'circle-radius-transition': { duration: 0, delay: 0 },
+          'circle-stroke-opacity-transition': { duration: 0, delay: 0 },
         },
       })
 
@@ -250,11 +259,15 @@ export default function MapView({
         let last = 0
         const animate = (t: number) => {
           frame = requestAnimationFrame(animate)
+          // Rien à animer (aucun signal récent, onglet masqué) : on ne redessine pas la carte.
+          if (!hasRecentRef.current || document.hidden) return
           if (t - last < 33) return // ~30 i/s suffit
           last = t
-          const phase = (t % 1800) / 1800
-          map.setPaintProperty('pulse', 'circle-radius', 6 + phase * 26)
-          map.setPaintProperty('pulse', 'circle-stroke-opacity', 0.75 * (1 - phase))
+          const phase = (t % PULSE_MS) / PULSE_MS
+          // Expansion rapide puis ralentie ; l'onde s'efface complètement avant de repartir.
+          const eased = 1 - (1 - phase) ** 3
+          map.setPaintProperty('pulse', 'circle-radius', 6 + eased * 24)
+          map.setPaintProperty('pulse', 'circle-stroke-opacity', 0.8 * (1 - phase) ** 2)
         }
         frame = requestAnimationFrame(animate)
       }
@@ -281,8 +294,11 @@ export default function MapView({
 
   // Mise à jour des données (et du caractère « récent » des signaux).
   useEffect(() => {
-    const update = () =>
-      mapRef.current?.getSource<GeoJSONSource>(SOURCE_ID)?.setData(toGeoJSON(statuses, Date.now()))
+    const update = () => {
+      const data = toGeoJSON(statuses, Date.now())
+      hasRecentRef.current = data.features.some((f) => f.properties?.recent === true)
+      mapRef.current?.getSource<GeoJSONSource>(SOURCE_ID)?.setData(data)
+    }
     update()
     const id = window.setInterval(update, 60_000)
     return () => window.clearInterval(id)
