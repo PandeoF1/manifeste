@@ -20,65 +20,116 @@ export interface MediaRow {
 }
 
 /**
- * Média et propriétaire, d'après les informations publiques (à compléter ou corriger ici).
- * Les domaines absents s'affichent tels quels, propriétaire « non renseigné ».
+ * Média et propriétaire. Vérifié sur le web le 6 octobre 2026 (CB News, The Media Leader,
+ * Autorité de la concurrence, communiqués des groupes) ; les domaines absents s'affichent tels
+ * quels, propriétaire « Non renseigné ». Les pourcentages d'actionnariat ne sont volontairement
+ * pas affichés : plusieurs ne sont pas publics ou datés.
+ * À surveiller (peuvent changer) : Sud Ouest (Rossel en négociation exclusive pour 80 %, fin
+ * 2026), 20 Minutes (Rossel à 100 % annoncé en février 2026, clôture non confirmée), Le
+ * Parisien (rumeur de vente démentie par LVMH), holding de l'audiovisuel public.
  */
 export const OUTLETS: Record<string, { name: string; owner: string }> = {
-  'lemonde.fr': { name: 'Le Monde', owner: 'Groupe Le Monde' },
+  // Presse nationale
+  'lemonde.fr': {
+    name: 'Le Monde',
+    owner: "Groupe Le Monde (Fonds pour l'indépendance de la presse)",
+  },
+  'huffingtonpost.fr': {
+    name: 'HuffPost',
+    owner: "Groupe Le Monde (Fonds pour l'indépendance de la presse)",
+  },
+  'nouvelobs.com': {
+    name: "L'Obs",
+    owner: "Groupe Le Monde (Fonds pour l'indépendance de la presse)",
+  },
   'lefigaro.fr': { name: 'Le Figaro', owner: 'Groupe Dassault' },
   'liberation.fr': { name: 'Libération', owner: 'Presse indépendante (fonds de dotation)' },
   'leparisien.fr': { name: 'Le Parisien', owner: 'LVMH (Bernard Arnault)' },
   'lesechos.fr': { name: 'Les Échos', owner: 'LVMH (Bernard Arnault)' },
+  'lopinion.fr': { name: "L'Opinion", owner: 'LVMH (Bernard Arnault)' },
   'cnews.fr': { name: 'CNews', owner: 'Groupe Canal+ (Bolloré)' },
-  'europe1.fr': { name: 'Europe 1', owner: 'Lagardère (Bolloré)' },
-  'lejdd.fr': { name: 'Le JDD', owner: 'Lagardère (Bolloré)' },
+  'europe1.fr': { name: 'Europe 1', owner: 'Lagardère / Louis Hachette Group (Bolloré)' },
+  'lejdd.fr': { name: 'Le JDD', owner: 'Lagardère / Louis Hachette Group (Bolloré)' },
   'bfmtv.com': { name: 'BFMTV', owner: 'CMA CGM (Rodolphe Saadé)' },
   'rmc.bfmtv.com': { name: 'RMC', owner: 'CMA CGM (Rodolphe Saadé)' },
-  'laprovence.com': { name: 'La Provence', owner: 'CMA CGM (Rodolphe Saadé)' },
   'tf1info.fr': { name: 'TF1 Info', owner: 'Groupe TF1 (Bouygues)' },
   'lci.fr': { name: 'LCI', owner: 'Groupe TF1 (Bouygues)' },
+  'rtl.fr': { name: 'RTL', owner: 'Groupe M6 (RTL Group / Bertelsmann)' },
+  'sudradio.fr': { name: 'Sud Radio', owner: 'Fiducial' },
+  'lepoint.fr': { name: 'Le Point', owner: 'Artémis (François Pinault)' },
+  'lexpress.fr': { name: "L'Express", owner: 'Alain Weill' },
+  'marianne.net': { name: 'Marianne', owner: 'CMI France (Daniel Kretinsky)' },
+  'valeursactuelles.com': {
+    name: 'Valeurs actuelles',
+    owner: 'Valmonde (La Combe, Caude, Stérin)',
+  },
+  '20minutes.fr': { name: '20 Minutes', owner: 'Groupe Rossel' },
+  'la-croix.com': { name: 'La Croix', owner: 'Groupe Bayard (Assomptionnistes)' },
+  'mariefrance.fr': { name: 'Marie France', owner: 'Reworld Media' },
+  'aufeminin.com': { name: 'Aufeminin', owner: 'Reworld Media' },
+  'boursorama.com': { name: 'Boursorama', owner: 'Société Générale' },
+  'jeanmarcmorandini.com': {
+    name: 'Jean-Marc Morandini',
+    owner: 'The Web Family (J.-M. Morandini)',
+  },
+  'fr.news.yahoo.com': { name: 'Yahoo Actualités', owner: 'Agrégateur (Yahoo)' },
+  'actu.orange.fr': { name: 'Orange Actualités', owner: 'Agrégateur (Orange)' },
+
+  // Indépendants, associations, fonds
+  'humanite.fr': { name: "L'Humanité", owner: "L'Humanité (PCF, lecteurs, salariés)" },
+  'mediapart.fr': { name: 'Mediapart', owner: 'Fonds pour une presse libre' },
+  'reporterre.net': { name: 'Reporterre', owner: 'Association La Pile' },
+  'basta.media': { name: 'Basta!', owner: 'Association Alter-médias' },
+  'streetpress.com': { name: 'StreetPress', owner: 'Indépendant' },
+  'blast-info.fr': { name: 'Blast', owner: 'Indépendant' },
+
+  // Service public
   'francetvinfo.fr': { name: 'Franceinfo', owner: 'Service public' },
-  'france3-regions.francetvinfo.fr': { name: 'France 3 Régions', owner: 'Service public' },
-  'francebleu.fr': { name: 'ici (France Bleu)', owner: 'Service public' },
-  'ici.fr': { name: 'ici (France Bleu)', owner: 'Service public' },
   'franceinfo.fr': { name: 'Franceinfo', owner: 'Service public' },
+  'france3-regions.francetvinfo.fr': { name: 'France 3 Régions', owner: 'Service public' },
   'france3-regions.franceinfo.fr': { name: 'France 3 Régions', owner: 'Service public' },
   'la1ere.franceinfo.fr': { name: 'La 1ère', owner: 'Service public' },
   'la1ere.francetvinfo.fr': { name: 'La 1ère', owner: 'Service public' },
-  'arte.tv': { name: 'Arte', owner: 'Service public' },
-  'lcp.fr': { name: 'LCP', owner: 'Service public (Assemblée nationale)' },
-  'publicsenat.fr': { name: 'Public Sénat', owner: 'Service public (Sénat)' },
-  'letelegramme.fr': { name: 'Le Télégramme', owner: 'Groupe Télégramme' },
-  'la-croix.com': { name: 'La Croix', owner: 'Groupe Bayard' },
-  // À vérifier : actionnariat du groupe Le Monde.
-  'huffingtonpost.fr': { name: 'HuffPost', owner: 'Groupe Le Monde' },
-  'nouvelobs.com': { name: "L'Obs", owner: 'Groupe Le Monde' },
-  'fr.news.yahoo.com': { name: 'Yahoo Actualités', owner: 'Agrégateur (Yahoo)' },
-  'actu.orange.fr': { name: 'Orange Actualités', owner: 'Agrégateur (Orange)' },
+  'francebleu.fr': { name: 'ici (France Bleu)', owner: 'Service public' },
+  'ici.fr': { name: 'ici (France Bleu)', owner: 'Service public' },
   'radiofrance.fr': { name: 'Radio France', owner: 'Service public' },
   'franceinter.fr': { name: 'France Inter', owner: 'Service public' },
   'rfi.fr': { name: 'RFI', owner: 'Service public' },
   'france24.com': { name: 'France 24', owner: 'Service public' },
-  'lepoint.fr': { name: 'Le Point', owner: 'Artémis (François Pinault)' },
-  'lexpress.fr': { name: "L'Express", owner: 'Alain Weill' },
-  'valeursactuelles.com': { name: 'Valeurs actuelles', owner: 'Valmonde (Iskandar Safa)' },
-  'nicematin.com': { name: 'Nice-Matin', owner: 'Xavier Niel' },
-  'varmatin.com': { name: 'Var-Matin', owner: 'Xavier Niel' },
-  'humanite.fr': { name: "L'Humanité", owner: 'Indépendant' },
-  'mediapart.fr': { name: 'Mediapart', owner: 'Indépendant' },
-  'reporterre.net': { name: 'Reporterre', owner: 'Indépendant' },
-  'basta.media': { name: 'Basta!', owner: 'Indépendant' },
-  'streetpress.com': { name: 'StreetPress', owner: 'Indépendant' },
-  'blast-info.fr': { name: 'Blast', owner: 'Indépendant' },
+  'arte.tv': { name: 'Arte', owner: 'Service public' },
+  'lcp.fr': { name: 'LCP', owner: 'Service public (Assemblée nationale)' },
+  'publicsenat.fr': { name: 'Public Sénat', owner: 'Service public (Sénat)' },
+
+  // Presse régionale
   'ouest-france.fr': { name: 'Ouest-France', owner: 'Groupe Sipa Ouest-France' },
   'actu.fr': { name: 'Actu.fr', owner: 'Groupe Sipa Ouest-France' },
-  '20minutes.fr': { name: '20 Minutes', owner: 'Rossel / Sipa Ouest-France' },
+  'hitwest.ouest-france.fr': { name: 'Hit West', owner: 'Groupe 1981' },
   'lavoixdunord.fr': { name: 'La Voix du Nord', owner: 'Groupe Rossel' },
   'courrier-picard.fr': { name: 'Courrier picard', owner: 'Groupe Rossel' },
+  'lest-eclair.fr': { name: "L'Est-Éclair", owner: 'Groupe Rossel' },
   'ladepeche.fr': { name: 'La Dépêche du Midi', owner: 'Groupe La Dépêche (Baylet)' },
   'midilibre.fr': { name: 'Midi Libre', owner: 'Groupe La Dépêche (Baylet)' },
   'lindependant.fr': { name: "L'Indépendant", owner: 'Groupe La Dépêche (Baylet)' },
+  'nrpyrenees.fr': {
+    name: 'La Nouvelle République des Pyrénées',
+    owner: 'Groupe La Dépêche (Baylet)',
+  },
+  'centrepresseaveyron.fr': { name: 'Centre Presse Aveyron', owner: 'Groupe La Dépêche (Baylet)' },
   'sudouest.fr': { name: 'Sud Ouest', owner: 'Groupe Sud Ouest' },
+  'charentelibre.fr': { name: 'Charente Libre', owner: 'Groupe Sud Ouest' },
+  'dordognelibre.fr': { name: 'Dordogne Libre', owner: 'Groupe Sud Ouest' },
+  'larepubliquedespyrenees.fr': { name: 'La République des Pyrénées', owner: 'Groupe Sud Ouest' },
+  'lamontagne.fr': { name: 'La Montagne', owner: 'Groupe Centre France (Fondation Varenne)' },
+  'larep.fr': {
+    name: 'La République du Centre',
+    owner: 'Groupe Centre France (Fondation Varenne)',
+  },
+  'lechorepublicain.fr': {
+    name: "L'Écho républicain",
+    owner: 'Groupe Centre France (Fondation Varenne)',
+  },
+  'lyonne.fr': { name: "L'Yonne républicaine", owner: 'Groupe Centre France (Fondation Varenne)' },
+  'lanouvellerepublique.fr': { name: 'La Nouvelle République', owner: 'Groupe NR' },
   'leprogres.fr': { name: 'Le Progrès', owner: 'EBRA (Crédit Mutuel)' },
   'ledauphine.com': { name: 'Le Dauphiné libéré', owner: 'EBRA (Crédit Mutuel)' },
   'estrepublicain.fr': { name: "L'Est républicain", owner: 'EBRA (Crédit Mutuel)' },
@@ -88,7 +139,13 @@ export const OUTLETS: Record<string, { name: string; owner: string }> = {
   'vosgesmatin.fr': { name: 'Vosges Matin', owner: 'EBRA (Crédit Mutuel)' },
   'bienpublic.com': { name: 'Le Bien public', owner: 'EBRA (Crédit Mutuel)' },
   'lejsl.com': { name: 'Le JSL', owner: 'EBRA (Crédit Mutuel)' },
-  'lanouvellerepublique.fr': { name: 'La Nouvelle République', owner: 'Groupe NR' },
+  'letelegramme.fr': { name: 'Le Télégramme', owner: 'ADVENN (ex-Groupe Télégramme)' },
+  'laprovence.com': { name: 'La Provence', owner: 'CMA CGM (Rodolphe Saadé)' },
+  'corsematin.com': { name: 'Corse-Matin', owner: 'CMA CGM (Rodolphe Saadé)' },
+  'nicematin.com': { name: 'Nice-Matin', owner: 'Xavier Niel' },
+  'varmatin.com': { name: 'Var-Matin', owner: 'Xavier Niel' },
+  'franceguyane.fr': { name: 'France-Guyane', owner: 'Xavier Niel' },
+  'guadeloupe.franceantilles.fr': { name: 'France-Antilles Guadeloupe', owner: 'Xavier Niel' },
 }
 
 export const UNKNOWN_OWNER = 'Non renseigné'

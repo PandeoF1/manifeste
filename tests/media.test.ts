@@ -204,7 +204,8 @@ describe('propriétaires', () => {
     expect(outletOf('france3-regions.franceinfo.fr').name).toBe('France 3 Régions')
     expect(outletOf('la1ere.franceinfo.fr').owner).toBe('Service public')
     expect(outletOf('www.lorient.maville.com').owner).toBe('Groupe Sipa Ouest-France')
-    expect(outletOf('hitwest.ouest-france.fr').owner).toBe('Groupe Sipa Ouest-France')
+    expect(outletOf('www.ouest-france.fr').owner).toBe('Groupe Sipa Ouest-France')
+    expect(outletOf('hitwest.ouest-france.fr').owner).toBe('Groupe 1981')
     expect(outletOf('exemple.org').owner).toBe('Non renseigné')
   })
 
