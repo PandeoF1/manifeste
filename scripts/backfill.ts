@@ -44,7 +44,8 @@ import {
   mediaRows,
   parseMediaAnalyses,
 } from '../supabase/functions/_shared/media.ts'
-import { canonicalUrl } from '../supabase/functions/_shared/domain.ts'
+import { canonicalUrl, extractDomain } from '../supabase/functions/_shared/domain.ts'
+import { isGoogleNewsUrl } from '../supabase/functions/_shared/fetchers/googlenews.ts'
 import { createServiceDb } from '../supabase/functions/_shared/service-db.ts'
 import {
   BACKFILL_SOURCE_IDENTIFIER,
@@ -54,6 +55,7 @@ import {
   isQuotaExhausted,
   presetQueries,
   regionalQueries,
+  resolveGoogleNewsSlowly,
   settle,
   toQueueRow,
   type QueueRow,
@@ -83,7 +85,7 @@ function supabaseAdmin() {
   })
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 // ---------------------------------------------------------------------------------------------
 // fetch : Google Actualités, jour par jour et requête par requête -> file d'attente.
@@ -339,7 +341,39 @@ async function mediaCommand() {
     }
     // Lien réel de l'article puis titre + chapeau de la page.
     lastId = Number(rows[rows.length - 1]?.id ?? lastId)
-    const items = await enrichItems(fetch, rows.map(fromQueueRow))
+    // Liens Google : un par un, avec pause (Google répond 429 en rafale), puis lecture des pages.
+    const queueItems = rows.map(fromQueueRow)
+    const { resolved, blocked } = await resolveGoogleNewsSlowly(
+      queueItems.filter((i) => isGoogleNewsUrl(i.url)).map((i) => i.url),
+      {
+        fetchFn: fetch,
+        sleep,
+        onProgress: (n, total) =>
+          process.stdout.write(`\r${totals.read} articles lus · lien ${n}/${total} du lot…      `),
+      },
+    )
+    if (blocked) {
+      console.log(
+        "\nGoogle Actualités répond toujours « trop de requêtes » après plusieurs attentes. Relance dans une ou deux heures : le script reprend là où il s'est arrêté.",
+      )
+      break
+    }
+    const withReal = queueItems.map((i) => {
+      const real = resolved.get(i.url)
+      return real
+        ? {
+            ...i,
+            url: real,
+            publisherDomain: i.publisherDomain ?? extractDomain(real) ?? undefined,
+          }
+        : i
+    })
+    const enriched = await enrichItems(
+      fetch,
+      withReal.filter((i) => !isGoogleNewsUrl(i.url)),
+    )
+    const byId = new Map(enriched.map((i) => [i.externalId, i]))
+    const items = withReal.map((i) => byId.get(i.externalId) ?? i)
     const unreadable = new Set(
       rows.filter((_, i) => (items[i]?.text.trim().length ?? 0) === 0).map((r) => r.id),
     )

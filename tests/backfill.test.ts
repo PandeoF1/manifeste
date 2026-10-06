@@ -8,6 +8,7 @@ import {
   presetQueries,
   regionalQueries,
   REGIONS,
+  resolveGoogleNewsSlowly,
   settle,
   toQueueRow,
 } from '../scripts/backfill-lib.ts'
@@ -109,5 +110,62 @@ describe('regionalQueries', () => {
     const q = regionalQueries('lycée bloqué')
     expect(q).toHaveLength(REGIONS.length)
     expect(q).toContain('lycée bloqué "Bretagne"')
+  })
+})
+
+describe('résolution lente des liens Google Actualités', () => {
+  const ID = 'CBMiAAAA'
+  const gnews = (id: string) => `https://news.google.com/rss/articles/${id}?oc=5`
+  const page = '<c-wiz data-n-a-sg="SIG" data-n-a-ts="1700000000"></c-wiz>'
+  const batch = (url: string) =>
+    `)]}'\n\n${JSON.stringify([['wrb.fr', 'Fbv4je', JSON.stringify(['garturlres', url, 1])]])}`
+
+  function fakeFetch(decodeStatuses: number[]) {
+    let call = 0
+    const fetchFn = async (input: string) => {
+      if (input.includes('batchexecute')) {
+        const status = decodeStatuses[Math.min(call++, decodeStatuses.length - 1)] ?? 200
+        return new Response(status === 200 ? batch('https://exemple.fr/article') : 'limite', {
+          status,
+        })
+      }
+      return new Response(page, { status: 200 })
+    }
+    return fetchFn
+  }
+
+  it('résout les liens un par un, avec une pause entre deux', async () => {
+    const pauses: number[] = []
+    const { resolved, blocked } = await resolveGoogleNewsSlowly([gnews(ID), gnews(`${ID}B`)], {
+      fetchFn: fakeFetch([200]),
+      sleep: async (ms) => void pauses.push(ms),
+    })
+    expect(blocked).toBe(false)
+    expect(resolved.get(gnews(ID))).toBe('https://exemple.fr/article')
+    expect(pauses).toHaveLength(2)
+  })
+
+  it('attend quand Google répond 429, puis réessaie le même article', async () => {
+    const pauses: number[] = []
+    const { resolved, blocked } = await resolveGoogleNewsSlowly([gnews(ID)], {
+      fetchFn: fakeFetch([429, 200]),
+      sleep: async (ms) => void pauses.push(ms),
+      backoffMs: 90_000,
+    })
+    expect(blocked).toBe(false)
+    expect(resolved.size).toBe(1)
+    expect(pauses[0]).toBe(90_000)
+  })
+
+  it('s’arrête quand Google refuse toujours (sans insister indéfiniment)', async () => {
+    const pauses: number[] = []
+    const { resolved, blocked } = await resolveGoogleNewsSlowly([gnews(ID), gnews(`${ID}B`)], {
+      fetchFn: fakeFetch([429]),
+      sleep: async (ms) => void pauses.push(ms),
+      maxBackoffs: 2,
+    })
+    expect(blocked).toBe(true)
+    expect(resolved.size).toBe(0)
+    expect(pauses).toHaveLength(2)
   })
 })
