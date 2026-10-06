@@ -429,34 +429,16 @@ function PrivacyNotice() {
   return (
     <details className="card mt-4" open>
       <summary className="flex cursor-pointer items-center gap-2 font-semibold">
-        <ShieldCheck size={18} className="text-bloque" aria-hidden="true" /> 100 % anonyme : ce
-        qu'on garde, ce qu'on ne garde pas
+        <ShieldCheck size={18} className="text-bloque" aria-hidden="true" /> Anonyme : ce que je
+        garde
       </summary>
-      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-        <li>
-          <strong>Pas de compte, pas de nom, pas de pseudo.</strong> On ne te demande rien sur toi.
-        </li>
-        <li>
-          <strong>Ta position</strong> est arrondie à ~100 m sur ton téléphone avant l'envoi, sert
-          seulement à vérifier que tu es près du lycée, et n'est jamais affichée. Sur la carte,
-          c'est l'emplacement du lycée qui apparaît. Si tu proposes un lycée absent de la liste,
-          elle est gardée jusqu'à la décision de l'équipe (7 jours au maximum).
-        </li>
-        <li>
-          <strong>Ta photo</strong> est nettoyée sur ton téléphone avant l'envoi : GPS, modèle
-          d'appareil et date sont supprimés. Elle n'est publiée qu'après vérification et floutage
-          par l'équipe. L'original est effacé dès la décision, et au plus tard après 48 h.
-        </li>
-        <li>
-          <strong>Ton adresse IP</strong> n'est jamais enregistrée. On garde 24 h une empreinte
-          chiffrée, impossible à retrouver, uniquement pour bloquer les abus (5 signalements par
-          jour).
-        </li>
-        <li>Une vérification anti-robot (Cloudflare Turnstile) s'affiche avant l'envoi.</li>
-      </ul>
-      <p className="mt-2 text-sm">
+      <p className="mt-3 text-sm">
+        Pas de compte ni de nom. Ta position est arrondie à 100 m sur ton téléphone et ne sert qu'à
+        vérifier que tu es près du lycée (jamais affichée). Ta photo est nettoyée de ses
+        métadonnées, floutée si besoin avant publication, et l'original est supprimé après
+        vérification. Ton IP n'est jamais enregistrée.{' '}
         <Link to="/a-propos" className="underline">
-          Tout le détail dans « À propos »
+          Le détail
         </Link>
       </p>
     </details>
