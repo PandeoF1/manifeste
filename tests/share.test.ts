@@ -77,3 +77,29 @@ describe('sitemap', () => {
     )
   })
 })
+
+describe('robots', () => {
+  it('reconnaît moteurs et aperçus, pas les navigateurs', async () => {
+    const { isBot } = await import('../api/_bots')
+    expect(isBot('Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)')).toBe(
+      true,
+    )
+    expect(isBot('Mozilla/5.0 (compatible; bingbot/2.0)')).toBe(true)
+    expect(isBot('WhatsApp/2.23')).toBe(true)
+    expect(isBot('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1')).toBe(false)
+    expect(isBot(null)).toBe(false)
+  })
+})
+
+describe('vercel.json', () => {
+  it('utilise la même liste de robots que le middleware', async () => {
+    const { BOT_UA } = await import('../api/_bots')
+    const { readFileSync } = await import('node:fs')
+    const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')) as {
+      rewrites: Array<{ has?: Array<{ value: string }> }>
+    }
+    const values = cfg.rewrites.flatMap((r) => r.has ?? []).map((h) => h.value)
+    expect(values.length).toBeGreaterThan(0)
+    for (const v of values) expect(v).toBe(`(?i).*(${BOT_UA.source}).*`)
+  })
+})

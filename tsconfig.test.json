@@ -22,6 +22,6 @@
       "@shared/*": ["./supabase/functions/_shared/*"]
     }
   },
-  "include": ["tests", "supabase/functions/_shared", "api"],
+  "include": ["tests", "supabase/functions/_shared", "api", "middleware.ts"],
   "exclude": ["supabase/functions/_shared/service.ts"]
 }
