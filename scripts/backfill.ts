@@ -321,6 +321,7 @@ async function mediaCommand() {
   })
   const totals = { read: 0, analyzed: 0, skipped: 0, unreadable: 0 }
   let lastId = 0
+  let blockedRuns = 0
   while (totals.read < limit) {
     const startedAt = Date.now()
     const { data: rows, error } = await admin
@@ -357,6 +358,15 @@ async function mediaCommand() {
     batch = batch.filter((b) => !known.has(canonicalUrl(b.item.url)))
     totals.read += rows.length
     totals.unreadable += unreadable.size
+    // Aucune page lisible sur plusieurs lots de suite : Google limite sans doute les liens. Insister
+    // prolongerait le blocage, on s'arrête.
+    blockedRuns = unreadable.size === rows.length ? blockedRuns + 1 : 0
+    if (blockedRuns >= 3) {
+      console.log(
+        `\nGoogle Actualités ne résout plus les liens (${totals.unreadable} illisibles de suite). Réessaie dans quelques heures, ou depuis une autre connexion (partage de connexion du téléphone).`,
+      )
+      break
+    }
     totals.skipped += rows.length - batch.length - unreadable.size
 
     if (batch.length > 0) {
