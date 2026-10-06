@@ -72,7 +72,7 @@ function SchoolPage() {
     if (!school) return
     document.title = `${school.name} (${school.city}) - Manifeste`
     return () => {
-      document.title = 'Manifeste - les lycées mobilisés, en direct'
+      document.title = 'Carte des blocus de lycées en direct - Manifeste'
     }
   }, [school])
 

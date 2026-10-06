@@ -84,3 +84,40 @@ const timeFmt = new Intl.DateTimeFormat('fr-FR', {
 export function parisTime(iso: string): string {
   return timeFmt.format(new Date(iso)).replace(':', 'h')
 }
+
+export interface ActiveSchool {
+  uai: string
+  name: string
+  city: string
+  department: string | null
+  status: Status
+  last_signal_at: string
+}
+
+/** Lycées avec un signal en cours (bloqué ou barrage filtrant), les plus récents d'abord. */
+export async function activeSchools(limit = 400): Promise<ActiveSchool[]> {
+  return rest<ActiveSchool[]>(
+    `school_current_status?select=uai,name,city,department,status,last_signal_at&status=neq.leve&order=last_signal_at.desc&limit=${limit}`,
+  )
+}
+
+/** Lycées ayant eu au moins un signal depuis `since` (pages indexées par le sitemap). */
+export async function signaledSchools(
+  since: Date,
+): Promise<Array<{ uai: string; last_signal_at: string }>> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/rpc/school_status_since?select=uai,last_signal_at`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: ANON_KEY,
+        authorization: `Bearer ${ANON_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ p_since: since.toISOString() }),
+      signal: AbortSignal.timeout(6000),
+    },
+  )
+  if (!res.ok) throw new Error(`Supabase HTTP ${res.status}`)
+  return (await res.json()) as Array<{ uai: string; last_signal_at: string }>
+}

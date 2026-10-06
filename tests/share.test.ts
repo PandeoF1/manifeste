@@ -40,3 +40,40 @@ describe('aperçus de partage', () => {
     expect(parisTime('2026-10-05T06:12:00Z')).toBe('08h12')
   })
 })
+
+describe('pages pour les moteurs', () => {
+  const app = `<html><head><title>x</title></head><body><div id="root">
+      <main><h1>Chargement</h1></main>
+    </div><!-- /root --></body></html>`
+
+  it('remplace l’écran de chargement par le contenu et ajoute l’adresse canonique', () => {
+    const html = _inject(app, {
+      title: 't',
+      description: 'd',
+      image: 'https://m.fr/api/og',
+      url: 'https://m.fr/liste',
+      body: '<main><h1>Liste</h1></main>',
+      jsonLd: { name: '</script><script>alert(1)</script>' },
+    })
+    expect(html).toContain('<div id="root"><main><h1>Liste</h1></main></div><!-- /root -->')
+    expect(html).not.toContain('Chargement')
+    expect(html).toContain('<link rel="canonical" href="https://m.fr/liste" />')
+    expect(html).not.toContain('</script><script>alert')
+  })
+})
+
+describe('sitemap', () => {
+  it('liste les pages fixes et les lycées', async () => {
+    const { buildSitemap } = await import('../api/sitemap')
+    const xml = buildSitemap(
+      'https://m.fr',
+      [{ uai: '0750001A', last_signal_at: '2026-10-06T08:00:00Z' }],
+      new Date('2026-10-06T10:00:00Z'),
+    )
+    expect(xml).toContain('<loc>https://m.fr/</loc>')
+    expect(xml).toContain('<loc>https://m.fr/liste</loc>')
+    expect(xml).toContain(
+      '<loc>https://m.fr/lycee/0750001A</loc><lastmod>2026-10-06T08:00:00Z</lastmod>',
+    )
+  })
+})

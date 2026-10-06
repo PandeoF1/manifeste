@@ -2,12 +2,16 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
       "source": "/",
       "has": [
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(discordbot|telegrambot|whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|linkedinbot|skypeuripreview|redditbot|mastodon|bluesky|cardyb|iframely|embedly|pinterest|vkshare|snapchat|applebot|signal).*"
+          "value": "(?i).*(discordbot|telegrambot|whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|linkedinbot|skypeuripreview|redditbot|mastodon|bluesky|cardyb|iframely|embedly|pinterest|vkshare|snapchat|applebot|signal|googlebot|google-inspectiontool|storebot-google|bingbot|msnbot|duckduckbot|qwant|yandex|baiduspider|ecosia|petalbot|seznambot|yahoo! slurp).*"
         }
       ],
       "destination": "/api/share"
@@ -18,10 +22,21 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(discordbot|telegrambot|whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|linkedinbot|skypeuripreview|redditbot|mastodon|bluesky|cardyb|iframely|embedly|pinterest|vkshare|snapchat|applebot|signal).*"
+          "value": "(?i).*(discordbot|telegrambot|whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|linkedinbot|skypeuripreview|redditbot|mastodon|bluesky|cardyb|iframely|embedly|pinterest|vkshare|snapchat|applebot|signal|googlebot|google-inspectiontool|storebot-google|bingbot|msnbot|duckduckbot|qwant|yandex|baiduspider|ecosia|petalbot|seznambot|yahoo! slurp).*"
         }
       ],
       "destination": "/api/share?uai=:uai"
+    },
+    {
+      "source": "/liste",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(discordbot|telegrambot|whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|linkedinbot|skypeuripreview|redditbot|mastodon|bluesky|cardyb|iframely|embedly|pinterest|vkshare|snapchat|applebot|signal|googlebot|google-inspectiontool|storebot-google|bingbot|msnbot|duckduckbot|qwant|yandex|baiduspider|ecosia|petalbot|seznambot|yahoo! slurp).*"
+        }
+      ],
+      "destination": "/api/share?page=liste"
     },
     {
       "source": "/((?!api/|assets/|icons/|fonts/|favicon|og-default|manifest|sw\\.js|workbox-).*)",
