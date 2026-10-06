@@ -6,6 +6,9 @@ export interface SchoolCandidate {
   name_score: number
   city_score: number
   score: number
+  /** Position, quand la fonction SQL la renvoie (sert à reconnaître les jumeaux d'un même lieu). */
+  lat?: number | null
+  lng?: number | null
 }
 
 export const MATCH_THRESHOLDS = {
@@ -27,7 +30,12 @@ export function pickMatch(
   hasCity: boolean,
   t: typeof MATCH_THRESHOLDS = MATCH_THRESHOLDS,
 ): SchoolCandidate | null {
-  const [best, second] = [...candidates].sort((a, b) => b.score - a.score)
+  // À score égal, le nom le plus court (le moins précisé : « Lycée Condorcet » avant « Lycée
+  // professionnel Condorcet »), puis l'UAI pour que le choix soit stable.
+  const ranked = [...candidates].sort(
+    (a, b) => b.score - a.score || a.name.length - b.name.length || a.uai.localeCompare(b.uai),
+  )
+  const best = ranked[0]
   if (!best) return null
   if (hasCity) {
     if (best.name_score < t.minNameScore || best.city_score < t.minCityScore) return null
@@ -35,8 +43,26 @@ export function pickMatch(
   } else if (best.name_score < t.minNameScoreWithoutCity) {
     return null
   }
-  if (second && best.score - second.score < t.minMargin) return null
+  // Un rival proche = homonyme probable. Mais les « jumeaux » d'un même lieu (lycée général et
+  // lycée professionnel d'un même nom, au même endroit, avec chacun leur UAI) ne comptent pas :
+  // on garde le premier.
+  const rival = ranked.find(
+    (c) => c.uai !== best.uai && best.score - c.score < t.minMargin && !sameEstablishment(best, c),
+  )
+  if (rival) return null
   return best
+}
+
+/** Deux fiches du même lieu (lycée général / professionnel d'un même nom, à moins de 250 m). */
+export const TWIN_RADIUS_M = 250
+
+function sameEstablishment(a: SchoolCandidate, b: SchoolCandidate): boolean {
+  if (a.lat == null || a.lng == null || b.lat == null || b.lng == null) return false
+  if (stripGenericWords(a.name) !== stripGenericWords(b.name)) return false
+  const rad = Math.PI / 180
+  const x = (b.lng - a.lng) * rad * Math.cos(((a.lat + b.lat) / 2) * rad)
+  const y = (b.lat - a.lat) * rad
+  return Math.sqrt(x * x + y * y) * 6_371_000 <= TWIN_RADIUS_M
 }
 
 const GENERIC_WORDS = new Set([

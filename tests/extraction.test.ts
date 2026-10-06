@@ -104,6 +104,23 @@ describe('pickMatch', () => {
   it('choisit le bon homonyme grâce à la ville', () => {
     expect(pickMatch([c('B', 1, 1), c('A', 1, 0)], true)?.uai).toBe('B')
   })
+  it('garde le jumeau d’un même lieu, refuse un homonyme éloigné', () => {
+    const twin = (uai: string, name: string, lng: number): SchoolCandidate => ({
+      uai,
+      name,
+      city: 'Montreuil',
+      name_score: 1,
+      city_score: 1,
+      score: 1,
+      lat: 48.86,
+      lng,
+    })
+    const general = twin('G', 'Lycée Condorcet', 2.44)
+    const pro = twin('P', 'Lycée professionnel Condorcet', 2.4402)
+    expect(pickMatch([pro, general], true)?.uai).toBe('G')
+    const far = twin('F', 'Lycée privé Condorcet', 2.5)
+    expect(pickMatch([general, far], true)).toBeNull()
+  })
   it('refuse un homonyme sans ville', () => {
     expect(pickMatch([c('A', 1, 0), c('B', 1, 0)], false)).toBeNull()
   })

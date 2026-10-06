@@ -142,6 +142,7 @@ const NICKNAMES: ReadonlyArray<{
   { label: /[ée]tudes? politiques?/i, nickname: 'Sciences Po' },
   { siege: /paris 1\b|panth[ée]on-sorbonne/i, district: 'Paris 13e', nickname: 'Tolbiac' },
   { siege: /paris 1\b|panth[ée]on-sorbonne/i, district: 'Paris 5e', nickname: 'Sorbonne' },
+  { siege: /pierre et marie curie|sorbonne universit/i, district: 'Paris 5e', nickname: 'Jussieu' },
   { siege: /toulouse.*jean[ -]jaur[èe]s|jean[ -]jaur[èe]s/i, nickname: 'Le Mirail' },
   { siege: /rennes 2/i, nickname: 'Villejean' },
   { siege: /paris 8\b/i, nickname: 'Saint-Denis' },
