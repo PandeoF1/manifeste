@@ -141,6 +141,7 @@ function inject(html: string, m: Meta): string {
         '',
       )
       .replace(/<link\s+rel="canonical"[^>]*>\s*/g, '')
+      .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>\s*/g, '')
       .replace('</head>', `    ${tags}\n  </head>`)
       // Contenu de la page à la place de l'écran de chargement (remplacé au montage de l'app).
       .replace(

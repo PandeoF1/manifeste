@@ -60,6 +60,24 @@ describe('pages pour les moteurs', () => {
     expect(html).toContain('<link rel="canonical" href="https://m.fr/liste" />')
     expect(html).not.toContain('</script><script>alert')
   })
+
+  it('remplace les données structurées et l’adresse canonique de l’accueil statique', () => {
+    const withHome = app.replace(
+      '</head>',
+      '<link rel="canonical" href="https://m.fr/" /><script type="application/ld+json">{"name":"ancien"}</script></head>',
+    )
+    const html = _inject(withHome, {
+      title: 't',
+      description: 'd',
+      image: 'https://m.fr/api/og',
+      url: 'https://m.fr/liste',
+      jsonLd: { name: 'nouveau' },
+    })
+    expect(html.match(/application\/ld\+json/g)).toHaveLength(1)
+    expect(html.match(/rel="canonical"/g)).toHaveLength(1)
+    expect(html).toContain('nouveau')
+    expect(html).not.toContain('ancien')
+  })
 })
 
 describe('sitemap', () => {
