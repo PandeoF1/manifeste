@@ -21,7 +21,24 @@ export type PublicReport = Pick<
 
 const REFRESH_MS = 60_000
 
+/**
+ * Liste servie par Vercel avec un cache de 30 s (moins de latence, moins de charge sur la base).
+ * Toute réponse inattendue (route absente en développement, panne) : on interroge la base.
+ */
+async function fetchViaEdge(): Promise<SchoolStatus[] | null> {
+  try {
+    const res = await fetch('/api/statuses', { headers: { accept: 'application/json' } })
+    if (!res.ok || !res.headers.get('content-type')?.includes('json')) return null
+    const data: unknown = await res.json()
+    return Array.isArray(data) ? (data as SchoolStatus[]) : null
+  } catch {
+    return null
+  }
+}
+
 async function fetchCurrentStatuses(): Promise<SchoolStatus[]> {
+  const cached = await fetchViaEdge()
+  if (cached) return cached
   const { data, error } = await supabase
     .from('school_current_status')
     .select('*')

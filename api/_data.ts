@@ -14,6 +14,11 @@ async function rest<T>(path: string): Promise<T> {
   return (await res.json()) as T
 }
 
+/** Tous les établissements en cours (la même requête que la carte, sans compte). */
+export function currentStatuses(): Promise<unknown[]> {
+  return rest<unknown[]>('school_current_status?select=*&order=last_signal_at.desc')
+}
+
 export interface NationalSummary {
   bloque: number
   filtrant: number
