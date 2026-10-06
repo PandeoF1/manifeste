@@ -1,4 +1,5 @@
-import type { PageGroup } from '@shared/beacon.ts'
+export const PAGES = ['carte', 'liste', 'lycee', 'signaler', 'a-propos', 'autre'] as const
+export type PageGroup = (typeof PAGES)[number]
 
 /** Type de page envoyé aux statistiques : jamais l'adresse exacte (ni le lycée consulté). */
 export function pageGroup(pathname: string): PageGroup | null {

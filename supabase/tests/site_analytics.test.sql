@@ -50,7 +50,23 @@ insert into t select 'anon peut signaler un onglet ouvert',
   has_function_privilege('anon', 'public.ping_live(uuid, text)', 'execute');
 insert into t select 'anon ne lit pas les empreintes',
   not has_table_privilege('anon', 'public.analytics_visitors', 'select');
-insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 14;
+-- Envoi direct (PostgREST) : IP et navigateur lus dans les en-têtes de la requête.
+select set_config('request.headers', '{"cf-connecting-ip":"192.0.2.9","user-agent":"Mozilla/5.0 Firefox/140"}', true);
+set local role anon;
+select public.track_visit('carte', true, '[{"name":"FCP","value":900}]');
+reset role;
+insert into t select 'track_visit : nouvelle visite',
+  (select count(*) from public.analytics_visitors where day = current_date) = 1
+  and exists (select 1 from public.analytics_vitals where metric = 'FCP');
+select set_config('request.headers', '{"cf-connecting-ip":"192.0.2.10","user-agent":"Googlebot/2.1"}', true);
+set local role anon;
+select public.track_visit('carte', true, '[]');
+reset role;
+insert into t select 'track_visit : robots ignorés',
+  (select count(*) from public.analytics_visitors where day = current_date) = 1;
+insert into t select 'anon ne lit pas l IP de la requête',
+  not has_function_privilege('anon', 'public.request_ip()', 'execute');
+insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 17;
 
 select name, ok from t;
 do $$ declare f text; begin

@@ -40,7 +40,7 @@ const MIN_CERTAINTY: Certainty = (CERTAINTIES as readonly string[]).includes(MIN
   ? (MIN_CERTAINTY_RAW as Certainty)
   : 'moyenne'
 /** Sources lues par un sous-appel : chacun a son propre budget CPU (2 s) et mémoire. */
-const SOURCES_PER_WORKER = Number(Deno.env.get('COLLECT_SOURCES_PER_WORKER') ?? 3)
+const SOURCES_PER_WORKER = Number(Deno.env.get('COLLECT_SOURCES_PER_WORKER') ?? 6)
 /** Sous-appels de lecture simultanés. */
 const WORKER_CONCURRENCY = Number(Deno.env.get('COLLECT_WORKER_CONCURRENCY') ?? 8)
 /** Sources traitées par passage ; les autres (les plus récemment collectées) attendent le suivant. */

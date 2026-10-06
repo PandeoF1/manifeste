@@ -31,7 +31,3 @@ verify_jwt = false
 [functions.reanalyze]
 # Authentification dans la fonction (JWT d'un compte admin).
 verify_jwt = false
-
-[functions.beacon]
-# Statistiques anonymes : envois publics du navigateur, sans JWT.
-verify_jwt = false

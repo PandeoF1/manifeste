@@ -1,13 +1,14 @@
-// Statistiques anonymes du site (voir la migration site_analytics) : une page vue par
+// Statistiques anonymes du site (migrations site_analytics et track_visit_rpc) : une page vue par
 // navigation, les Web Vitals et la latence de l'API à la fermeture de l'onglet, et un signal
 // « onglet ouvert » toutes les 45 s tant qu'il est visible. Aucun cookie, rien d'écrit dans
 // le navigateur, aucun service tiers. Désactivé avec « Do Not Track » / GPC, en admin et en dev.
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals'
-import type { PageGroup } from '@shared/beacon.ts'
-import { pageGroup } from './pageGroup'
+import { pageGroup, type PageGroup } from './pageGroup'
 import { supabase } from './supabase'
 
-const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/beacon`
+// Fonction track_visit de la base (PostgREST) : pas d'appel de fonction Edge facturé.
+const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/track_visit`
+const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 /** Activé une fois la migration site_analytics et la fonction beacon en ligne. */
 const ENABLED = true
 const PING_MS = 45_000
@@ -27,18 +28,16 @@ function optedOut(): boolean {
 }
 
 function send(body: { page: PageGroup; view: boolean; metrics: Sample[] }) {
-  const data = JSON.stringify(body)
-  // text/plain : requête « simple », sans pré-vol CORS.
-  try {
-    if (navigator.sendBeacon?.(ENDPOINT, new Blob([data], { type: 'text/plain' }))) return
-  } catch {
-    // repli sur fetch
-  }
+  // keepalive : l'envoi survit à la fermeture de l'onglet (mesures envoyées à ce moment-là).
   void fetch(ENDPOINT, {
     method: 'POST',
-    body: data,
     keepalive: true,
-    headers: { 'content-type': 'text/plain' },
+    headers: {
+      apikey: ANON_KEY,
+      authorization: `Bearer ${ANON_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ p_page: body.page, p_view: body.view, p_metrics: body.metrics }),
   }).catch(() => {})
 }
 

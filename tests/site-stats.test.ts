@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formatMetric, parseSiteStats, rate } from '@/lib/siteStats'
 import { pageGroup } from '@/lib/pageGroup'
-import { parseBeacon } from '@shared/beacon.ts'
 
 describe('statistiques du site', () => {
   it('note les mesures selon les seuils Web Vitals', () => {
@@ -41,21 +40,5 @@ describe('statistiques du site', () => {
     expect(s.vitals).toHaveLength(1)
     expect(s.vitals[0]?.p75).toBe(1500)
     expect(parseSiteStats(null).daily).toEqual([])
-  })
-
-  it('valide les envois du navigateur', () => {
-    expect(parseBeacon('{"page":"carte","view":true,"metrics":[]}')).toEqual({
-      page: 'carte',
-      view: true,
-      metrics: [],
-    })
-    expect(
-      parseBeacon(
-        '{"page":"???","view":false,"metrics":[{"name":"LCP","value":1200},{"name":"XSS","value":1},{"name":"CLS","value":-1}]}',
-      ),
-    ).toEqual({ page: 'autre', view: false, metrics: [{ name: 'LCP', value: 1200 }] })
-    expect(parseBeacon('{"view":false,"metrics":[]}')).toBeNull()
-    expect(parseBeacon('pas du json')).toBeNull()
-    expect(parseBeacon('x'.repeat(3000))).toBeNull()
   })
 })
