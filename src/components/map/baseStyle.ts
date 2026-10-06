@@ -1,12 +1,13 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import { MAP_BASE } from './palette'
+import type { MapBase } from './palette'
 
 /**
- * Assombrit n'importe quel style vectoriel (OpenFreeMap positron par défaut) à la volée :
- * on garde la géographie (côtes, frontières, villes) mais tout passe au second plan,
- * pour que seuls les signaux ressortent.
+ * Recolore n'importe quel style vectoriel (OpenFreeMap positron par défaut) à la volée, en
+ * sombre ou en clair : on garde la géographie (côtes, frontières, villes) mais tout passe au
+ * second plan, pour que seuls les signaux ressortent. Chaque propriété est posée explicitement :
+ * on peut changer de thème à chaud, sans recharger le style.
  */
-export function darkenStyle(map: MapLibreMap) {
+export function styleBase(map: MapLibreMap, MAP_BASE: MapBase) {
   const layers = map.getStyle().layers ?? []
   for (const layer of layers) {
     const id = layer.id.toLowerCase()
@@ -59,7 +60,7 @@ export function darkenStyle(map: MapLibreMap) {
         break
       case 'raster':
       case 'hillshade':
-        set('raster-brightness-max', 0.25)
+        set('raster-brightness-max', MAP_BASE.rasterBrightness)
         break
     }
   }

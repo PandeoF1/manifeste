@@ -45,6 +45,23 @@
   }
 }
 
+/* Thème clair choisi (prioritaire sur le thème système). */
+.theme-light {
+  color-scheme: light;
+  --bg: #f6f6f4;
+  --surface: #ffffff;
+  --fg: #16181d;
+  --muted: #5b6070;
+  --border: #d9dbe1;
+  --accent: #c0261f;
+  --accent-fg: #ffffff;
+  --status-bloque: #c0261f;
+  --status-filtrant: #b45309;
+  --status-leve: #5f6673;
+  background: var(--bg);
+  color: var(--fg);
+}
+
 /* Thème sombre imposé (page carte : rendu immersif, quel que soit le thème système). */
 .theme-dark {
   color-scheme: dark;

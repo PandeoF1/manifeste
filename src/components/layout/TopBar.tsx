@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Info, List, Map as MapIcon, Megaphone } from 'lucide-react'
 import { statusesQuery } from '@/queries/statuses'
 import { StatusIcon } from '@/components/status/StatusIcon'
+import { ThemeToggle } from './ThemeToggle'
 
 const NAV = [
   { to: '/', label: 'Carte' },
@@ -69,8 +70,9 @@ export function TopBar() {
           </Link>
         ))}
       </nav>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1 md:gap-3">
         <MiniCounter />
+        {!pathname.startsWith('/admin') && <ThemeToggle />}
         <Link
           to="/signaler"
           search={{}}

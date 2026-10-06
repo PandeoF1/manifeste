@@ -13,6 +13,7 @@ import { settingsQuery } from '@/queries/settings'
 import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib/periods'
 import { PeriodPicker } from '@/components/status/PeriodPicker'
 import { useReportsRealtime } from '@/lib/realtime'
+import { useTheme } from '@/lib/theme'
 
 // MapLibre (~800 ko) est chargé à part : les chiffres et la liste s'affichent avant la carte.
 const MapView = lazy(() => import('@/components/map/MapView'))
@@ -49,6 +50,7 @@ export const Route = createFileRoute('/')({
 function MapPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: '/' })
+  const theme = useTheme()
   const period: Period = search.periode ?? 'direct'
   const { data: settings = DEFAULT_SETTINGS } = useQuery(settingsQuery)
   const {
@@ -142,6 +144,7 @@ function MapPage() {
             selected={selected}
             onViewChange={onViewChange}
             onSelect={onSelect}
+            theme={theme}
           />
         </Suspense>
 

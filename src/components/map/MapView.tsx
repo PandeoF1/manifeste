@@ -14,8 +14,9 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection, Point } from 'geojson'
 import type { SchoolStatus } from '@/queries/statuses'
 import { addMarkerImages } from './markerImages'
-import { darkenStyle } from './darkenStyle'
-import { MAP_STATUS_COLORS } from './palette'
+import { styleBase } from './baseStyle'
+import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
+import type { Theme } from '@/lib/theme'
 
 setWorkerUrl(workerUrl)
 
@@ -39,6 +40,44 @@ interface Props {
   selected: SchoolStatus | undefined
   onViewChange: (view: MapViewState) => void
   onSelect: (uai: string | undefined) => void
+  theme: Theme
+}
+
+function heatColor(theme: Theme): ExpressionSpecification {
+  const [a, b, c, d, e] = MAP_BASES[theme].heat
+  return [
+    'interpolate',
+    ['linear'],
+    ['heatmap-density'],
+    0,
+    'rgba(0,0,0,0)',
+    0.15,
+    a,
+    0.35,
+    b,
+    0.6,
+    c,
+    0.85,
+    d,
+    1,
+    e,
+  ]
+}
+
+/** Thème du fond et des calques dépendants, appliqué au chargement puis à chaque bascule. */
+function applyTheme(map: MapLibreMap, theme: Theme) {
+  styleBase(map, MAP_BASES[theme])
+  if (map.getLayer('heat')) map.setPaintProperty('heat', 'heatmap-color', heatColor(theme))
+  if (map.getLayer('glow'))
+    map.setPaintProperty('glow', 'circle-opacity', [
+      'match',
+      ['get', 'status'],
+      'leve',
+      0.2,
+      MAP_BASES[theme].glowOpacity,
+    ])
+  if (map.getLayer('selected'))
+    map.setPaintProperty('selected', 'circle-stroke-color', MAP_BASES[theme].selection)
 }
 
 const STATUS_COLOR: ExpressionSpecification = [
@@ -80,14 +119,15 @@ export default function MapView({
   selected,
   onViewChange,
   onSelect,
+  theme,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const readyRef = useRef(false)
   const hasRecentRef = useRef(false)
-  const latest = useRef({ statuses, onViewChange, onSelect })
+  const latest = useRef({ statuses, onViewChange, onSelect, theme })
   useEffect(() => {
-    latest.current = { statuses, onViewChange, onSelect }
+    latest.current = { statuses, onViewChange, onSelect, theme }
   })
 
   // Création unique de la carte.
@@ -123,7 +163,6 @@ export default function MapView({
 
     let frame = 0
     map.on('load', () => {
-      darkenStyle(map)
       addMarkerImages(map)
       map.addSource(SOURCE_ID, {
         type: 'geojson',
@@ -140,23 +179,7 @@ export default function MapView({
           'heatmap-weight': ['get', 'weight'],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 9, 2],
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 3, 14, 6, 26, 9, 40],
-          'heatmap-color': [
-            'interpolate',
-            ['linear'],
-            ['heatmap-density'],
-            0,
-            'rgba(0,0,0,0)',
-            0.15,
-            'rgba(90,10,12,0.55)',
-            0.35,
-            'rgba(180,20,27,0.75)',
-            0.6,
-            '#ff453a',
-            0.85,
-            '#ff9f0a',
-            1,
-            '#ffd60a',
-          ],
+          'heatmap-color': heatColor(latest.current.theme),
           'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.85, 10, 0],
         },
       })
@@ -253,6 +276,7 @@ export default function MapView({
         map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
       }
 
+      applyTheme(map, latest.current.theme)
       readyRef.current = true
 
       if (!prefersReducedMotion()) {
@@ -291,6 +315,12 @@ export default function MapView({
     // La vue initiale n'est lue qu'au montage ; ensuite la carte est la source de vérité.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Bascule de thème à chaud (sans recharger le style).
+  useEffect(() => {
+    const map = mapRef.current
+    if (map && readyRef.current) applyTheme(map, theme)
+  }, [theme])
 
   // Mise à jour des données (et du caractère « récent » des signaux).
   useEffect(() => {

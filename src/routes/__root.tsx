@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, createRootRouteWithContext, useRouterState } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { TopBar } from '@/components/layout/TopBar'
+import { applyThemeClass, useTheme } from '@/lib/theme'
 import { ReportFab } from '@/components/layout/ReportFab'
 import { InstallPrompt, OfflineBanner, UpdatePrompt } from '@/components/layout/AppNotices'
 
@@ -15,13 +16,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 function RootLayout() {
-  // Partie publique toujours en thème sombre (identité visuelle) ; l'admin suit le thème système.
+  // Partie publique : thème choisi (sombre par défaut) ; l'admin suit le thème système.
   // Le thème est posé sur <html> : le fond de la page entière suit, jamais de bande claire.
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const dark = !pathname.startsWith('/admin')
-  useEffect(() => {
-    document.documentElement.classList.toggle('theme-dark', dark)
-  }, [dark])
+  const theme = useTheme()
+  const applied = pathname.startsWith('/admin') ? null : theme
+  useEffect(() => applyThemeClass(applied), [applied])
   useKeyboardScrollReset()
   return (
     <div className="flex h-full flex-col">
