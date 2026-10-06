@@ -54,10 +54,17 @@ export function createServiceDb(admin: SupabaseClient): CollectorDb {
       return (data ?? []) as SchoolCandidate[]
     },
     async insertReport(report) {
-      const { error } = await admin.from('reports').insert(report)
-      if (!error) return 'inserted'
-      if (error.code === '23505') return 'duplicate'
-      throw new Error(`reports: ${error.message}`)
+      // ON CONFLICT DO NOTHING : un doublon ne lève plus d'erreur (ni de ligne rouge dans les
+      // journaux Postgres) ; aucune ligne renvoyée = déjà connu.
+      const { data, error } = await admin
+        .from('reports')
+        .upsert(report, { onConflict: 'source_url,school_uai,status', ignoreDuplicates: true })
+        .select('id')
+      if (error) {
+        if (error.code === '23505') return 'duplicate'
+        throw new Error(`reports: ${error.message}`)
+      }
+      return data.length > 0 ? 'inserted' : 'duplicate'
     },
     async insertUnmatched(row) {
       const { error } = await admin.from('unmatched_extractions').insert(row)
