@@ -159,3 +159,55 @@ describe('établissements du supérieur', () => {
     expect(names.some((n) => n.includes('(Villejean)'))).toBe(true)
   })
 })
+
+describe('rattachement des sites', () => {
+  it('le plus gros site d’une commune garde le nom simple, un IEP reçoit « Sciences Po »', () => {
+    const base = {
+      etablissement_uai: '0340001A',
+      siege_lib: 'Université de Exemple',
+      com_nom: 'Exemple',
+      dep_id: 'D034',
+    }
+    const sites = buildSites(
+      [
+        impl({ ...base, uai: '0340002B' }),
+        impl({
+          ...base,
+          uai: '0340003C',
+          implantation_lib: 'UFR DROIT',
+          bcnag_n_nature_uai_libelle_editi: 'Unité de formation et de recherche (hors santé)',
+        }),
+        impl({
+          ...base,
+          uai: '0340004D',
+          implantation_lib: 'UFR LETTRES',
+          bcnag_n_nature_uai_libelle_editi: 'Unité de formation et de recherche (hors santé)',
+          coordonnees: { lat: 48.9, lon: 2.4 },
+        }),
+        impl({
+          ...base,
+          uai: '0340005E',
+          implantation_lib: 'INSTITUT D’ETUDES POLITIQUES D’EXEMPLE',
+          bcnag_n_nature_uai_libelle_editi: "Institut d'études politiques",
+          coordonnees: { lat: 49.5, lon: 3 },
+        }),
+      ],
+      [
+        {
+          uai: '0349999Z',
+          uo_lib: 'Université de Exemple',
+          coordonnees: { lat: 48.85, lon: 2.35 },
+          com_nom: 'Exemple',
+          code_postal_uai: null,
+          dep_id: 'D034',
+          aca_nom: null,
+        },
+      ],
+    )
+    const names = sites.map((s) => s.name)
+    expect(names).toContain('Université de Exemple – Exemple')
+    expect(names.some((n) => n.endsWith('(Sciences Po)'))).toBe(true)
+    // pas de doublon « Université de Exemple » issu de l'établissement principal
+    expect(names).not.toContain('Université de Exemple')
+  })
+})

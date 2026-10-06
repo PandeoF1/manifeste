@@ -41,6 +41,12 @@ insert into t select 'lycée de la commune : un seul', (select count(*) from pub
 insert into t select 'fac de la commune : une seule', (select count(*) from public.schools_in_city('Nanterre', 5, 'superieur')) = 1;
 insert into t select 'sans niveau : les deux', (select count(*) from public.schools_in_city('Nanterre', 5)) = 2;
 
+-- Niveau déduit du nom cité.
+insert into t select 'niveau : université -> supérieur', public.school_level_of_name('Université de Nantes') = 'superieur';
+insert into t select 'niveau : Sciences Po -> supérieur', public.school_level_of_name('Sciences Po Strasbourg') = 'superieur';
+insert into t select 'niveau : lycée -> lycée', public.school_level_of_name('Lycée de l''Université') = 'lycee';
+insert into t select 'niveau : nom sans indice -> lycée', public.school_level_of_name('Joliot-Curie') = 'lycee';
+
 -- Le statut courant et les périodes portent le niveau.
 insert into public.reports (school_uai, status, source_type, source_url, source_domain, moderation, observed_at) values
   ('0751967F', 'bloque', 'collecteur', 'https://exemple.fr/fac', 'exemple.fr', 'validated', now() - interval '1 hour');

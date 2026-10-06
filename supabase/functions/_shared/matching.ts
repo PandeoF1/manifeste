@@ -92,11 +92,9 @@ export function stripGenericWords(name: string): string {
 export function levelOfName(name: string): 'lycee' | 'superieur' {
   const words = normalizeWords(name)
   if (words.includes('lycee') || words.includes('lycees')) return 'lycee'
-  return words.some((w) =>
-    ['universite', 'universites', 'fac', 'faculte', 'iut', 'ufr', 'campus'].includes(w),
-  )
-    ? 'superieur'
-    : 'lycee'
+  const higher = ['universite', 'universites', 'fac', 'faculte', 'iut', 'ufr', 'campus', 'iep']
+  if (words.some((w) => higher.includes(w))) return 'superieur'
+  return words.join(' ').includes('sciences po') ? 'superieur' : 'lycee'
 }
 
 /**

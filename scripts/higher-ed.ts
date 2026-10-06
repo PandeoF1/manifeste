@@ -132,7 +132,14 @@ export function shortLabel(raw: string, max = 36): string {
 }
 
 /** Noms d'usage des grands sites, ajoutés entre parenthèses : c'est ainsi que la presse les cite. */
-const NICKNAMES: ReadonlyArray<{ siege: RegExp; district?: string; nickname: string }> = [
+const NICKNAMES: ReadonlyArray<{
+  siege?: RegExp
+  /** Libellé d'une implantation du site (ex. un IEP au sein d'une université). */
+  label?: RegExp
+  district?: string
+  nickname: string
+}> = [
+  { label: /[ée]tudes politiques/i, nickname: 'Sciences Po' },
   { siege: /paris 1\b|panth[ée]on-sorbonne/i, district: 'Paris 13e', nickname: 'Tolbiac' },
   { siege: /paris 1\b|panth[ée]on-sorbonne/i, district: 'Paris 5e', nickname: 'Sorbonne' },
   { siege: /toulouse.*jean[ -]jaur[èe]s|jean[ -]jaur[èe]s/i, nickname: 'Le Mirail' },
@@ -230,11 +237,22 @@ export function buildSites(
     })
     const count = new Map<string, number>()
     for (const { base } of named) count.set(base, (count.get(base) ?? 0) + 1)
+    // Plusieurs sites dans la même commune : le plus gros garde le nom simple (c'est celui qu'on
+    // cherche en citant « l'université de Montpellier »), les autres sont précisés.
+    const biggest = new Map<string, Candidate>()
+    for (const { cl, rep, base } of named) {
+      const best = biggest.get(base)
+      const bestSize = named.find((x) => x.rep === best)?.cl.length ?? -1
+      if (cl.length > bestSize) biggest.set(base, rep)
+    }
     // Nom d'usage : au plus gros site de l'établissement (dans l'arrondissement indiqué, s'il y en a un).
     const nicknamed = new Map<Candidate, string>()
     for (const n of NICKNAMES) {
       const pool = named.filter(
-        (x) => n.siege.test(x.rep.siege) && (!n.district || x.rep.district === n.district),
+        (x) =>
+          (!n.siege || n.siege.test(x.rep.siege)) &&
+          (!n.label || x.cl.some((c) => n.label?.test(c.label))) &&
+          (!n.district || x.rep.district === n.district),
       )
       const main = pool.sort((a, b) => b.cl.length - a.cl.length)[0]
       if (main) nicknamed.set(main.rep, n.nickname)
@@ -242,7 +260,8 @@ export function buildSites(
     for (const { rep, base } of named) {
       if (usedUai.has(rep.uai)) continue
       let name = base
-      if ((count.get(base) ?? 0) > 1) name = `${base} (${shortLabel(rep.label)})`
+      if ((count.get(base) ?? 0) > 1 && biggest.get(base) !== rep)
+        name = `${base} (${shortLabel(rep.label)})`
       const nick = nicknamed.get(rep)
       if (nick && !name.toLowerCase().includes(nick.toLowerCase())) name = `${name} (${nick})`
       usedUai.add(rep.uai)
@@ -262,6 +281,10 @@ export function buildSites(
   for (const p of principals) {
     if (!p.uai || !UAI.test(p.uai) || known.has(p.uai) || usedUai.has(p.uai)) continue
     if (!p.coordonnees || !p.com_nom) continue
+    // Déjà présent sous un nom de site (« Université de Montpellier – Montpellier ») : un doublon
+    // rendrait le rattachement ambigu.
+    const label = p.uo_lib.replace(/\s+/g, ' ').trim()
+    if (sites.some((s) => s.name === label || s.name.startsWith(`${label} – `))) continue
     usedUai.add(p.uai)
     sites.push({
       uai: p.uai,
