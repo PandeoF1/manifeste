@@ -9,7 +9,7 @@ import { supabase } from './supabase'
 
 const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/beacon`
 /** Activé une fois la migration site_analytics et la fonction beacon en ligne. */
-const ENABLED = false
+const ENABLED = true
 const PING_MS = 45_000
 const MAX_API_SAMPLES = 5
 
