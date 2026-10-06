@@ -81,6 +81,14 @@ const row = (domain: string, over: Partial<MediaRow> = {}): MediaRow => ({
 
 describe('statistiques par média', () => {
   it('regroupe par média et par propriétaire, hors articles sans rapport', () => {
+    const cn = (over: Partial<MediaRow> = {}) =>
+      row('cnews.fr', {
+        focus: 'incidents',
+        voices: ['police_prefecture'],
+        tone: 'defavorable',
+        terms: ['casseurs'],
+        ...over,
+      })
     const rows = [
       row('www.cnews.fr', {
         focus: 'incidents',
@@ -88,13 +96,7 @@ describe('statistiques par média', () => {
         tone: 'defavorable',
         terms: ['casseurs'],
       }),
-      row('cnews.fr', {
-        focus: 'incidents',
-        voices: ['police_prefecture'],
-        tone: 'defavorable',
-        terms: ['casseurs'],
-      }),
-      row('cnews.fr', { focus: 'incidents', tone: 'defavorable' }),
+      ...Array.from({ length: 16 }, () => cn()),
       row('europe1.fr', { about_movement: false }),
       row('humanite.fr', {
         mentions_demands: true,
@@ -104,12 +106,13 @@ describe('statistiques par média', () => {
     ]
     const byOutlet = aggregate(rows, 'outlet')
     const cnews = byOutlet.find((o) => o.key === 'cnews.fr')
-    expect(cnews?.articles).toBe(3)
-    expect(cnews?.terms[0]).toEqual(['casseurs', 2])
+    expect(cnews?.articles).toBe(17)
+    expect(cnews?.terms[0]).toEqual(['casseurs', 17])
     expect(cnews?.badges.map((b) => b.id)).toEqual(['degats', 'officiel', 'hostile'])
     expect(byOutlet.some((o) => o.key === 'europe1.fr')).toBe(false)
     const owners = aggregate(rows, 'owner')
     expect(owners[0]?.name).toBe('Groupe Canal+ (Bolloré)')
+    expect(cnews?.badges[0]?.rule).toContain('Sur 17 articles')
     expect(topDemands(rows)).toEqual([['réforme du bac', 1]])
   })
 
@@ -118,7 +121,7 @@ describe('statistiques par média', () => {
       badgesFor({
         name: 'x',
         owner: 'y',
-        articles: 2,
+        articles: 14,
         demands: 0,
         studentVoices: 0,
         officialVoices: 1,
@@ -192,5 +195,24 @@ describe('export CSV', () => {
     expect(csv.startsWith('﻿Média;Propriétaire;Articles;')).toBe(true)
     expect(csv).toContain('CNews;Groupe Canal+ (Bolloré);3;0;0;0;100;0;0;33;')
     expect(csv).toContain('casseurs (1)')
+  })
+})
+
+describe('propriétaires', () => {
+  it('reconnaît le service public et les sites régionaux d’un groupe', () => {
+    expect(outletOf('ici.fr').owner).toBe('Service public')
+    expect(outletOf('france3-regions.franceinfo.fr').name).toBe('France 3 Régions')
+    expect(outletOf('la1ere.franceinfo.fr').owner).toBe('Service public')
+    expect(outletOf('www.lorient.maville.com').owner).toBe('Groupe Sipa Ouest-France')
+    expect(outletOf('hitwest.ouest-france.fr').owner).toBe('Groupe Sipa Ouest-France')
+    expect(outletOf('exemple.org').owner).toBe('Non renseigné')
+  })
+
+  it('range les propriétaires inconnus en dernier', () => {
+    const rows = [...Array.from({ length: 5 }, () => row('inconnu.org')), row('cnews.fr')]
+    expect(aggregate(rows, 'owner').map((o) => o.name)).toEqual([
+      'Groupe Canal+ (Bolloré)',
+      'Non renseigné',
+    ])
   })
 })

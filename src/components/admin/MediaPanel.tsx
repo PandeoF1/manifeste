@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { download, mediaCsv, renderMediaPng } from '@/lib/mediaExport'
 import { queryKeys } from '@/lib/queryKeys'
 import {
+  MIN_ARTICLES_BADGE,
   aggregate,
   outletOf,
   topDemands,
@@ -35,6 +36,9 @@ const mediaQuery = (days: number) => ({
     return data
   },
 })
+
+/** Choix du seuil d'affichage et d'export (articles minimum par média). */
+const MIN_OPTIONS = [1, 5, 10, 15, 30] as const
 
 const pct = (x: number) => `${Math.round(x * 100)} %`
 const dateFmt = new Intl.DateTimeFormat('fr-FR', {
@@ -67,7 +71,13 @@ export function MediaPanel() {
   const [open, setOpen] = useState<string | null>(null)
   const q = useQuery(mediaQuery(days))
   const rows = useMemo(() => q.data ?? [], [q.data])
-  const stats = useMemo(() => aggregate(rows, by), [rows, by])
+  const [minArticles, setMinArticles] = useState<number>(10)
+  const allStats = useMemo(() => aggregate(rows, by), [rows, by])
+  const stats = useMemo(
+    () => allStats.filter((s) => s.articles >= minArticles),
+    [allStats, minArticles],
+  )
+  const hidden = allStats.length - stats.length
   const relevant = rows.filter((r) => r.about_movement)
   const all = useMemo(() => aggregate(relevant, 'owner'), [relevant])
   const global = all.reduce(
@@ -89,7 +99,12 @@ export function MediaPanel() {
     setExporting(true)
     try {
       download(
-        await renderMediaPng(stats, { period: periodLabel, by, generatedAt: new Date() }),
+        await renderMediaPng(stats, {
+          period: periodLabel,
+          by,
+          minArticles,
+          generatedAt: new Date(),
+        }),
         `manifeste-medias-${stamp}.png`,
       )
     } finally {
@@ -123,6 +138,20 @@ export function MediaPanel() {
           ]}
           onChange={setBy}
         />
+        <label className="flex items-center gap-2 text-sm text-muted">
+          Au moins
+          <select
+            className="h-9 rounded-md border border-border bg-surface px-2 text-fg"
+            value={minArticles}
+            onChange={(e) => setMinArticles(Number(e.target.value))}
+          >
+            {MIN_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n} article{n > 1 ? 's' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="ml-auto flex gap-2">
           <button
             type="button"
@@ -172,7 +201,7 @@ export function MediaPanel() {
               value={global.n ? pct(global.incidents / global.n) : '–'}
             />
             <Kpi
-              label="Évoquent des violences policières"
+              label="Violences policières évoquées (non vérifié)"
               value={global.n ? pct(global.police / global.n) : '–'}
             />
           </section>
@@ -191,6 +220,13 @@ export function MediaPanel() {
           )}
 
           <section className="card overflow-x-auto p-0" aria-label="Par média">
+            {hidden > 0 && (
+              <p className="border-b border-border p-3 text-xs text-muted">
+                {hidden} média{hidden > 1 ? 's' : ''} masqué{hidden > 1 ? 's' : ''} (moins de{' '}
+                {minArticles} articles : trop peu pour comparer). Les constats ne s'affichent qu'à
+                partir de 15 articles.
+              </p>
+            )}
             {stats.length === 0 && (
               <p className="p-4 text-sm text-muted">
                 Pas encore d'article analysé sur la période. Les analyses arrivent avec les
@@ -282,7 +318,9 @@ function OutletRow({
             {s.badges.map((b) => (
               <BadgeChip key={b.id} b={b} />
             ))}
-            {s.articles < 3 && <span className="text-xs text-muted">trop peu d'articles</span>}
+            {s.articles < MIN_ARTICLES_BADGE && (
+              <span className="text-xs text-muted">constats à partir de 15 articles</span>
+            )}
           </div>
           {s.terms.length > 0 && (
             <div className="mt-1 text-xs text-muted">

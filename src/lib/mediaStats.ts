@@ -40,6 +40,21 @@ export const OUTLETS: Record<string, { name: string; owner: string }> = {
   'francetvinfo.fr': { name: 'Franceinfo', owner: 'Service public' },
   'france3-regions.francetvinfo.fr': { name: 'France 3 Régions', owner: 'Service public' },
   'francebleu.fr': { name: 'ici (France Bleu)', owner: 'Service public' },
+  'ici.fr': { name: 'ici (France Bleu)', owner: 'Service public' },
+  'franceinfo.fr': { name: 'Franceinfo', owner: 'Service public' },
+  'france3-regions.franceinfo.fr': { name: 'France 3 Régions', owner: 'Service public' },
+  'la1ere.franceinfo.fr': { name: 'La 1ère', owner: 'Service public' },
+  'la1ere.francetvinfo.fr': { name: 'La 1ère', owner: 'Service public' },
+  'arte.tv': { name: 'Arte', owner: 'Service public' },
+  'lcp.fr': { name: 'LCP', owner: 'Service public (Assemblée nationale)' },
+  'publicsenat.fr': { name: 'Public Sénat', owner: 'Service public (Sénat)' },
+  'letelegramme.fr': { name: 'Le Télégramme', owner: 'Groupe Télégramme' },
+  'la-croix.com': { name: 'La Croix', owner: 'Groupe Bayard' },
+  // À vérifier : actionnariat du groupe Le Monde.
+  'huffingtonpost.fr': { name: 'HuffPost', owner: 'Groupe Le Monde' },
+  'nouvelobs.com': { name: "L'Obs", owner: 'Groupe Le Monde' },
+  'fr.news.yahoo.com': { name: 'Yahoo Actualités', owner: 'Agrégateur (Yahoo)' },
+  'actu.orange.fr': { name: 'Orange Actualités', owner: 'Agrégateur (Orange)' },
   'radiofrance.fr': { name: 'Radio France', owner: 'Service public' },
   'franceinter.fr': { name: 'France Inter', owner: 'Service public' },
   'rfi.fr': { name: 'RFI', owner: 'Service public' },
@@ -78,9 +93,19 @@ export const OUTLETS: Record<string, { name: string; owner: string }> = {
 
 export const UNKNOWN_OWNER = 'Non renseigné'
 
+/** Sites régionaux d'un groupe (*.maville.com, *.ouest-france.fr) : même propriétaire. */
+const FAMILIES: Array<[RegExp, string]> = [
+  [/(^|\.)maville\.com$/, 'Groupe Sipa Ouest-France'],
+  [/(^|\.)ouest-france\.fr$/, 'Groupe Sipa Ouest-France'],
+  [/(^|\.)francetvinfo\.fr$/, 'Service public'],
+]
+
 export function outletOf(domain: string): { name: string; owner: string } {
   const d = domain.replace(/^www\./, '')
-  return OUTLETS[d] ?? { name: d, owner: UNKNOWN_OWNER }
+  const known = OUTLETS[d]
+  if (known) return known
+  const family = FAMILIES.find(([re]) => re.test(d))
+  return { name: d, owner: family ? family[1] : UNKNOWN_OWNER }
 }
 
 export interface OutletStats {
@@ -110,52 +135,55 @@ export interface Badge {
   rule: string
 }
 
-/** Constats calculés par des règles simples, à partir de 3 articles. */
+/** Nombre d'articles minimal pour afficher un constat (en dessous, trop fragile). */
+export const MIN_ARTICLES_BADGE = 15
+
+/** Constats calculés par des règles simples, à partir de MIN_ARTICLES_BADGE articles. */
 export function badgesFor(s: Omit<OutletStats, 'badges' | 'key'>): Badge[] {
-  if (s.articles < 3) return []
+  if (s.articles < MIN_ARTICLES_BADGE) return []
   const out: Badge[] = []
   const pct = (x: number) => `${Math.round(x * 100)} %`
   if (s.incidentsFocus >= 0.5 && s.demands <= 0.25)
     out.push({
       id: 'degats',
-      label: 'Les dégâts, pas les revendications',
+      label: 'Peu de revendications, surtout des incidents',
       tone: 'poor',
-      rule: `Angle « incidents » dans ${pct(s.incidentsFocus)} des articles, revendications citées dans ${pct(s.demands)} (règle : ≥ 50 % et ≤ 25 %).`,
+      rule: `Sur ${s.articles} articles : angle « incidents » dans ${pct(s.incidentsFocus)}, revendications citées dans ${pct(s.demands)} (règle : ≥ 50 % et ≤ 25 %).`,
     })
   if (s.officialVoices >= 0.5 && s.studentVoices <= 0.2)
     out.push({
       id: 'officiel',
-      label: 'Version officielle',
+      label: 'Surtout la parole officielle',
       tone: 'poor',
-      rule: `Police, préfecture ou direction s'expriment dans ${pct(s.officialVoices)} des articles, les lycéens dans ${pct(s.studentVoices)} (règle : ≥ 50 % et ≤ 20 %).`,
+      rule: `Sur ${s.articles} articles : police, préfecture ou direction s'expriment dans ${pct(s.officialVoices)}, les lycéens dans ${pct(s.studentVoices)} (règle : ≥ 50 % et ≤ 20 %).`,
     })
   if (s.defavorable >= 0.5)
     out.push({
       id: 'hostile',
-      label: 'Ton hostile',
+      label: 'Ton défavorable majoritaire',
       tone: 'poor',
-      rule: `Ton défavorable dans ${pct(s.defavorable)} des articles (règle : ≥ 50 %).`,
+      rule: `Sur ${s.articles} articles : ton défavorable dans ${pct(s.defavorable)} (règle : ≥ 50 %). Mesure subjective, à vérifier.`,
     })
   if (s.demands >= 0.6)
     out.push({
       id: 'revendications',
-      label: 'Explique les revendications',
+      label: 'Revendications souvent citées',
       tone: 'good',
-      rule: `Revendications citées dans ${pct(s.demands)} des articles (règle : ≥ 60 %).`,
+      rule: `Sur ${s.articles} articles : revendications citées dans ${pct(s.demands)} (règle : ≥ 60 %).`,
     })
   if (s.studentVoices >= 0.5)
     out.push({
       id: 'parole',
-      label: 'Donne la parole aux lycéens',
+      label: 'Parole aux lycéens fréquente',
       tone: 'good',
-      rule: `Lycéens cités dans ${pct(s.studentVoices)} des articles (règle : ≥ 50 %).`,
+      rule: `Sur ${s.articles} articles : lycéens cités dans ${pct(s.studentVoices)} (règle : ≥ 50 %).`,
     })
   if (out.length === 0 && s.incidentsFocus >= 0.35)
     out.push({
       id: 'incidents',
       label: 'Penche vers les incidents',
       tone: 'warn',
-      rule: `Angle « incidents » dans ${pct(s.incidentsFocus)} des articles (règle : ≥ 35 %).`,
+      rule: `Sur ${s.articles} articles : angle « incidents » dans ${pct(s.incidentsFocus)} (règle : ≥ 35 %).`,
     })
   return out
 }
@@ -194,7 +222,13 @@ export function aggregate(rows: ReadonlyArray<MediaRow>, by: 'outlet' | 'owner')
       }
       return { key, ...base, badges: badgesFor(base) }
     })
-    .sort((a, b) => b.articles - a.articles || a.name.localeCompare(b.name, 'fr'))
+    .sort(
+      (a, b) =>
+        Number(a.owner === UNKNOWN_OWNER && by === 'owner') -
+          Number(b.owner === UNKNOWN_OWNER && by === 'owner') ||
+        b.articles - a.articles ||
+        a.name.localeCompare(b.name, 'fr'),
+    )
 }
 
 /** Revendications les plus citées, toutes sources confondues. */

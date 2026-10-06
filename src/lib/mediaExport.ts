@@ -1,11 +1,13 @@
 // Export du tableau « Médias » : image PNG (dessinée sur un canvas, sans bibliothèque ni
 // service externe) et CSV.
-import type { Badge, OutletStats } from './mediaStats'
+import { MIN_ARTICLES_BADGE, type Badge, type OutletStats } from './mediaStats'
 
 export interface ExportMeta {
   /** Ex. « 30 derniers jours ». */
   period: string
   by: 'outlet' | 'owner'
+  /** Seuil appliqué (articles minimum par média). */
+  minArticles: number
   /** Date de génération (heure de Paris). */
   generatedAt: Date
 }
@@ -124,7 +126,7 @@ export function renderMediaPng(stats: ReadonlyArray<OutletStats>, meta: ExportMe
   ctx.fillStyle = C.muted
   ctx.font = `400 25px ${FONT}`
   ctx.fillText(
-    `${total} articles analysés par IA · ${meta.period} · regroupés par ${meta.by === 'owner' ? 'propriétaire' : 'média'}`,
+    `${total} articles analysés par IA · ${meta.period} · regroupés par ${meta.by === 'owner' ? 'propriétaire' : 'média'}${meta.minArticles > 1 ? ` · médias avec au moins ${meta.minArticles} articles` : ''}`,
     PAD,
     124,
   )
@@ -223,10 +225,10 @@ export function renderMediaPng(stats: ReadonlyArray<OutletStats>, meta: ExportMe
         mid - 30 + line * 44 + 25,
       )
     }
-    if (s.articles < 3) {
+    if (s.articles < MIN_ARTICLES_BADGE) {
       ctx.fillStyle = C.muted
       ctx.font = `400 21px ${FONT}`
-      ctx.fillText("trop peu d'articles", COL.badges, mid + 2)
+      ctx.fillText('constats à partir de 15 articles', COL.badges, mid + 2)
     }
     if (s.terms.length) {
       ctx.fillStyle = C.muted
