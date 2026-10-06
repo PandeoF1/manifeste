@@ -51,25 +51,41 @@ for (const row of data ?? []) {
     `     paramètres de décodage : ${params ? 'trouvés' : 'ABSENTS'}${/consent|captcha|unusual traffic/i.test(html.slice(0, 5000)) ? ' (page de consentement ou de blocage)' : ''}`,
   )
   if (!params) continue
-  const res = await fetch(BATCH_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      'user-agent': UA,
-      origin: 'https://news.google.com',
-      referer: 'https://news.google.com/',
-    },
-    body: buildBatchBody([params]),
-  })
-  const text = await res.text()
-  const [real] = parseBatchResponse(text, 1)
-  console.log(
-    `  2. décodage : HTTP ${res.status}, ${real ? `adresse réelle ${real.slice(0, 70)}…` : 'AUCUNE adresse'}`,
-  )
-  if (!real) {
+  // Trois variantes de la requête de décodage : si l'une passe quand la première répond 429,
+  // le blocage vient de la forme de la requête et non d'un quota d'adresse.
+  const cookies = (page.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).join('; ')
+  const variants: Array<[string, string, Record<string, string>]> = [
+    ['simple', BATCH_URL, {}],
+    [
+      'avec paramètres d’URL',
+      `${BATCH_URL}?rpcids=Fbv4je&source-path=%2Frss%2Farticles%2F${id}&hl=fr&gl=FR&rt=c`,
+      { 'x-same-domain': '1' },
+    ],
+    ['avec cookies de la page', BATCH_URL, cookies ? { cookie: cookies } : {}],
+  ]
+  let real: string | null = null
+  for (const [label, target, extra] of variants) {
+    const res = await fetch(target, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'user-agent': UA,
+        origin: 'https://news.google.com',
+        referer: 'https://news.google.com/',
+        ...extra,
+      },
+      body: buildBatchBody([params]),
+    })
+    const text = await res.text()
+    ;[real] = parseBatchResponse(text, 1)
+    console.log(
+      `  2. décodage (${label}) : HTTP ${res.status}, ${real ? `adresse réelle ${real.slice(0, 70)}…` : 'AUCUNE adresse'}`,
+    )
+    if (real) break
     console.log(`     réponse : ${text.slice(0, 160).replace(/\s+/g, ' ')}`)
-    continue
+    await new Promise((r) => setTimeout(r, 3000))
   }
+  if (!real) continue
   const article = await fetch(real, {
     headers: { 'user-agent': UA, accept: 'text/html' },
     redirect: 'follow',
