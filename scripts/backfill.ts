@@ -5,7 +5,8 @@
  * (rattachement aux lycées, validation, non-rattachés, journal dans l'admin).
  *
  *   npm run backfill -- fetch --since 2026-09-14 [--until 2026-10-05] [--dry-run]
- *   npm run backfill -- process [--rpm 10] [--max-calls 100]
+ *   npm run backfill -- process [--rpm 60] [--max-calls 100]
+ *   npm run backfill -- media [--rpm 60] [--limit 500]   (analyse des médias des articles en file)
  *   npm run backfill -- status
  *   npm run backfill -- retry-errors
  *
@@ -31,7 +32,17 @@ import {
   type Certainty,
 } from '../supabase/functions/_shared/extraction.ts'
 import { fetchRss } from '../supabase/functions/_shared/fetchers/rss.ts'
-import { createExtractor, modelsFromEnv } from '../supabase/functions/_shared/gemini.ts'
+import {
+  createExtractor,
+  createGeminiClient,
+  modelsFromEnv,
+} from '../supabase/functions/_shared/gemini.ts'
+import {
+  isPressItem,
+  mediaRequest,
+  mediaRows,
+  parseMediaAnalyses,
+} from '../supabase/functions/_shared/media.ts'
 import { createServiceDb } from '../supabase/functions/_shared/service-db.ts'
 import {
   BACKFILL_SOURCE_IDENTIFIER,
@@ -153,7 +164,7 @@ async function fetchCommand() {
 async function processCommand() {
   const admin = supabaseAdmin()
   const db = createServiceDb(admin)
-  const rpm = Number(arg('rpm') ?? 10)
+  const rpm = Number(arg('rpm') ?? 60)
   const maxCalls = Number(arg('max-calls') ?? Infinity)
   const certainty = process.env.COLLECT_MIN_CERTAINTY ?? 'moyenne'
   const minCertainty: Certainty = (CERTAINTIES as readonly string[]).includes(certainty)
@@ -283,6 +294,88 @@ async function processCommand() {
 
 // ---------------------------------------------------------------------------------------------
 
+// media : analyse du traitement médiatique des articles déjà en file (titre + chapeau de la page,
+// relus car le texte n'est pas conservé). Relançable : media_done_at marque ce qui est fait.
+
+async function mediaCommand() {
+  const admin = supabaseAdmin()
+  const rpm = Number(arg('rpm') ?? 60)
+  const limit = Number(arg('limit') ?? Infinity)
+  const { data: source, error: sourceError } = await admin
+    .from('scrape_sources')
+    .select('id')
+    .eq('kind', 'rss')
+    .eq('identifier', BACKFILL_SOURCE_IDENTIFIER)
+    .single()
+  if (sourceError || !source) throw new Error('Source de rattrapage introuvable (db push ?).')
+
+  const client = createGeminiClient({
+    apiKey: env('GEMINI_API_KEY'),
+    models: modelsFromEnv(process.env.GEMINI_MODEL, process.env.GEMINI_FALLBACK_MODELS),
+    fetchFn: fetch,
+  })
+  const totals = { read: 0, analyzed: 0, skipped: 0 }
+  while (totals.read < limit) {
+    const startedAt = Date.now()
+    const { data: rows, error } = await admin
+      .from('backfill_queue')
+      .select('id, external_id, url, title, publisher_domain, published_at')
+      .is('media_done_at', null)
+      .in('status', ['done', 'pending'])
+      .order('published_at', { ascending: false })
+      .limit(25)
+    if (error) throw new Error(`backfill_queue : ${error.message}`)
+    if (!rows?.length) {
+      console.log('\nTous les articles de la file sont analysés.')
+      break
+    }
+    // Lien réel de l'article puis titre + chapeau de la page.
+    const items = await enrichItems(fetch, rows.map(fromQueueRow))
+    const batch = items
+      .map((item, i) => ({ id: String(i), item, source: source as { id: string } }))
+      .filter((b) => isPressItem('rss', b.item) && b.item.text.trim().length > 0)
+    totals.read += rows.length
+    totals.skipped += rows.length - batch.length
+
+    if (batch.length > 0) {
+      let analyses
+      try {
+        analyses = parseMediaAnalyses(await client.generate(mediaRequest(batch)), batch)
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        console.log(`\nGemini : ${message}`)
+        if (isQuotaExhausted(message)) {
+          console.log('Quota atteint : relancez « media » plus tard (reprise automatique).')
+          break
+        }
+        await sleep(5_000)
+        continue
+      }
+      const out = mediaRows(analyses, batch, [...client.served].at(-1) ?? null)
+      if (out.length) {
+        const { error: upsertError } = await admin
+          .from('media_analyses')
+          .upsert(out, { onConflict: 'url', ignoreDuplicates: true })
+        if (upsertError) throw new Error(`media_analyses : ${upsertError.message}`)
+        totals.analyzed += out.length
+      }
+    }
+    await admin
+      .from('backfill_queue')
+      .update({ media_done_at: new Date().toISOString() })
+      .in(
+        'id',
+        rows.map((r) => r.id),
+      )
+    process.stdout.write(
+      `\r${totals.read} articles lus · ${totals.analyzed} analysés · ${totals.skipped} ignorés (page illisible ou hors presse)`,
+    )
+    const wait = 60_000 / rpm - (Date.now() - startedAt)
+    if (wait > 0) await sleep(wait)
+  }
+  console.log(`\nModèles : ${[...client.served].join(', ') || 'aucun'} · ${client.calls} appels.`)
+}
+
 async function statusCommand() {
   const admin = supabaseAdmin()
   const counts: Record<string, number> = {}
@@ -314,12 +407,13 @@ async function retryErrorsCommand() {
 const commands: Record<string, () => Promise<void>> = {
   fetch: fetchCommand,
   process: processCommand,
+  media: mediaCommand,
   status: statusCommand,
   'retry-errors': retryErrorsCommand,
 }
 const command = commands[process.argv[2] ?? '']
 if (!command) {
-  console.log('Usage : npm run backfill -- <fetch|process|status|retry-errors> [options]')
+  console.log('Usage : npm run backfill -- <fetch|process|media|status|retry-errors> [options]')
   process.exit(1)
 }
 command().catch((e: unknown) => {

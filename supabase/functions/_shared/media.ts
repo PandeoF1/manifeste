@@ -207,3 +207,29 @@ export function articleDomain(item: ScrapedItem): string | null {
 export function articleTitle(item: ScrapedItem): string {
   return (item.text.split('\n')[0] ?? '').trim().slice(0, 300)
 }
+
+/** Lignes à enregistrer (table media_analyses) pour les analyses d'un lot. */
+export function mediaRows(
+  analyses: ReadonlyArray<MediaAnalysis>,
+  batch: ReadonlyArray<{ id: string; item: ScrapedItem; source: { id: string } }>,
+  model: string | null,
+) {
+  const byId = new Map(batch.map((b) => [b.id, b]))
+  return analyses.flatMap((a) => {
+    const b = byId.get(a.item_id)
+    const domain = b && articleDomain(b.item)
+    if (!b || !domain) return []
+    const { item_id: _id, ...answers } = a
+    return [
+      {
+        ...answers,
+        url: b.item.url,
+        domain,
+        title: articleTitle(b.item),
+        source_id: b.source.id,
+        published_at: b.item.publishedAt.toISOString(),
+        model,
+      },
+    ]
+  })
+}

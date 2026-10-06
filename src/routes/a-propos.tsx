@@ -3,7 +3,13 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { DEFAULT_SETTINGS, periodDescription } from '@/lib/periods'
 import { settingsQuery } from '@/queries/settings'
-import { CONTACT_EMAIL, HOST_SUPABASE, HOST_VERCEL } from '@/config/legal'
+import {
+  CONTACT_EMAIL,
+  CREATOR_GITHUB,
+  CREATOR_NAME,
+  HOST_SUPABASE,
+  HOST_VERCEL,
+} from '@/config/legal'
 
 export const Route = createFileRoute('/a-propos')({
   component: AboutPage,
@@ -12,7 +18,7 @@ export const Route = createFileRoute('/a-propos')({
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section aria-labelledby={id} className="space-y-3">
-      <h2 id={id} className="text-xl font-black">
+      <h2 id={id} className="text-lg font-black">
         {title}
       </h2>
       <div className="space-y-3 leading-relaxed">{children}</div>
@@ -28,121 +34,126 @@ function AboutPage() {
     </a>
   )
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 space-y-10 overflow-y-auto p-4 pb-28 md:pb-16">
+    <main className="mx-auto w-full max-w-2xl flex-1 space-y-9 overflow-y-auto p-4 pb-28 md:pb-16">
       <header className="space-y-3 pt-4">
-        <h1 className="text-3xl font-black">Aucun lycée mobilisé n'est seul.</h1>
+        <h1 className="text-3xl font-black">C'est quoi, Manifeste ?</h1>
         <p className="text-lg">
-          Manifeste rend visible, en direct, chaque lycée bloqué en France. Ce qui se passe devant
-          un établissement à Rennes, à Marseille ou à Lille apparaît sur la même carte, au même
-          moment.
-        </p>
-        <p className="text-muted">
-          Chaque point est sourcé. Rien n'est inventé, rien n'est exagéré : la carte montre ce qui
-          est.
+          Une carte des lycées bloqués en France, mise à jour en direct. Tu vois où ça bloque,
+          depuis quand, et d'où vient l'info : chaque point renvoie vers sa source.
         </p>
       </header>
 
-      <Section id="methode" title="D'où viennent les informations">
-        <ul className="list-disc space-y-2 pl-5">
-          <li>
-            <strong>Presse et sources publiques.</strong> Des flux d'actualité, des canaux Telegram
-            publics et des comptes Bluesky sont lus automatiquement toutes les 10 minutes. Une
-            intelligence artificielle (Google Gemini) repère dans ces textes publics les lycées
-            concernés et leur situation. Seuls le lycée, le statut, l'heure et le lien de la source
-            sont gardés. Quand le lycée n'a pas pu être identifié automatiquement, un court extrait
-            public (titre, chapeau de l'article) est conservé au plus 7 jours, visible de l'équipe
-            uniquement, le temps de le vérifier.
-          </li>
-          <li>
-            <strong>Signalements sur place.</strong> Toute personne près d'un lycée peut signaler la
-            situation, avec une photo si elle le souhaite. Chaque signalement est vérifié à la main
-            par l'équipe avant d'apparaître.
-          </li>
-        </ul>
+      <Section id="qui" title="Qui est derrière ?">
         <p>
-          <strong>Validation.</strong> Une information est publiée automatiquement si elle vient
-          d'un média reconnu, ou si deux sources indépendantes la confirment dans un intervalle de 2
-          heures. Sinon, l'équipe la vérifie avant publication.
+          Moi, {CREATOR_NAME}. J'ai fait ce site seul, sur mon temps libre, parce que l'info sur les
+          blocus est éparpillée partout et que je trouvais ça dommage de ne pas pouvoir tout voir au
+          même endroit. Le code est public sur{' '}
+          <a href={CREATOR_GITHUB} className="underline" rel="noopener noreferrer">
+            mon GitHub
+          </a>
+          . Une erreur, une idée, un lycée qui manque : écris-moi à {mail}.
         </p>
         <p>
-          <strong>Direct et bilan.</strong> En direct, un lycée sort de la carte sans nouveau signal
-          pendant {settings.statusTtlHours} heure{settings.statusTtlHours > 1 ? 's' : ''}. Les
-          boutons « 24 h », « 7 jours » et « Tout » montrent le bilan sur la période : chaque lycée
-          concerné au moins une fois, avec le statut le plus fort qu'il a connu. « Tout » remonte{' '}
-          {periodDescription('tout', settings)}.
+          Je ne suis rattaché à aucun syndicat, parti ou organisation. Le site rapporte ce qui se
+          passe ; il n'appelle à rien.
         </p>
       </Section>
 
-      <Section id="confidentialite" title="Confidentialité">
+      <Section id="methode" title="D'où viennent les infos">
         <p>
-          Manifeste ne crée pas de compte, ne dépose aucun cookie de suivi et n'utilise aucun outil
-          de mesure d'audience.
+          Toutes les 10 minutes, le site lit des articles de presse (nationale, régionale, locale),
+          des canaux Telegram publics et des comptes Bluesky. Une IA (Google Gemini) repère dans ces
+          textes les lycées cités et leur situation : bloqué, barrage filtrant ou blocus levé. Je ne
+          garde que le lycée, le statut, l'heure et le lien. Si le lycée n'a pas pu être identifié,
+          un court extrait public (titre et chapeau) reste visible de moi seul pendant 7 jours, le
+          temps de vérifier.
         </p>
-        <p>Données traitées :</p>
+        <p>
+          Tu peux aussi signaler un blocus sur place, avec une photo si tu veux. Et si ton lycée
+          n'est pas dans la liste, tu peux m'en proposer l'ajout. Tout signalement est vérifié à la
+          main avant d'apparaître.
+        </p>
+        <p>
+          Une info de la presse est publiée directement si elle vient d'un média reconnu, ou si deux
+          sources indépendantes disent la même chose à moins de 2 heures d'écart. Sinon, je vérifie
+          avant. Je regarde aussi comment la presse parle du mouvement (statistiques internes, non
+          affichées sur le site).
+        </p>
+        <p>
+          La carte « Direct » retire un lycée après {settings.statusTtlHours} heure
+          {settings.statusTtlHours > 1 ? 's' : ''} sans nouveau signal. Les boutons « 24 h », « 7
+          jours » et « Tout » donnent le bilan d'une période : chaque lycée concerné au moins une
+          fois, avec le pire statut connu. « Tout » remonte {periodDescription('tout', settings)}.
+        </p>
+      </Section>
+
+      <Section id="confidentialite" title="Ce que je garde sur toi">
+        <p>
+          Pas de compte, pas de cookie, pas de pisteur, aucun outil d'analyse tiers. Pour les
+          détails :
+        </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Lors d'un signalement : le lycée, le statut et, si tu en ajoutes, le lien source et la
-            photo. Aucune donnée d'identité : ni nom, ni pseudo, ni compte.
+            <strong>Quand tu signales un blocus</strong> : le lycée, la situation, et si tu en mets,
+            un lien et une photo. Pas de nom, pas de pseudo.
           </li>
           <li>
-            <strong>Ta position</strong>, au moment du signalement : arrondie à environ 100 mètres,
-            elle sert uniquement à vérifier que tu es à moins de 2 km du lycée. Elle n'est jamais
-            affichée ; sur la carte, seul l'emplacement du lycée apparaît. Elle est visible
-            uniquement par l'équipe de vérification.
+            <strong>Ta position</strong> sert à vérifier que tu es à moins de 2 km du lycée. Elle
+            est arrondie à environ 100 m sur ton téléphone avant l'envoi, jamais affichée, et vue de
+            moi seul. Si tu proposes un lycée absent de la liste, elle est gardée jusqu'à ma
+            décision (7 jours au maximum).
           </li>
           <li>
-            <strong>Ta photo</strong> : toutes ses métadonnées (position GPS, modèle de l'appareil,
-            date) sont supprimées sur ton appareil avant l'envoi, et le serveur refuse toute photo
-            qui en contiendrait encore. Tu peux flouter les visages avant l'envoi. L'équipe vérifie
-            et floute à nouveau si besoin : une photo n'est publiée qu'après cette vérification.
-            L'original est supprimé dès la décision de l'équipe, et au plus tard après 48 heures.
+            <strong>Ta photo</strong> est nettoyée sur ton téléphone (GPS, modèle d'appareil et date
+            supprimés) et le serveur la refuse s'il reste une métadonnée. Je la vérifie, je floute
+            si besoin, et je supprime l'original dès ma décision, 48 heures au plus tard.
           </li>
           <li>
-            Une empreinte chiffrée et non réversible de l'adresse IP, conservée 24 h, uniquement
-            pour limiter les abus (intérêt légitime). L'adresse IP elle-même n'est jamais
-            enregistrée.
+            <strong>Une empreinte anti-abus</strong> : une signature non réversible de ton adresse
+            IP, mélangée à un sel secret détruit chaque nuit, ce qui limite les envois à 5 par jour.
+            L'adresse IP elle-même n'est jamais enregistrée.
           </li>
           <li>
-            Cloudflare Turnstile vérifie que l'envoi vient d'un humain et traite à ce titre des
-            données techniques de connexion.
+            <strong>Des statistiques de fréquentation anonymes</strong>, faites maison : combien de
+            visiteurs par jour (même type d'empreinte, qui ne permet pas de te suivre d'un jour à
+            l'autre), quelles pages sont vues, combien d'onglets sont ouverts en ce moment (via un
+            identifiant aléatoire gardé en mémoire dans l'onglet, jamais sur ton appareil), et la
+            vitesse d'affichage du site. Pas de navigateur, pas d'appareil, pas de lien entre
+            visites. Tu peux les couper avec « Do Not Track » ou « Global Privacy Control » dans ton
+            navigateur.
           </li>
           <li>
-            Les hébergeurs (Vercel, Supabase) conservent des journaux techniques de connexion.
-          </li>
-          <li>
-            Les tuiles de la carte sont servies par OpenFreeMap, qui reçoit à ce titre des données
+            Cloudflare Turnstile (anti-robot sur le formulaire), Vercel et Supabase (hébergement) et
+            OpenFreeMap (fonds de carte) reçoivent, comme tout service en ligne, des données
             techniques de connexion.
           </li>
         </ul>
         <p>
-          Tu peux exercer tes droits d'accès, de rectification et d'effacement en écrivant à {mail},
-          et introduire une réclamation auprès de la CNIL (
+          Pour accéder à tes données, les corriger ou les faire effacer, ou faire retirer une photo
+          publiée, écris à {mail}. Tu peux aussi saisir la CNIL (
           <a href="https://www.cnil.fr" className="underline" rel="noopener noreferrer">
             cnil.fr
           </a>
-          ). Une photo publiée peut être retirée sur simple demande.
+          ).
         </p>
       </Section>
 
       <Section id="mentions" title="Mentions légales">
         <p>
-          <strong>Éditeur.</strong> Manifeste est édité à titre non professionnel par un
-          particulier. Conformément à la loi n° 2004-575 du 21 juin 2004 pour la confiance dans
-          l'économie numérique, l'éditeur a choisi de préserver son anonymat. Ses éléments
-          d'identification ont été communiqués à l'hébergeur.
+          Manifeste est édité à titre non professionnel par {CREATOR_NAME} (pseudonyme). Comme la
+          loi du 21 juin 2004 pour la confiance dans l'économie numérique le permet, mon identité
+          complète a été communiquée aux hébergeurs, pas publiée ici.
         </p>
         <p>
-          <strong>Hébergement.</strong> Site : {HOST_VERCEL}. Base de données : {HOST_SUPABASE}.
+          Hébergement : {HOST_VERCEL} pour le site ; {HOST_SUPABASE} pour la base de données.
         </p>
         <p>
-          <strong>Contact et signalement.</strong> {mail} - point de contact unique pour toute
-          question, pour signaler une information inexacte ou un contenu illicite, et pour toute
-          demande de retrait. Les signalements sont traités dans les meilleurs délais.
+          Contact, information inexacte, contenu illicite, demande de retrait : {mail}. Je réponds
+          dès que possible.
         </p>
         <p>
-          <strong>Nature du service.</strong> Manifeste recense des informations publiques sur les
-          blocages d'établissements, avec leur source. Le site n'organise aucun rassemblement et
-          n'appelle à aucune action.
+          Manifeste recense des informations publiques sur des blocages d'établissements, avec leur
+          source. Il n'organise aucun rassemblement et n'appelle à aucune action.
         </p>
       </Section>
 

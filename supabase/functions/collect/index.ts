@@ -28,13 +28,7 @@ import { createExtractor, createGeminiClient, modelsFromEnv } from '../_shared/g
 import { corsHeaders, json } from '../_shared/http.ts'
 import { SUPABASE_URL, admin, db, getCollectSecret, isAuthorized } from '../_shared/service.ts'
 import { batchByLength, traceSink } from '../_shared/service-db.ts'
-import {
-  articleDomain,
-  articleTitle,
-  isPressItem,
-  mediaRequest,
-  parseMediaAnalyses,
-} from '../_shared/media.ts'
+import { isPressItem, mediaRows, mediaRequest, parseMediaAnalyses } from '../_shared/media.ts'
 import { createTracer, noTracer, tracingFetch, type Tracer } from '../_shared/trace.ts'
 import type { FetchLike } from '../_shared/fetchers/types.ts'
 
@@ -57,7 +51,7 @@ const MAX_SOURCES_PER_RUN = Number(Deno.env.get('COLLECT_MAX_SOURCES_PER_RUN') ?
  * Éléments nouveaux lus par source et par passage (les plus récents) : borne le travail d'un
  * sous-appel (lecture des articles) ; le reste est repris au passage suivant.
  */
-const MAX_ITEMS_PER_SOURCE = Number(Deno.env.get('COLLECT_MAX_ITEMS_PER_SOURCE') ?? 20)
+const MAX_ITEMS_PER_SOURCE = Number(Deno.env.get('COLLECT_MAX_ITEMS_PER_SOURCE') ?? 40)
 /**
  * Recherches Google Actualités par passage : au-delà, Google répond 503 aux serveurs de
  * Supabase. Les autres attendent les passages suivants (les plus anciennes d'abord).
@@ -67,8 +61,8 @@ const MAX_GOOGLE_NEWS_PER_RUN = Number(Deno.env.get('COLLECT_MAX_GOOGLE_NEWS_PER
 const ITEMS_PER_GEMINI_CALL = Number(Deno.env.get('COLLECT_ITEMS_PER_GEMINI_CALL') ?? 60)
 
 /** Articles de presse analysés (traitement médiatique) par passage, et par appel Gemini. */
-const MEDIA_PER_RUN = Number(Deno.env.get('COLLECT_MEDIA_PER_RUN') ?? 40)
-const MEDIA_PER_CALL = 20
+const MEDIA_PER_RUN = Number(Deno.env.get('COLLECT_MEDIA_PER_RUN') ?? 150)
+const MEDIA_PER_CALL = 25
 /** Au-delà, on laisse tomber l'analyse des médias pour finir la collecte à temps. */
 const MEDIA_DEADLINE_MS = 105_000
 
@@ -182,23 +176,7 @@ async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
       const batch = group.map((p, i) => ({ id: String(i), item: p.item, source: p.source }))
       const results = parseMediaAnalyses(await client.generate(mediaRequest(batch)), batch)
       const model = [...client.served].at(-1) ?? null
-      const rows = results.flatMap((a) => {
-        const b = batch[Number(a.item_id)]
-        const domain = b && articleDomain(b.item)
-        if (!b || !domain) return []
-        const { item_id: _id, ...answers } = a
-        return [
-          {
-            ...answers,
-            url: b.item.url,
-            domain,
-            title: articleTitle(b.item),
-            source_id: b.source.id,
-            published_at: b.item.publishedAt.toISOString(),
-            model,
-          },
-        ]
-      })
+      const rows = mediaRows(results, batch, model)
       if (rows.length) {
         const { error } = await admin
           .from('media_analyses')

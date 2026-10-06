@@ -133,3 +133,46 @@ describe('statistiques par média', () => {
     expect(outletOf('exemple.org')).toEqual({ name: 'exemple.org', owner: 'Non renseigné' })
   })
 })
+
+describe('lignes enregistrées', () => {
+  it('relie chaque analyse à son article et ignore les identifiants inconnus', async () => {
+    const { mediaRows } = await import('@shared/media.ts')
+    const b = [
+      {
+        id: '0',
+        item: item('Titre de l’article\nChapeau', 'https://www.lemonde.fr/a'),
+        source: { id: 's1' },
+      },
+    ]
+    const base = {
+      about_movement: true,
+      mentions_demands: false,
+      demands: [],
+      voices: [],
+      focus: 'mobilisation' as const,
+      incidents: false,
+      police_violence: false,
+      terms: [],
+      tone: 'neutre' as const,
+      quote_demands: null,
+      quote_framing: null,
+    }
+    const rows = mediaRows(
+      [
+        { ...base, item_id: '0' },
+        { ...base, item_id: '7' },
+      ],
+      b,
+      'm',
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      url: 'https://www.lemonde.fr/a',
+      domain: 'lemonde.fr',
+      title: 'Titre de l’article',
+      source_id: 's1',
+      model: 'm',
+    })
+    expect(rows[0]).not.toHaveProperty('item_id')
+  })
+})

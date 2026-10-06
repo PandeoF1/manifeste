@@ -439,7 +439,8 @@ function PrivacyNotice() {
         <li>
           <strong>Ta position</strong> est arrondie à ~100 m sur ton téléphone avant l'envoi, sert
           seulement à vérifier que tu es près du lycée, et n'est jamais affichée. Sur la carte,
-          c'est l'emplacement du lycée qui apparaît.
+          c'est l'emplacement du lycée qui apparaît. Si tu proposes un lycée absent de la liste,
+          elle est gardée jusqu'à la décision de l'équipe (7 jours au maximum).
         </li>
         <li>
           <strong>Ta photo</strong> est nettoyée sur ton téléphone avant l'envoi : GPS, modèle
