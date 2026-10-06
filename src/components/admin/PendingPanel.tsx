@@ -101,7 +101,8 @@ export function PendingPanel() {
                     {r.certainty && <span>certitude {r.certainty}</span>}
                     {sub && (
                       <span className="inline-flex items-center gap-1">
-                        <MapPin size={14} aria-hidden="true" /> à {sub.distance_m} m du lycée
+                        <MapPin size={14} aria-hidden="true" /> à {sub.distance_m} m de
+                        l'établissement
                       </span>
                     )}
                     {sub?.photo_path && (

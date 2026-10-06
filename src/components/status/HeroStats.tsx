@@ -60,12 +60,12 @@ export function HeroStats({ stats, updatedAt, isError, compact = false, history,
       )}
       {picker}
       <h2 id="hero-title" className={compact ? 'sr-only' : 'text-sm font-semibold text-muted'}>
-        Partout en France, les lycéens se font entendre.
+        Partout en France, les lycéens et les étudiants se font entendre.
       </h2>
       {/* Lecteurs d'écran : une phrase complète, mise à jour sans annoncer l'animation. */}
       <p className="sr-only" aria-live="polite">
         {history ? `${history[0]?.toUpperCase()}${history.slice(1)}, ` : ''}
-        {stats.bloque} lycée{plural(stats.bloque)} {history ? 'ont été ' : ''}bloqué
+        {stats.bloque} établissement{plural(stats.bloque)} {history ? 'ont été ' : ''}bloqué
         {plural(stats.bloque)}, {stats.filtrant} en barrage filtrant, dans {stats.departments}{' '}
         département{plural(stats.departments)}.
       </p>
@@ -77,7 +77,7 @@ export function HeroStats({ stats, updatedAt, isError, compact = false, history,
             {bloque}
           </span>
           <span className={`font-bold leading-tight ${compact ? 'text-base' : 'text-xl'}`}>
-            lycée{plural(stats.bloque)}
+            établissement{plural(stats.bloque)}
             {compact ? ' ' : <br />}
             {history ? (stats.bloque > 1 ? 'ont été ' : 'a été ') : ''}
             bloqué{plural(stats.bloque)}

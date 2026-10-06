@@ -77,8 +77,8 @@ function MapPage() {
   const stats = useMemo(() => computeStats(statuses), [statuses])
   const shareUrl = period === 'direct' ? '/' : `/?periode=${period}`
   const shareText = history
-    ? `${stats.bloque} lycées ont été bloqués ${history} en France.`
-    : `${stats.bloque} lycées bloqués en ce moment en France.`
+    ? `${stats.bloque} établissements ont été bloqués ${history} en France.`
+    : `${stats.bloque} établissements bloqués en ce moment en France.`
   const selected = statuses.find((s) => s.uai === search.uai)
 
   const [initialView] = useState<MapViewState>(() => {
@@ -102,7 +102,7 @@ function MapPage() {
   return (
     <main className="flex min-h-0 flex-1">
       <h1 className="sr-only">
-        Carte des blocus de lycées en direct : les lycées bloqués en France
+        Carte des blocus de lycées et de facs en direct : les établissements bloqués en France
       </h1>
 
       {/* Ordinateur : panneau latéral (chiffres + fil en direct). */}
@@ -121,7 +121,7 @@ function MapPage() {
           <Legend />
           <ShareButton
             url={shareUrl}
-            title="Manifeste - les lycées mobilisés, en direct"
+            title="Manifeste - les lycées et les facs mobilisés, en direct"
             text={shareText}
             label="Partager la carte"
           />
@@ -174,7 +174,7 @@ function MapPage() {
         {!selected && (
           <ShareButton
             url={shareUrl}
-            title="Manifeste - les lycées mobilisés, en direct"
+            title="Manifeste - les lycées et les facs mobilisés, en direct"
             text={shareText}
             label="Partager"
             className="glass absolute left-4 z-10 inline-flex h-12 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold shadow-2xl md:hidden"

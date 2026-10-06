@@ -39,8 +39,12 @@ export function createServiceDb(admin: SupabaseClient): CollectorDb {
       if (error) throw new Error(`nearby_schools: ${error.message}`)
       return (data ?? []) as Array<{ uai: string; name: string; distance_m: number }>
     },
-    async schoolsInCity(city) {
-      const { data, error } = await admin.rpc('schools_in_city', { p_city: city, p_limit: 2 })
+    async schoolsInCity(city, level) {
+      const { data, error } = await admin.rpc('schools_in_city', {
+        p_city: city,
+        p_limit: 2,
+        p_level: level,
+      })
       if (error) throw new Error(`schools_in_city: ${error.message}`)
       return (data ?? []) as Array<{ uai: string }>
     },

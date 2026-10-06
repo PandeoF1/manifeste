@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:db": "bash supabase/tests/run-local.sh",
     "import:schools": "tsx scripts/import-schools.ts",
+    "import:higher-ed": "tsx scripts/import-higher-ed.ts",
     "gen:types": "supabase gen types typescript --linked --schema public > src/lib/database.types.ts",
     "check": "tsc -b && eslint . && vitest run",
     "brand": "tsx scripts/generate-brand.ts",

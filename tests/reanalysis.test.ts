@@ -5,7 +5,7 @@ import {
   parseChoices,
   type ReanalysisItem,
 } from '@shared/reanalysis.ts'
-import { isGenericSchoolName, stripGenericWords } from '@shared/matching.ts'
+import { isGenericSchoolName, levelOfName, stripGenericWords } from '@shared/matching.ts'
 
 describe('contexte de page', () => {
   it('lit titre et résumé (attributs dans les deux ordres, entités HTML)', () => {
@@ -82,5 +82,13 @@ describe('noms génériques', () => {
   })
   it('retire les mots génériques', () => {
     expect(stripGenericWords('Lycée professionnel Robert-Buron')).toBe('robert buron')
+    expect(stripGenericWords('Fac de Tolbiac')).toBe('tolbiac')
+    expect(levelOfName('Université de Nanterre')).toBe('superieur')
+    expect(levelOfName('fac de Tolbiac')).toBe('superieur')
+    expect(levelOfName('Lycée de l’Université')).toBe('lycee')
+    expect(levelOfName('Lycée de Hanches')).toBe('lycee')
+    expect(levelOfName('Joliot-Curie')).toBe('lycee')
+    expect(stripGenericWords('Université Paris 8')).toBe('paris 8')
+    expect(isGenericSchoolName('Université de Nanterre', 'Nanterre')).toBe(true)
   })
 })

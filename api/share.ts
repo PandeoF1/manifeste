@@ -27,11 +27,11 @@ interface Meta {
 
 export type Page = 'home' | 'liste' | 'lycee'
 
-const SITE_TITLE = 'Carte des blocus de lycées en direct - Manifeste'
+const SITE_TITLE = 'Carte des blocus de lycées et de facs en direct - Manifeste'
 const SITE_DESCRIPTION =
-  "La carte en direct des lycées bloqués et des blocus en France : chaque lycée mobilisé, sa ville, l'heure et la source de l'information. Mise à jour en continu."
+  "La carte en direct des lycées et des facs bloqués en France : chaque établissement mobilisé, sa ville, l'heure et la source de l'information. Mise à jour en continu."
 
-/** Lycées en cours, groupés par département (le plus mobilisé d'abord). */
+/** Établissements en cours, groupés par département (le plus mobilisé d'abord). */
 function schoolsHtml(schools: ActiveSchool[]): string {
   const byDept = new Map<string, ActiveSchool[]>()
   for (const s of schools) {
@@ -52,16 +52,16 @@ function schoolsHtml(schools: ActiveSchool[]): string {
     .join('')
 }
 
-const NAV = `<nav><a href="/">Carte des blocus</a> · <a href="/liste">Liste des lycées bloqués</a> · <a href="/a-propos">À propos et méthode</a></nav>`
+const NAV = `<nav><a href="/">Carte des blocus</a> · <a href="/liste">Liste des établissements bloqués</a> · <a href="/a-propos">À propos et méthode</a></nav>`
 
 async function buildMeta(origin: string, page: Page, uai: string | null): Promise<Meta> {
   const url = page === 'liste' ? `${origin}/liste` : `${origin}/`
   const fallback: Meta = {
-    title: page === 'liste' ? 'Liste des lycées bloqués en direct - Manifeste' : SITE_TITLE,
+    title: page === 'liste' ? 'Liste des lycées et facs bloqués en direct - Manifeste' : SITE_TITLE,
     description: SITE_DESCRIPTION,
     image: `${origin}/api/og`,
     url,
-    body: `<main><h1>Carte des blocus de lycées en direct</h1><p>${escapeHtml(SITE_DESCRIPTION)}</p>${NAV}</main>`,
+    body: `<main><h1>Carte des blocus de lycées et de facs en direct</h1><p>${escapeHtml(SITE_DESCRIPTION)}</p>${NAV}</main>`,
   }
   try {
     if (page === 'lycee' && uai) {
@@ -71,31 +71,31 @@ async function buildMeta(origin: string, page: Page, uai: string | null): Promis
       const since = s.last_signal_at ? ` Dernier signal à ${parisTime(s.last_signal_at)}.` : ''
       return {
         title: `${s.name} (${s.city}) : ${status.toLowerCase()} - blocus en direct`,
-        description: `${s.name} à ${s.city}${s.department ? ` (${s.department})` : ''} : ${status.toLowerCase()}.${since} Blocus et mobilisation du lycée suivis en direct, avec les sources.`,
+        description: `${s.name} à ${s.city}${s.department ? ` (${s.department})` : ''} : ${status.toLowerCase()}.${since} Blocus et mobilisation suivis en direct, avec les sources.`,
         image: `${origin}/api/og?uai=${encodeURIComponent(s.uai)}`,
         url: `${origin}/lycee/${s.uai}`,
         body: `<main><h1>${escapeHtml(s.name)} (${escapeHtml(s.city)}) : ${escapeHtml(status.toLowerCase())}</h1><p>Statut du blocus au ${escapeHtml(s.name)}, ${escapeHtml(s.city)}${s.department ? `, ${escapeHtml(s.department)}` : ''}.${escapeHtml(since)} Chaque signal est accompagné de sa source.</p>${NAV}</main>`,
       }
     }
     const [n, schools] = await Promise.all([nationalSummary(), activeSchools()])
-    const counts = `${plural(n.bloque, 'lycée bloqué', 'lycées bloqués')} et ${n.filtrant} en barrage filtrant dans ${plural(n.departments, 'département', 'départements')}`
+    const counts = `${plural(n.bloque, 'établissement bloqué', 'établissements bloqués')} et ${n.filtrant} en barrage filtrant dans ${plural(n.departments, 'département', 'départements')}`
     const h1 =
       page === 'liste'
-        ? 'Liste des lycées bloqués en direct'
-        : 'Carte des blocus de lycées en direct'
+        ? 'Liste des lycées et facs bloqués en direct'
+        : 'Carte des blocus de lycées et de facs en direct'
     return {
       ...fallback,
       title:
         page === 'liste'
-          ? `Liste des lycées bloqués : ${plural(n.bloque, 'lycée', 'lycées')} en ce moment - Manifeste`
-          : `Carte des blocus de lycées : ${plural(n.bloque, 'lycée bloqué', 'lycées bloqués')} en direct - Manifeste`,
-      description: `En ce moment, ${counts}. La carte en direct des blocus de lycées en France, avec la source de chaque information.`,
-      body: `<main><h1>${h1}</h1><p>En ce moment : ${escapeHtml(counts)}. Manifeste recense en direct les lycées bloqués partout en France, à partir de la presse, des réseaux et des signalements, avec la source de chaque information.</p>${NAV}<h2>Lycées bloqués et barrages filtrants en ce moment</h2>${schoolsHtml(schools)}</main>`,
+          ? `Liste des lycées et facs bloqués : ${plural(n.bloque, 'établissement', 'établissements')} en ce moment - Manifeste`
+          : `Carte des blocus de lycées et de facs : ${plural(n.bloque, 'établissement bloqué', 'établissements bloqués')} en direct - Manifeste`,
+      description: `En ce moment, ${counts}. La carte en direct des blocus de lycées et de facs en France, avec la source de chaque information.`,
+      body: `<main><h1>${h1}</h1><p>En ce moment : ${escapeHtml(counts)}. Manifeste recense en direct les lycées et les facs bloqués partout en France, à partir de la presse, des réseaux et des signalements, avec la source de chaque information.</p>${NAV}<h2>Établissements bloqués et barrages filtrants en ce moment</h2>${schoolsHtml(schools)}</main>`,
       jsonLd: {
         '@context': 'https://schema.org',
         '@type': 'WebSite',
         name: 'Manifeste',
-        alternateName: 'Carte des blocus de lycées',
+        alternateName: 'Carte des blocus de lycées et de facs',
         url: `${origin}/`,
         inLanguage: 'fr-FR',
         description: SITE_DESCRIPTION,

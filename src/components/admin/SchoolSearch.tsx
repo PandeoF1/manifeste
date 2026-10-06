@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { Check, Search } from 'lucide-react'
 import { searchSchoolsQuery } from '@/queries/report'
 
-/** Recherche d'un lycée du référentiel (nom, ville) avec choix en un clic. */
+/** Recherche d'un établissement du référentiel (nom, ville) avec choix en un clic. */
 export function SchoolSearch({
   initial,
   busy,
   onPick,
-  actionLabel = 'Ce lycée',
+  actionLabel = 'Cet établissement',
 }: {
   initial: string
   busy: boolean
@@ -21,7 +21,7 @@ export function SchoolSearch({
   return (
     <div className="mt-3 space-y-2 rounded-lg border border-border bg-bg p-3">
       <label className="relative block">
-        <span className="sr-only">Chercher le lycée</span>
+        <span className="sr-only">Chercher l'établissement</span>
         <Search
           size={16}
           className="absolute top-1/2 left-3 -translate-y-1/2 text-muted"
@@ -31,7 +31,7 @@ export function SchoolSearch({
           type="search"
           autoFocus
           className="input w-full pl-9"
-          placeholder="Nom du lycée, ville"
+          placeholder="Nom de l'établissement, ville"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -40,7 +40,7 @@ export function SchoolSearch({
       {results.isFetching && <div className="h-10 animate-pulse rounded bg-surface" />}
       {results.data?.length === 0 && (
         <p className="text-sm text-muted">
-          Aucun lycée trouvé. Essaie avec moins de mots (juste la ville, ou juste le nom).
+          Aucun établissement trouvé. Essaie avec moins de mots (juste la ville, ou juste le nom).
         </p>
       )}
       <ul className="divide-y divide-border">

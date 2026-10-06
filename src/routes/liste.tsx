@@ -79,11 +79,11 @@ function ListPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4 pb-28 md:pb-8">
-      <h1 className="text-2xl font-black">Lycées bloqués et mobilisés en direct</h1>
+      <h1 className="text-2xl font-black">Lycées et facs bloqués et mobilisés en direct</h1>
       <p className="text-muted">
         {period === 'direct'
-          ? `Les lycées signalés ${description}, du plus récent au plus ancien.`
-          : `Tous les lycées mobilisés ${description}, avec le statut le plus fort de la période.`}
+          ? `Les établissements signalés ${description}, du plus récent au plus ancien.`
+          : `Tous les établissements mobilisés ${description}, avec le statut le plus fort de la période.`}
       </p>
       <PeriodPicker
         className="mt-3"
@@ -93,7 +93,7 @@ function ListPage() {
 
       <div className="mt-4 space-y-3" role="search">
         <label className="relative block">
-          <span className="sr-only">Rechercher un lycée ou une ville</span>
+          <span className="sr-only">Rechercher un lycée, une fac ou une ville</span>
           <Search
             size={18}
             className="absolute top-1/2 left-3 -translate-y-1/2 text-muted"
@@ -102,7 +102,7 @@ function ListPage() {
           <input
             type="search"
             className="input w-full pl-10"
-            placeholder="Lycée ou ville"
+            placeholder="Lycée, fac ou ville"
             value={search.q ?? ''}
             onChange={(e) => set({ q: e.target.value || undefined })}
           />
@@ -152,7 +152,7 @@ function ListPage() {
 
       <div className="mt-4 flex items-center justify-between text-sm text-muted" aria-live="polite">
         <span>
-          {filtered.length} lycée{filtered.length > 1 ? 's' : ''}
+          {filtered.length} établissement{filtered.length > 1 ? 's' : ''}
         </span>
         {hasFilters && (
           <Link
@@ -183,7 +183,7 @@ function ListPage() {
       {!isPending && !isError && filtered.length === 0 && (
         <p className="card mt-2 text-center text-muted">
           {hasFilters
-            ? 'Aucun lycée ne correspond à ces filtres.'
+            ? 'Aucun établissement ne correspond à ces filtres.'
             : `Aucun blocus signalé ${description}.`}
         </p>
       )}

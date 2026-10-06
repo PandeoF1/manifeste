@@ -163,6 +163,38 @@ export const SOURCE_PRESETS: ReadonlyArray<SourcePreset> = [
     source_type: 'presse',
     trusted: false,
   },
+  {
+    group: 'Presse (Google Actualités)',
+    kind: 'rss',
+    identifier: gnews('"blocus" fac OR université'),
+    label: 'Google Actualités : blocus fac, université',
+    source_type: 'presse',
+    trusted: false,
+  },
+  {
+    group: 'Presse (Google Actualités)',
+    kind: 'rss',
+    identifier: gnews('"blocage" université étudiants'),
+    label: 'Google Actualités : blocage université',
+    source_type: 'presse',
+    trusted: false,
+  },
+  {
+    group: 'Presse (Google Actualités)',
+    kind: 'rss',
+    identifier: gnews('mobilisation étudiante'),
+    label: 'Google Actualités : mobilisation étudiante',
+    source_type: 'presse',
+    trusted: false,
+  },
+  {
+    group: 'Presse (Google Actualités)',
+    kind: 'rss',
+    identifier: gnews('"blocus" étudiants'),
+    label: 'Google Actualités : blocus étudiants',
+    source_type: 'presse',
+    trusted: false,
+  },
   // Flux RSS directs des rédactions (les plus présentes sur les cartes de blocages existantes)
   {
     group: 'Presse (flux RSS directs)',

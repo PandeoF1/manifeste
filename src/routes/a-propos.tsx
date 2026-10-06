@@ -38,17 +38,18 @@ function AboutPage() {
       <header className="space-y-2 pt-4">
         <h1 className="text-3xl font-black">C'est quoi, Manifeste ?</h1>
         <p className="text-lg">
-          Une carte des lycées bloqués en France, en direct. Chaque point renvoie vers sa source.
+          Une carte des lycées et des facs bloqués en France, en direct. Chaque point renvoie vers
+          sa source.
         </p>
       </header>
 
       <Section id="methode" title="D'où viennent les infos">
         <p>
           Toutes les 10 minutes, le site lit la presse (nationale, régionale, locale) et des canaux
-          Telegram et comptes Bluesky publics. Une IA (Google Gemini) repère les lycées cités et
-          leur situation ; je ne garde que le lycée, le statut, l'heure et le lien. Tu peux aussi
-          signaler un blocus sur place, ou me proposer un lycée qui manque : tout est vérifié à la
-          main avant d'apparaître.
+          Telegram et comptes Bluesky publics. Une IA (Google Gemini) repère les établissements
+          cités et leur situation ; je ne garde que l'établissement, le statut, l'heure et le lien.
+          Tu peux aussi signaler un blocus sur place, ou me proposer un établissement qui manque :
+          tout est vérifié à la main avant d'apparaître.
         </p>
         <p>
           Une info de la presse passe directement si le média est reconnu, ou si deux sources
@@ -56,27 +57,27 @@ function AboutPage() {
           parle du mouvement, pour mes propres stats, pas affichées.
         </p>
         <p>
-          « Direct » retire un lycée après {settings.statusTtlHours} h sans nouveau signal. « 24 h
-          », « 7 jours » et « Tout » donnent le bilan d'une période, avec le pire statut connu. «
-          Tout » remonte {periodDescription('tout', settings)}.
+          « Direct » retire un établissement après {settings.statusTtlHours} h sans nouveau signal.
+          « 24 h », « 7 jours » et « Tout » donnent le bilan d'une période, avec le pire statut
+          connu. « Tout » remonte {periodDescription('tout', settings)}.
         </p>
       </Section>
 
       <Section id="confidentialite" title="Confidentialité">
         <p>
           Pas de compte, pas de cookie, pas d'outil d'analyse tiers. Si tu signales un blocus, je
-          garde le lycée, la situation, ta photo si tu en mets une et ta position arrondie à 100 m,
-          uniquement pour vérifier que tu es sur place. Ton adresse IP n'est jamais enregistrée.
-          Pour les stats, je compte les visites sans te suivre d'un jour à l'autre. Une photo
-          publiée, une donnée à effacer : {mail}.
+          garde l'établissement, la situation, ta photo si tu en mets une et ta position arrondie à
+          100 m, uniquement pour vérifier que tu es sur place. Ton adresse IP n'est jamais
+          enregistrée. Pour les stats, je compte les visites sans te suivre d'un jour à l'autre. Une
+          photo publiée, une donnée à effacer : {mail}.
         </p>
         <details className="rounded-lg border border-border p-3 text-sm">
           <summary className="cursor-pointer font-semibold">Voir le détail</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5">
             <li>
               Ta position n'est jamais affichée ni visible de quelqu'un d'autre que moi. Si tu
-              proposes un lycée absent de la liste, je la garde jusqu'à ma décision, 7 jours au
-              maximum.
+              proposes un établissement absent de la liste, je la garde jusqu'à ma décision, 7 jours
+              au maximum.
             </li>
             <li>
               Ta photo est nettoyée sur ton téléphone (GPS, modèle d'appareil, date), floutée si
@@ -94,8 +95,8 @@ function AboutPage() {
               Control » les coupe.
             </li>
             <li>
-              Quand une info de la presse n'a pas pu être rattachée à un lycée, je garde le titre et
-              le chapeau de l'article 7 jours, le temps de vérifier.
+              Quand une info de la presse n'a pas pu être rattachée à un établissement, je garde le
+              titre et le chapeau de l'article 7 jours, le temps de vérifier.
             </li>
             <li>
               Cloudflare Turnstile (anti-robot du formulaire), Vercel et Supabase (hébergement) et

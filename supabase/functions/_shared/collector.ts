@@ -11,6 +11,7 @@ import {
 import { fetchSource, type FetchLike, type ScrapedItem } from './fetchers/index.ts'
 import {
   isGenericSchoolName,
+  levelOfName,
   pickByGeo,
   pickMatch,
   type NearbyCandidate,
@@ -57,8 +58,8 @@ export interface CollectorDb {
   matchSchool(name: string, city: string | null): Promise<SchoolCandidate[]>
   /** Lycées proches d'un point (cartes My Maps). */
   nearbySchools(lat: number, lng: number): Promise<NearbyCandidate[]>
-  /** Lycées de la commune (au plus 2 suffisent pour savoir s'il y en a un seul). */
-  schoolsInCity(city: string): Promise<Array<{ uai: string }>>
+  /** Établissements du même niveau dans la commune (au plus 2 suffisent pour savoir s'il n'y en a qu'un). */
+  schoolsInCity(city: string, level: 'lycee' | 'superieur'): Promise<Array<{ uai: string }>>
   insertReport(report: NewReport): Promise<'inserted' | 'duplicate'>
   insertUnmatched(row: NewUnmatched): Promise<void>
   /** Fin de passage : met à jour la source et enregistre le journal (s'il y a du nouveau). */
@@ -358,8 +359,8 @@ async function handleEvent(
   if (uai) {
     // déjà rattaché par la position
   } else if (event.city && isGenericSchoolName(event.school_name, event.city)) {
-    // « Lycée de Hanches » : rattaché seulement si la commune n'a qu'un lycée.
-    const inCity = await db.schoolsInCity(event.city)
+    // « Lycée de Hanches » : rattaché seulement si la commune n'a qu'un établissement de ce niveau.
+    const inCity = await db.schoolsInCity(event.city, levelOfName(event.school_name))
     if (inCity.length === 1) uai = inCity[0]?.uai ?? null
   } else {
     const candidates = await db.matchSchool(event.school_name, event.city)

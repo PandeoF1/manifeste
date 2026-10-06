@@ -30,7 +30,7 @@ type Tab = (typeof TABS)[number]
 const TAB_LABELS: Record<Tab, string> = {
   sources: 'Sources',
   moderation: 'Modération',
-  lycees: 'Lycées proposés',
+  lycees: 'Établissements proposés',
   signaux: 'Signaux',
   'non-rattaches': 'Non rattachés',
   domaines: 'Domaines de confiance',

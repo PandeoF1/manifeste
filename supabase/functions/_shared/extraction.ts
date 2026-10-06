@@ -8,7 +8,7 @@ export type Certainty = (typeof CERTAINTIES)[number]
 
 /** Filtre lexical avant l'appel IA, pour ne pas payer l'extraction sur du hors-sujet. */
 const KEYWORDS =
-  /\b(lyc[ée]es?|lp|lgt|lpo|blocus|bloqu[ée]e?s?|bloquent|barrage|filtrant|piquet|mobilisation lyc[ée]enne)\b/i
+  /\b(lyc[ée]es?|lp|lgt|lpo|blocus|bloqu[ée]e?s?|bloquent|barrage|filtrant|piquet|mobilisation (lyc[ée]enne|[ée]tudiante))\b/i
 
 export function isRelevant(text: string): boolean {
   return KEYWORDS.test(text)
@@ -60,23 +60,23 @@ export const GEMINI_RESPONSE_SCHEMA = {
   required: ['events'],
 } as const
 
-export const SYSTEM_PROMPT = `Tu extrais des faits sur des blocages de lycées français à partir de messages publics (presse, canaux Telegram, Bluesky).
+export const SYSTEM_PROMPT = `Tu extrais des faits sur des blocages de lycées et d'établissements d'enseignement supérieur (facs, universités, IUT, écoles) français à partir de messages publics (presse, canaux Telegram, Bluesky).
 
-Pour chaque lycée explicitement cité comme bloqué, sous barrage filtrant ou débloqué, produis un événement :
-- status "bloque" : entrée du lycée bloquée (blocus), ou lycée fermé / « porte close » à cause de la mobilisation.
+Pour chaque établissement explicitement cité comme bloqué, sous barrage filtrant ou débloqué, produis un événement :
+- status "bloque" : entrée de l'établissement bloquée (blocus), ou établissement fermé / « porte close » à cause de la mobilisation.
 - status "filtrant" : barrage filtrant, entrée partiellement bloquée.
-- status "leve" : blocus levé, fin du blocage, lycée rouvert.
+- status "leve" : blocus levé, fin du blocage, établissement rouvert.
 - observed_at : moment du fait. Déduis-le du texte et de la date de publication fournie ("ce matin", "hier"). null si impossible.
 - certainty : "haute" si le fait est affirmé clairement et au présent ; "moyenne" si probable ; "faible" si appel à bloquer, rumeur, conditionnel, futur ou fait ancien.
 
 Règles strictes :
-- Uniquement des lycées (pas de collèges, universités, entreprises).
+- Uniquement des lycées et des établissements d'enseignement supérieur (pas de collèges, d'écoles primaires, d'entreprises ni de mairies).
 - Un appel ou un projet de blocus n'est pas un blocage : certainty "faible".
 - Ne recopie jamais de nom de personne, de pseudo, de chiffre de participants ni de description de la scène.
-- school_name : le nom propre du lycée tel qu'il apparaît dans le texte (ex. "Lycée Joséphine-Baker"), même s'il n'est cité qu'une fois. N'utilise le nom de la commune ("lycée de Hanches") que si le texte ne donne aucun autre nom.
-- city : la commune du lycée, même si elle n'apparaît que dans le titre.
-- Si un message cite plusieurs lycées (par exemple un article qui en dresse la liste), produis un événement par lycée.
-- Un texte qui commence par « Carte « … » » est un point d'une carte collaborative des lycées bloqués ou fermés : sauf indication contraire, c'est un lycée bloqué (certainty "moyenne"), daté de la publication.
+- school_name : le nom propre de l'établissement tel qu'il apparaît dans le texte (ex. "Lycée Joséphine-Baker", "Université Paris 8", "fac de Tolbiac", "IUT de Tarbes"), même s'il n'est cité qu'une fois. N'utilise le nom de la commune ("lycée de Hanches") que si le texte ne donne aucun autre nom.
+- city : la commune de l'établissement (ou du site pour une fac), même si elle n'apparaît que dans le titre.
+- Si un message cite plusieurs établissements (par exemple un article qui en dresse la liste), produis un événement par établissement.
+- Un texte qui commence par « Carte « … » » est un point d'une carte collaborative des lycées bloqués ou fermés : sauf indication contraire, c'est un établissement bloqué (certainty "moyenne"), daté de la publication.
 - Si aucun fait exploitable, ne produis rien pour ce message.
 Réponds uniquement avec le JSON demandé.`
 

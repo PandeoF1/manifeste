@@ -88,6 +88,18 @@ SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service_role> 
   npm run import:schools                   # import réel (relançable)
 ```
 
+Les facs, IUT et écoles (~860 sites, publics et privés) vont dans la même table :
+
+```bash
+npm run import:higher-ed -- --dry-run      # annonce ~860 sites
+SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service_role> \
+  npm run import:higher-ed                 # import réel (relançable)
+```
+
+Source : data.enseignementsup-recherche.gouv.fr (implantations des établissements publics, et
+principaux établissements). Un blocage visant un site, les UFR d'un même lieu (à moins de 700 m)
+sont regroupés en un seul point nommé d'après l'établissement et la commune.
+
 Si le script signale un schéma modifié, envoie-moi sa sortie.
 
 Vérifie dans le SQL Editor : `select count(*) from schools;` doit renvoyer plusieurs milliers.

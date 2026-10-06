@@ -363,7 +363,7 @@ export default function MapView({
         ref={containerRef}
         className="h-full w-full"
         role="region"
-        aria-label="Carte des lycées concernés. Une liste textuelle est disponible à côté de la carte."
+        aria-label="Carte des lycées et des facs concernés. Une liste textuelle est disponible à côté de la carte."
       />
     </div>
   )

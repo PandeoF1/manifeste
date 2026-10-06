@@ -47,9 +47,9 @@ export function ProposalsPanel() {
   return (
     <div className="mt-4 space-y-4">
       <p className="text-sm text-muted">
-        Un visiteur n'a pas trouvé son lycée et l'a saisi lui-même. Vérifie : souvent il existe sous
-        un autre nom (voir les lycées proches). Après ta décision, le signal arrive en Modération.
-        Sans décision, la proposition est supprimée au bout de 7 jours.
+        Un visiteur n'a pas trouvé son établissement et l'a saisi lui-même. Vérifie : souvent il
+        existe sous un autre nom (voir les établissements proches). Après ta décision, le signal
+        arrive en Modération. Sans décision, la proposition est supprimée au bout de 7 jours.
       </p>
       {proposals.isPending && <div className="h-32 animate-pulse rounded-xl bg-surface" />}
       {proposals.isError && (
@@ -160,7 +160,7 @@ function ProposalCard({ p }: { p: Proposal }) {
       <section>
         <h3 className="text-sm font-semibold">C'est peut-être…</h3>
         {p.candidates.length === 0 && (
-          <p className="text-sm text-muted">Aucun lycée proche ou de nom voisin.</p>
+          <p className="text-sm text-muted">Aucun établissement proche ou de nom voisin.</p>
         )}
         <ul className="mt-1 divide-y divide-border rounded-lg border border-border">
           {p.candidates.map((c) => (
@@ -187,7 +187,7 @@ function ProposalCard({ p }: { p: Proposal }) {
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Ou ajouter le lycée</h3>
+        <h3 className="text-sm font-semibold">Ou ajouter l'établissement</h3>
         <div className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]">
           <label className="text-xs text-muted">
             Nom (mis en forme, modifiable)

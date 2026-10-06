@@ -26,7 +26,7 @@ type Position = { lat: number; lng: number; accuracy: number }
 type School = { uai: string; name: string; city: string; distance_m?: number }
 
 const STATUS_HELP: Record<ReportStatus, string> = {
-  bloque: "L'entrée du lycée est bloquée",
+  bloque: "L'entrée de l'établissement est bloquée",
   filtrant: 'Barrage filtrant, entrée partielle',
   leve: 'Le blocus est terminé',
 }
@@ -100,7 +100,7 @@ function ReportPage() {
     e.preventDefault()
     setFormError(null)
     if (!position) return setFormError("Active ta localisation : c'est elle qui situe le blocus.")
-    if (!school && !customSchool) return setFormError('Choisis le lycée concerné.')
+    if (!school && !customSchool) return setFormError("Choisis l'établissement concerné.")
     if (!status) return setFormError('Choisis la situation.')
     if (turnstileEnabled && !token) return setFormError('Termine la vérification anti-robot.')
     const fields = submissionFieldsSchema.safeParse({
@@ -142,7 +142,7 @@ function ReportPage() {
           </p>
           {customSchool && (
             <p className="text-sm text-muted">
-              Le lycée « {customSchool.name} » sera ajouté à la carte après vérification.
+              L'établissement « {customSchool.name} » sera ajouté à la carte après vérification.
             </p>
           )}
           <Link to="/" search={{}} className="btn-primary">
@@ -157,8 +157,8 @@ function ReportPage() {
     <main className="mx-auto w-full max-w-xl flex-1 overflow-y-auto p-4 pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <h1 className="text-2xl font-black">Signaler un blocus</h1>
       <p className="mt-1 text-muted">
-        Tu es devant ton lycée ? Fais-le savoir : chaque signalement vérifié rejoint la carte
-        nationale.
+        Tu es devant ton lycée ou ta fac ? Fais-le savoir : chaque signalement vérifié rejoint la
+        carte nationale.
       </p>
 
       <PrivacyNotice />
@@ -190,8 +190,8 @@ function ReportPage() {
             </p>
           )}
           <p className="text-xs text-muted">
-            Ta position sert uniquement à vérifier que tu es près du lycée. Elle est arrondie à ~100
-            m et n'est jamais affichée.
+            Ta position sert uniquement à vérifier que tu es près de l'établissement. Elle est
+            arrondie à ~100 m et n'est jamais affichée.
           </p>
         </fieldset>
 
@@ -333,16 +333,18 @@ function SchoolPicker({
 
   return (
     <fieldset className="space-y-3">
-      <legend className="text-lg font-bold">2. Quel lycée ?</legend>
+      <legend className="text-lg font-bold">2. Quel établissement ?</legend>
       {nearby.isPending && <div className="h-14 animate-pulse rounded-lg bg-surface" />}
       {nearby.data?.length === 0 && !query && (
-        <p className="text-sm text-muted">Aucun lycée à moins de 2 km. Cherche-le par son nom :</p>
+        <p className="text-sm text-muted">
+          Aucun établissement à moins de 2 km. Cherche-le par son nom :
+        </p>
       )}
       <input
         type="search"
         className="input w-full"
-        placeholder="Chercher un lycée (nom, ville)"
-        aria-label="Chercher un lycée"
+        placeholder="Chercher un lycée ou une fac (nom, ville)"
+        aria-label="Chercher un établissement"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -376,17 +378,17 @@ function SchoolPicker({
         ))}
       </ul>
       <p className="text-xs text-muted">
-        Seuls les lycées à moins de 2 km de ta position seront acceptés.
+        Seuls les établissements à moins de 2 km de ta position seront acceptés.
       </p>
       {custom ? (
         <div className="card space-y-3">
-          <p className="text-sm font-semibold">Ajouter mon lycée</p>
+          <p className="text-sm font-semibold">Ajouter mon établissement</p>
           <p className="text-xs text-muted">
             L'équipe vérifie et l'ajoute à la carte ; ton signalement suit le même chemin que les
             autres.
           </p>
           <label className="block text-sm">
-            Nom du lycée
+            Nom de l'établissement
             <input
               className="input mt-1 w-full"
               value={custom.name}
@@ -418,7 +420,7 @@ function SchoolPicker({
           className="text-sm font-semibold underline"
           onClick={() => onCustom({ name: query.trim(), city: '' })}
         >
-          Mon lycée n'est pas dans la liste
+          Mon établissement n'est pas dans la liste
         </button>
       )}
     </fieldset>
@@ -434,7 +436,7 @@ function PrivacyNotice() {
       </summary>
       <p className="mt-3 text-sm">
         Pas de compte ni de nom. Ta position est arrondie à 100 m sur ton téléphone et ne sert qu'à
-        vérifier que tu es près du lycée (jamais affichée). Ta photo est nettoyée de ses
+        vérifier que tu es près de l'établissement (jamais affichée). Ta photo est nettoyée de ses
         métadonnées, floutée si besoin avant publication, et l'original est supprimé après
         vérification. Ton IP n'est jamais enregistrée.{' '}
         <Link to="/a-propos" className="underline">

@@ -6,6 +6,7 @@ type ReportStatus = 'bloque' | 'filtrant' | 'leve'
 type SourceType = 'presse' | 'syndicat' | 'utilisateur' | 'collecteur'
 type ModerationStatus = 'pending' | 'validated' | 'rejected'
 type ScrapeKind = 'telegram' | 'rss' | 'bluesky' | 'mymaps'
+export type SchoolLevel = 'lycee' | 'superieur'
 
 export type Database = {
   public: {
@@ -26,6 +27,7 @@ export type Database = {
           academy: string | null
           location: unknown
           kind: string | null
+          level: SchoolLevel
           name_norm: string
           city_norm: string
           updated_at: string
@@ -39,6 +41,7 @@ export type Database = {
           academy?: string | null
           location?: unknown
           kind?: string | null
+          level?: SchoolLevel
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['schools']['Insert']>
@@ -325,6 +328,7 @@ export type Database = {
           status: ReportStatus
           last_signal_at: string
           source_count: number
+          level: SchoolLevel
         }
         Relationships: []
       }
@@ -344,6 +348,7 @@ export type Database = {
           last_signal_at: string
           source_count: number
           signal_days: number
+          level: SchoolLevel
         }[]
       }
       admin_set_setting: {
@@ -398,7 +403,13 @@ export type Database = {
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
       nearby_schools: {
         Args: { p_lat: number; p_lng: number; p_radius_m?: number }
-        Returns: { uai: string; name: string; city: string; distance_m: number }[]
+        Returns: {
+          uai: string
+          name: string
+          city: string
+          distance_m: number
+          level: SchoolLevel
+        }[]
       }
       admin_update_report: {
         Args: {
@@ -429,11 +440,18 @@ export type Database = {
           kind: string | null
           lat: number | null
           lng: number | null
+          level: SchoolLevel
         }[]
       }
       search_schools: {
         Args: { p_query: string }
-        Returns: { uai: string; name: string; city: string; department: string | null }[]
+        Returns: {
+          uai: string
+          name: string
+          city: string
+          department: string | null
+          level: SchoolLevel
+        }[]
       }
     }
     Enums: {

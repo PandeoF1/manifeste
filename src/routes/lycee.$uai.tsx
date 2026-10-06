@@ -42,7 +42,7 @@ export const Route = createFileRoute('/lycee/$uai')({
   ),
   notFoundComponent: () => (
     <main className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-black">Lycée introuvable</h1>
+      <h1 className="text-2xl font-black">Établissement introuvable</h1>
       <Link to="/liste" search={{}} className="btn-secondary mt-4">
         Voir la liste
       </Link>
@@ -72,7 +72,7 @@ function SchoolPage() {
     if (!school) return
     document.title = `${school.name} (${school.city}) - Manifeste`
     return () => {
-      document.title = 'Carte des blocus de lycées en direct - Manifeste'
+      document.title = 'Carte des blocus de lycées et de facs en direct - Manifeste'
     }
   }, [school])
 
@@ -92,7 +92,7 @@ function SchoolPage() {
         <p className="text-muted">
           {[school.postcode, school.city].filter(Boolean).join(' ')}
           {school.academy ? ` · académie de ${school.academy}` : ''}
-          {school.kind ? ` · lycée ${school.kind}` : ''}
+          {school.level === 'lycee' && school.kind ? ` · lycée ${school.kind}` : ''}
         </p>
       </header>
 
@@ -114,7 +114,7 @@ function SchoolPage() {
             </p>
           </>
         ) : (
-          <p>Aucun signal en cours pour ce lycée.</p>
+          <p>Aucun signal en cours pour cet établissement.</p>
         )}
         <div className="flex flex-wrap gap-2 pt-2">
           <Link to="/signaler" search={{ uai }} className="btn-primary">

@@ -104,7 +104,7 @@ function national(s: NationalSummary): Node {
           lineHeight: 1.05,
           paddingBottom: 18,
         },
-        h('div', {}, s.bloque > 1 ? 'lycées' : 'lycée'),
+        h('div', {}, s.bloque > 1 ? 'établissements' : 'établissement'),
         h('div', {}, s.bloque > 1 ? 'bloqués' : 'bloqué'),
       ),
     ),
@@ -180,12 +180,15 @@ export default async function handler(req: Request): Promise<Response> {
     if (uai) {
       const s = await schoolSummary(uai)
       body = s
-        ? frame(school(s), 'Aucun lycée mobilisé n’est seul.')
-        : frame(h('div', { fontSize: 64, fontWeight: 900 }, 'Lycée introuvable'), 'manifest')
+        ? frame(school(s), 'Aucun établissement mobilisé n’est seul.')
+        : frame(
+            h('div', { fontSize: 64, fontWeight: 900 }, 'Établissement introuvable'),
+            'manifest',
+          )
     } else {
       body = frame(
         national(await nationalSummary()),
-        'Partout en France, les lycéens se font entendre.',
+        'Partout en France, les lycéens et les étudiants se font entendre.',
       )
     }
   } catch {
@@ -194,9 +197,9 @@ export default async function handler(req: Request): Promise<Response> {
       h(
         'div',
         { fontSize: 72, fontWeight: 900, lineHeight: 1.1, maxWidth: 1000 },
-        'Les lycées mobilisés, en direct.',
+        'Les lycées et les facs mobilisés, en direct.',
       ),
-      'Partout en France, les lycéens se font entendre.',
+      'Partout en France, les lycéens et les étudiants se font entendre.',
     )
   }
   return new ImageResponse(body as unknown as ReactElement, {

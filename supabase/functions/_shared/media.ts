@@ -64,7 +64,8 @@ export const MEDIA_RESPONSE_SCHEMA = {
           item_id: { type: 'STRING' },
           about_movement: {
             type: 'BOOLEAN',
-            description: "L'article parle de la mobilisation lycéenne (blocus, manifestation).",
+            description:
+              "L'article parle de la mobilisation lycéenne ou étudiante (blocus, manifestation).",
           },
           mentions_demands: {
             type: 'BOOLEAN',
@@ -137,10 +138,10 @@ export const MEDIA_RESPONSE_SCHEMA = {
   required: ['articles'],
 } as const
 
-export const MEDIA_SYSTEM_PROMPT = `Tu analyses la façon dont des articles de presse français traitent la mobilisation des lycéens (blocus, manifestations).
+export const MEDIA_SYSTEM_PROMPT = `Tu analyses la façon dont des articles de presse français traitent la mobilisation des lycéens et des étudiants (blocus, manifestations).
 
 Pour chaque article, réponds de façon factuelle, uniquement d'après le texte fourni :
-- about_movement : false si l'article ne parle pas de la mobilisation lycéenne (alors le reste importe peu).
+- about_movement : false si l'article ne parle pas de la mobilisation lycéenne ou étudiante (alors le reste importe peu).
 - mentions_demands : true si l'article nomme la cause ou les revendications des lycéens, même brièvement ; false s'il décrit le blocus sans dire pourquoi. Citer le mot « revendications » sans dire lesquelles ne compte pas. Le texte fourni peut n'être qu'un titre ou un chapeau : ne devine pas ce que l'article contient au-delà.
 - demands : les revendications nommées, en quelques mots chacune.
 - voices : qui s'exprime réellement dans l'article (citation directe ou rapportée).

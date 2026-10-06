@@ -18,10 +18,10 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         id: '/',
-        name: 'Manifeste - les lycées mobilisés, en direct',
+        name: 'Manifeste - les lycées et les facs mobilisés, en direct',
         short_name: 'Manifeste',
         description:
-          'Partout en France, les lycéens se font entendre. La carte en direct des lycées bloqués.',
+          'Partout en France, les lycéens et les étudiants se font entendre. La carte en direct des lycées et des facs bloqués.',
         lang: 'fr',
         dir: 'ltr',
         start_url: '/',
@@ -43,7 +43,7 @@ export default defineConfig({
         ],
         shortcuts: [
           { name: 'Signaler un blocus', short_name: 'Signaler', url: '/signaler' },
-          { name: 'Liste des lycées', short_name: 'Liste', url: '/liste' },
+          { name: 'Liste des établissements', short_name: 'Liste', url: '/liste' },
         ],
       },
       workbox: {

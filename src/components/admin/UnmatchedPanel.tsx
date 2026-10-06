@@ -63,9 +63,9 @@ export function UnmatchedPanel() {
   return (
     <>
       <p className="text-sm text-muted">
-        Faits repérés par l'IA sans lycée identifié avec certitude (nom fréquent, nom incomplet,
-        ville manquante). Ouvre la source, puis rattache au bon lycée : le signal est publié
-        aussitôt. Conservés 7 jours.
+        Faits repérés par l'IA sans établissement identifié avec certitude (nom fréquent, nom
+        incomplet, ville manquante). Ouvre la source, puis rattache au bon établissement : le signal
+        est publié aussitôt. Conservés 7 jours.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
@@ -86,7 +86,7 @@ export function UnmatchedPanel() {
         </span>
       </div>
       <p className="mt-1 text-xs text-muted">
-        Utile après l'import ou la mise à jour du référentiel des lycées.
+        Utile après l'import ou la mise à jour du référentiel des établissements.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
@@ -99,8 +99,8 @@ export function UnmatchedPanel() {
           {ai.isPending ? 'Analyse en cours…' : "Réanalyser avec l'IA"}
         </button>
         <span className="text-xs text-muted">
-          L'IA relit la page source et choisit parmi les lycées de la commune (un seul appel pour
-          toute la liste).
+          L'IA relit la page source et choisit parmi les établissements de la commune (un seul appel
+          pour toute la liste).
         </span>
       </div>
       {ai.error && (

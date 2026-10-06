@@ -7,7 +7,7 @@ const FIELDS = [
   {
     key: 'status_ttl_hours',
     label: 'Durée du direct (heures)',
-    help: 'Sans nouveau signal pendant cette durée, un lycée sort de la carte « Direct ». Les autres périodes (24 h, 7 jours, tout) ne changent pas.',
+    help: 'Sans nouveau signal pendant cette durée, un établissement sort de la carte « Direct ». Les autres périodes (24 h, 7 jours, tout) ne changent pas.',
     type: 'number',
     min: 1,
     max: 168,
@@ -21,7 +21,7 @@ const FIELDS = [
   {
     key: 'concordance_window_hours',
     label: 'Fenêtre de concordance (heures)',
-    help: 'Deux sources indépendantes qui signalent le même lycée dans cet intervalle : publication sans modération.',
+    help: 'Deux sources indépendantes qui signalent le même établissement dans cet intervalle : publication sans modération.',
     type: 'number',
     min: 1,
     max: 24,

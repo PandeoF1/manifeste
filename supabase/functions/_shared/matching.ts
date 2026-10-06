@@ -52,6 +52,14 @@ const GENERIC_WORDS = new Set([
   'technologique',
   'public',
   'prive',
+  'universite',
+  'universites',
+  'fac',
+  'faculte',
+  'iut',
+  'ufr',
+  'campus',
+  'site',
   'des',
   'du',
   'de',
@@ -80,8 +88,19 @@ export function stripGenericWords(name: string): string {
     .join(' ')
 }
 
+/** Niveau d'un établissement d'après le nom cité (« Université de Nanterre », « fac de Tolbiac »). */
+export function levelOfName(name: string): 'lycee' | 'superieur' {
+  const words = normalizeWords(name)
+  if (words.includes('lycee') || words.includes('lycees')) return 'lycee'
+  return words.some((w) =>
+    ['universite', 'universites', 'fac', 'faculte', 'iut', 'ufr', 'campus'].includes(w),
+  )
+    ? 'superieur'
+    : 'lycee'
+}
+
 /**
- * Vrai si le nom ne désigne aucun lycée précis : « Lycée », « lycée de Hanches »
+ * Vrai si le nom ne désigne aucun établissement précis : « Lycée », « lycée de Hanches », « Université »
  * (miroir de public.is_generic_school_name).
  */
 export function isGenericSchoolName(name: string, city: string | null): boolean {

@@ -13,6 +13,8 @@ describe('filtre lexical', () => {
     expect(isRelevant('Blocus au lycée Victor-Hugo')).toBe(true)
     expect(isRelevant('Barrage filtrant devant le LP')).toBe(true)
     expect(isRelevant('Concert ce soir')).toBe(false)
+    expect(isRelevant('Blocus de la fac de Tolbiac par les étudiants')).toBe(true)
+    expect(isRelevant('La mobilisation étudiante gagne Nanterre')).toBe(true)
   })
 })
 

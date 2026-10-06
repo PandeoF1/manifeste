@@ -19,7 +19,7 @@ function MiniCounter() {
   return (
     <span
       className="hidden items-center gap-1.5 text-sm lg:inline-flex"
-      aria-label={`${bloque} lycées bloqués`}
+      aria-label={`${bloque} établissements bloqués`}
     >
       <StatusIcon status="bloque" size={14} />
       <strong className="tabular-nums text-bloque">{bloque}</strong> bloqués
@@ -39,7 +39,7 @@ export function TopBar() {
       <Link
         to={onList ? '/' : '/liste'}
         search={{}}
-        aria-label={onList ? 'Voir la carte' : 'Voir la liste des lycées'}
+        aria-label={onList ? 'Voir la carte' : 'Voir la liste des établissements'}
         className="icon-btn md:hidden"
       >
         {onList ? <MapIcon size={22} aria-hidden="true" /> : <List size={22} aria-hidden="true" />}

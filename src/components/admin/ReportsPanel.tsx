@@ -123,7 +123,7 @@ export function ReportsPanel() {
           <input
             type="search"
             className="input w-full pl-9"
-            placeholder="Lycée, ville ou source"
+            placeholder="Établissement, ville ou source"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -335,13 +335,13 @@ function EditForm({
         </label>
       </div>
       <div className="text-sm">
-        Lycée :{' '}
+        Établissement :{' '}
         <strong>
           {school?.label ??
             `${report.schools?.name ?? report.school_uai} (${report.schools?.city ?? ''})`}
         </strong>{' '}
         <button type="button" className="underline" onClick={() => setChangingSchool((v) => !v)}>
-          {changingSchool ? 'Annuler' : 'Changer de lycée'}
+          {changingSchool ? 'Annuler' : "Changer d'établissement"}
         </button>
       </div>
       {changingSchool && (
