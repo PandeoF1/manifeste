@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPressItem, parseMediaAnalyses } from '@shared/media.ts'
+import { articleTitle, isPressItem, parseMediaAnalyses } from '@shared/media.ts'
 import { aggregate, badgesFor, outletOf, topDemands, type MediaRow } from '@/lib/mediaStats'
 
 const item = (text: string, url = 'https://www.lefigaro.fr/a') => ({
@@ -77,6 +77,14 @@ const row = (domain: string, over: Partial<MediaRow> = {}): MediaRow => ({
   quote_demands: null,
   quote_framing: null,
   ...over,
+})
+
+describe('titre de l’article', () => {
+  it('prend la première ligne non vide (texte enrichi sans titre de flux)', () => {
+    expect(articleTitle(item('\nBlocus à Lens\nLe chapeau de l’article'))).toBe('Blocus à Lens')
+    expect(articleTitle(item('Titre du flux\nChapeau'))).toBe('Titre du flux')
+    expect(articleTitle(item(''))).toBe('')
+  })
 })
 
 describe('statistiques par média', () => {

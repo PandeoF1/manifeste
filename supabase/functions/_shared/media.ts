@@ -203,9 +203,13 @@ export function articleDomain(item: ScrapedItem): string | null {
   return item.publisherDomain ?? extractDomain(item.url)
 }
 
-/** Titre : première ligne du texte collecté (le flux le place en tête). */
+/** Titre : première ligne non vide du texte collecté (le flux le place en tête). */
 export function articleTitle(item: ScrapedItem): string {
-  return (item.text.split('\n')[0] ?? '').trim().slice(0, 300)
+  const first = item.text
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0)
+  return (first ?? '').slice(0, 300)
 }
 
 /** Lignes à enregistrer (table media_analyses) pour les analyses d'un lot. */
