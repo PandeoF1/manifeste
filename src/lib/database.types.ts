@@ -237,6 +237,35 @@ export type Database = {
         Update: { source_id?: string; external_id?: string; processed_at?: string }
         Relationships: []
       }
+      media_analyses: {
+        Row: {
+          id: string
+          url: string
+          domain: string
+          title: string | null
+          source_id: string | null
+          published_at: string | null
+          about_movement: boolean
+          mentions_demands: boolean
+          demands: string[]
+          voices: string[]
+          focus: 'revendications' | 'mobilisation' | 'incidents' | 'mixte'
+          incidents: boolean
+          police_violence: boolean
+          terms: string[]
+          tone: 'favorable' | 'neutre' | 'defavorable'
+          quote_demands: string | null
+          quote_framing: string | null
+          model: string | null
+          analyzed_at: string
+        }
+        Insert: Partial<Database['public']['Tables']['media_analyses']['Row']> & {
+          url: string
+          domain: string
+        }
+        Update: Partial<Database['public']['Tables']['media_analyses']['Row']>
+        Relationships: []
+      }
       unmatched_extractions: {
         Row: {
           id: string

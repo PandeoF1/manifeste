@@ -12,6 +12,7 @@
 // collector_trace, que la page affiche en temps réel. Jamais pour les passages planifiés.
 import {
   analyzePending,
+  chunk,
   gatherSources,
   mapLimit,
   pendingFromJson,
@@ -23,10 +24,17 @@ import {
 } from '../_shared/collector.ts'
 import { planGroups } from '../_shared/collect-plan.ts'
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
-import { createExtractor, modelsFromEnv } from '../_shared/gemini.ts'
+import { createExtractor, createGeminiClient, modelsFromEnv } from '../_shared/gemini.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
 import { SUPABASE_URL, admin, db, getCollectSecret, isAuthorized } from '../_shared/service.ts'
-import { traceSink } from '../_shared/service-db.ts'
+import { batchByLength, traceSink } from '../_shared/service-db.ts'
+import {
+  articleDomain,
+  articleTitle,
+  isPressItem,
+  mediaRequest,
+  parseMediaAnalyses,
+} from '../_shared/media.ts'
 import { createTracer, noTracer, tracingFetch, type Tracer } from '../_shared/trace.ts'
 import type { FetchLike } from '../_shared/fetchers/types.ts'
 
@@ -57,6 +65,12 @@ const MAX_ITEMS_PER_SOURCE = Number(Deno.env.get('COLLECT_MAX_ITEMS_PER_SOURCE')
 const MAX_GOOGLE_NEWS_PER_RUN = Number(Deno.env.get('COLLECT_MAX_GOOGLE_NEWS_PER_RUN') ?? 6)
 /** Éléments envoyés à Gemini par requête (le quota compte les requêtes, pas les éléments). */
 const ITEMS_PER_GEMINI_CALL = Number(Deno.env.get('COLLECT_ITEMS_PER_GEMINI_CALL') ?? 60)
+
+/** Articles de presse analysés (traitement médiatique) par passage, et par appel Gemini. */
+const MEDIA_PER_RUN = Number(Deno.env.get('COLLECT_MEDIA_PER_RUN') ?? 40)
+const MEDIA_PER_CALL = 20
+/** Au-delà, on laisse tomber l'analyse des médias pour finir la collecte à temps. */
+const MEDIA_DEADLINE_MS = 105_000
 
 const SOURCE_COLUMNS = 'id, kind, identifier, label, source_type'
 
@@ -125,10 +139,78 @@ async function analyze(
       }
     },
   })
+  const media = await analyzeMedia(pending, startedAt, ctx)
   return {
     results,
     served: [...extractor.served],
-    geminiCalls: extractor.calls,
+    geminiCalls: extractor.calls + media.calls,
+    mediaAnalyzed: media.analyzed,
+  }
+}
+
+/**
+ * Traitement médiatique (admin > Médias) : articles de presse nouveaux, pas encore analysés,
+ * dans le temps restant. Ne fait jamais échouer la collecte.
+ */
+async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
+  try {
+    const seen = new Set<string>()
+    const press = pending.filter((p) => {
+      if (!isPressItem(p.source.kind, p.item) || seen.has(p.item.url)) return false
+      seen.add(p.item.url)
+      return true
+    })
+    if (press.length === 0) return { analyzed: 0, calls: 0 }
+    const done = new Set<string>()
+    for (const urls of batchByLength(
+      press.map((p) => p.item.url),
+      3_000,
+      50,
+    )) {
+      const { data } = await admin.from('media_analyses').select('url').in('url', urls)
+      for (const r of data ?? []) done.add(r.url as string)
+    }
+    const todo = press.filter((p) => !done.has(p.item.url)).slice(0, MEDIA_PER_RUN)
+    const client = createGeminiClient({
+      apiKey: GEMINI_API_KEY,
+      models: GEMINI_MODELS,
+      fetchFn: ctx.fetchFor('collecteur'),
+    })
+    let analyzed = 0
+    for (const group of chunk(todo, MEDIA_PER_CALL)) {
+      if (Date.now() - startedAt > MEDIA_DEADLINE_MS) break
+      const batch = group.map((p, i) => ({ id: String(i), item: p.item, source: p.source }))
+      const results = parseMediaAnalyses(await client.generate(mediaRequest(batch)), batch)
+      const model = [...client.served].at(-1) ?? null
+      const rows = results.flatMap((a) => {
+        const b = batch[Number(a.item_id)]
+        const domain = b && articleDomain(b.item)
+        if (!b || !domain) return []
+        const { item_id: _id, ...answers } = a
+        return [
+          {
+            ...answers,
+            url: b.item.url,
+            domain,
+            title: articleTitle(b.item),
+            source_id: b.source.id,
+            published_at: b.item.publishedAt.toISOString(),
+            model,
+          },
+        ]
+      })
+      if (rows.length) {
+        const { error } = await admin
+          .from('media_analyses')
+          .upsert(rows, { onConflict: 'url', ignoreDuplicates: true })
+        if (error) console.error('media_analyses', error.message)
+        else analyzed += rows.length
+      }
+    }
+    return { analyzed, calls: client.calls }
+  } catch (e) {
+    console.error('analyse des médias', e instanceof Error ? e.message : e)
+    return { analyzed: 0, calls: 0 }
   }
 }
 
@@ -264,7 +346,7 @@ Deno.serve(async (req) => {
       return json(200, out)
     }
 
-    const { results, served, geminiCalls } =
+    const { results, served, geminiCalls, mediaAnalyzed } =
       typeof body.source_id === 'string'
         ? await (async () => {
             const sources = await loadSources([body.source_id as string])
@@ -292,7 +374,7 @@ Deno.serve(async (req) => {
       label: `${sum('reports')} signaux`,
       n: sum('reports'),
       ms: Date.now() - startedAt,
-      detail: `${sum('relevant')} pertinents · ${sum('unmatched')} non rattachés · ${geminiCalls} appels Gemini`,
+      detail: `${sum('relevant')} pertinents · ${sum('unmatched')} non rattachés · ${mediaAnalyzed} articles analysés (médias) · ${geminiCalls} appels Gemini`,
     })
     await ctx.tracer.flush()
 
@@ -300,6 +382,7 @@ Deno.serve(async (req) => {
       // Modèles réellement utilisés pendant ce passage (ou la liste configurée si aucun appel).
       model: served.length ? served.join(', ') : GEMINI_MODELS.join(' > '),
       gemini_calls: geminiCalls,
+      media_analyzed: mediaAnalyzed,
       duration_ms: Date.now() - startedAt,
       results,
     })

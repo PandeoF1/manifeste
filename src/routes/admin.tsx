@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { LoginForm } from '@/components/admin/LoginForm'
+import { MediaPanel } from '@/components/admin/MediaPanel'
 import { PendingPanel } from '@/components/admin/PendingPanel'
 import { ReportsPanel } from '@/components/admin/ReportsPanel'
 import { SettingsPanel } from '@/components/admin/SettingsPanel'
@@ -19,6 +20,7 @@ const TABS = [
   'non-rattaches',
   'domaines',
   'stats',
+  'medias',
   'reglages',
 ] as const
 type Tab = (typeof TABS)[number]
@@ -30,6 +32,7 @@ const TAB_LABELS: Record<Tab, string> = {
   'non-rattaches': 'Non rattachés',
   domaines: 'Domaines de confiance',
   stats: 'Stats',
+  medias: 'Médias',
   reglages: 'Réglages',
 }
 
@@ -97,6 +100,7 @@ function AdminPage() {
         {tab === 'non-rattaches' && <UnmatchedPanel />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
         {tab === 'stats' && <StatsPanel />}
+        {tab === 'medias' && <MediaPanel />}
         {tab === 'reglages' && <SettingsPanel />}
       </div>
     </main>
