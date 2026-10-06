@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Info, List, Map as MapIcon, Megaphone } from 'lucide-react'
 import { statusesQuery } from '@/queries/statuses'
 import { StatusIcon } from '@/components/status/StatusIcon'
+import { RightsButton } from './RightsDialog'
 import { ThemeToggle } from './ThemeToggle'
 
 const NAV = [
@@ -35,15 +36,22 @@ export function TopBar() {
       className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-bg px-2 md:px-4"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Téléphone : bascule carte / liste en haut à gauche. */}
-      <Link
-        to={onList ? '/' : '/liste'}
-        search={{}}
-        aria-label={onList ? 'Voir la carte' : 'Voir la liste des établissements'}
-        className="icon-btn md:hidden"
-      >
-        {onList ? <MapIcon size={22} aria-hidden="true" /> : <List size={22} aria-hidden="true" />}
-      </Link>
+      {/* Téléphone : bascule carte / liste et droits, en haut à gauche. */}
+      <div className="flex items-center md:hidden">
+        <Link
+          to={onList ? '/' : '/liste'}
+          search={{}}
+          aria-label={onList ? 'Voir la carte' : 'Voir la liste des établissements'}
+          className="icon-btn"
+        >
+          {onList ? (
+            <MapIcon size={22} aria-hidden="true" />
+          ) : (
+            <List size={22} aria-hidden="true" />
+          )}
+        </Link>
+        {!pathname.startsWith('/admin') && <RightsButton className="icon-btn" />}
+      </div>
       <Link
         to="/"
         search={{}}
@@ -73,6 +81,9 @@ export function TopBar() {
       <div className="flex items-center gap-1 md:gap-3">
         <MiniCounter />
         {!pathname.startsWith('/admin') && <ThemeToggle />}
+        {!pathname.startsWith('/admin') && (
+          <RightsButton className="hidden min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm hover:bg-surface md:inline-flex" />
+        )}
         <Link
           to="/signaler"
           search={{}}
