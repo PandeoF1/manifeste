@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink, Info, Quote } from 'lucide-react'
+import { Download, ExternalLink, FileSpreadsheet, Info, Quote } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { download, mediaCsv, renderMediaPng } from '@/lib/mediaExport'
 import { queryKeys } from '@/lib/queryKeys'
 import {
   aggregate,
@@ -81,6 +82,20 @@ export function MediaPanel() {
     { n: 0, demands: 0, students: 0, incidents: 0, police: 0 },
   )
   const demands = topDemands(rows)
+  const [exporting, setExporting] = useState(false)
+  const periodLabel = days === 0 ? 'depuis le début' : `${days} derniers jours`
+  const stamp = new Date().toISOString().slice(0, 10)
+  async function exportPng() {
+    setExporting(true)
+    try {
+      download(
+        await renderMediaPng(stats, { period: periodLabel, by, generatedAt: new Date() }),
+        `manifeste-medias-${stamp}.png`,
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="mt-4 space-y-6">
@@ -108,6 +123,29 @@ export function MediaPanel() {
           ]}
           onChange={setBy}
         />
+        <div className="ml-auto flex gap-2">
+          <button
+            type="button"
+            className="btn-secondary min-h-9 px-3 text-sm"
+            disabled={stats.length === 0 || exporting}
+            onClick={() => void exportPng()}
+          >
+            <Download size={16} aria-hidden="true" /> {exporting ? 'Export…' : 'Image (PNG)'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary min-h-9 px-3 text-sm"
+            disabled={stats.length === 0}
+            onClick={() =>
+              download(
+                new Blob([mediaCsv(stats, by)], { type: 'text/csv;charset=utf-8' }),
+                `manifeste-medias-${stamp}.csv`,
+              )
+            }
+          >
+            <FileSpreadsheet size={16} aria-hidden="true" /> CSV
+          </button>
+        </div>
       </div>
 
       {q.isPending && <div className="h-64 animate-pulse rounded-xl bg-surface" />}

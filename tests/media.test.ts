@@ -176,3 +176,21 @@ describe('lignes enregistrées', () => {
     expect(rows[0]).not.toHaveProperty('item_id')
   })
 })
+
+describe('export CSV', () => {
+  it('échappe les guillemets et séparateurs, avec BOM pour Excel', async () => {
+    const { mediaCsv } = await import('@/lib/mediaExport')
+    const stats = aggregate(
+      [
+        row('cnews.fr', { focus: 'incidents', terms: ['casseurs'], tone: 'defavorable' }),
+        row('cnews.fr', { focus: 'incidents' }),
+        row('cnews.fr', { focus: 'incidents' }),
+      ],
+      'outlet',
+    )
+    const csv = mediaCsv(stats, 'outlet')
+    expect(csv.startsWith('﻿Média;Propriétaire;Articles;')).toBe(true)
+    expect(csv).toContain('CNews;Groupe Canal+ (Bolloré);3;0;0;0;100;0;0;33;')
+    expect(csv).toContain('casseurs (1)')
+  })
+})
