@@ -300,6 +300,14 @@ export type Database = {
         Args: { p_key: string; p_value: string }
         Returns: undefined
       }
+      ping_live: {
+        Args: { p_session: string; p_page: string }
+        Returns: undefined
+      }
+      admin_analytics: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       national_counts: {
         Args: Record<PropertyKey, never>
         Returns: { bloque: number; filtrant: number; leve: number; last_signal_at: string | null }[]

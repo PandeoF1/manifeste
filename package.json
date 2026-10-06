@@ -24,7 +24,6 @@
     "@tanstack/react-query": "^5.104.1",
     "@tanstack/react-query-persist-client": "^5.104.1",
     "@tanstack/react-router": "^1.170.41",
-    "@vercel/functions": "^3.9.11",
     "@vercel/og": "^0.11.1",
     "fast-xml-parser": "^5.11.2",
     "idb-keyval": "^6.3.0",
@@ -33,6 +32,7 @@
     "maplibre-gl": "^6.12.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "web-vitals": "^6.2.3",
     "workbox-window": "^7.4.1",
     "zod": "^4.6.5"
   },

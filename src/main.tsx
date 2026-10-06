@@ -4,6 +4,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { queryClient } from './lib/queryClient'
 import { persistOptions } from './lib/persist'
+import { startTelemetry } from './lib/telemetry'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 
@@ -20,6 +21,8 @@ declare module '@tanstack/react-router' {
     router: typeof router
   }
 }
+
+startTelemetry(router)
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root introuvable')

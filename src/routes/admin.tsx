@@ -6,12 +6,21 @@ import { PendingPanel } from '@/components/admin/PendingPanel'
 import { ReportsPanel } from '@/components/admin/ReportsPanel'
 import { SettingsPanel } from '@/components/admin/SettingsPanel'
 import { SourcesPanel } from '@/components/admin/SourcesPanel'
+import { StatsPanel } from '@/components/admin/StatsPanel'
 import { TrustedDomainsPanel } from '@/components/admin/TrustedDomainsPanel'
 import { UnmatchedPanel } from '@/components/admin/UnmatchedPanel'
 import { supabase } from '@/lib/supabase'
 import { isAdminSession, pendingQuery, useSession } from '@/queries/admin'
 
-const TABS = ['sources', 'moderation', 'signaux', 'non-rattaches', 'domaines', 'reglages'] as const
+const TABS = [
+  'sources',
+  'moderation',
+  'signaux',
+  'non-rattaches',
+  'domaines',
+  'stats',
+  'reglages',
+] as const
 type Tab = (typeof TABS)[number]
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -20,6 +29,7 @@ const TAB_LABELS: Record<Tab, string> = {
   signaux: 'Signaux',
   'non-rattaches': 'Non rattachés',
   domaines: 'Domaines de confiance',
+  stats: 'Stats',
   reglages: 'Réglages',
 }
 
@@ -86,6 +96,7 @@ function AdminPage() {
         {tab === 'signaux' && <ReportsPanel />}
         {tab === 'non-rattaches' && <UnmatchedPanel />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
+        {tab === 'stats' && <StatsPanel />}
         {tab === 'reglages' && <SettingsPanel />}
       </div>
     </main>
