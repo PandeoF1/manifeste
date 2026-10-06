@@ -102,7 +102,7 @@ export function formatMetric(metric: Metric, value: number | null): string {
 export const PAGE_LABEL: Record<string, string> = {
   carte: 'Carte',
   liste: 'Liste',
-  lycee: 'Fiche lycée',
+  lycee: 'Fiche établissement',
   signaler: 'Signaler',
   'a-propos': 'À propos',
   autre: 'Autre',
