@@ -25,7 +25,7 @@ import {
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
 import { createExtractor, modelsFromEnv } from '../_shared/gemini.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
-import { COLLECT_SECRET, SUPABASE_URL, admin, db, isAuthorized } from '../_shared/service.ts'
+import { SUPABASE_URL, admin, db, getCollectSecret, isAuthorized } from '../_shared/service.ts'
 import { traceSink } from '../_shared/service-db.ts'
 import { createTracer, noTracer, tracingFetch, type Tracer } from '../_shared/trace.ts'
 import type { FetchLike } from '../_shared/fetchers/types.ts'
@@ -178,12 +178,13 @@ async function dispatch(startedAt: number, ctx: Ctx) {
     detail: `${groups.length} lecteurs, ${WORKER_CONCURRENCY} en parallèle`,
   })
   const call = ctx.fetchFor('collecteur')
+  const secret = await getCollectSecret()
   const gathered = await mapLimit(groups, WORKER_CONCURRENCY, async (group) => {
     try {
       const res = await withRateLimitRetry(() =>
         call(`${SUPABASE_URL}/functions/v1/collect`, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', 'x-collect-secret': COLLECT_SECRET },
+          headers: { 'content-type': 'application/json', 'x-collect-secret': secret },
           body: JSON.stringify({
             mode: 'gather',
             source_ids: group.map((s) => s.id),
@@ -235,7 +236,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   if (!(await isAuthorized(req))) return json(401, { error: 'unauthorized' })
   if (!GEMINI_API_KEY) return json(500, { error: 'missing_gemini_api_key' })
-  if (!COLLECT_SECRET) return json(500, { error: 'missing_collect_secret' })
+  if (!(await getCollectSecret())) return json(500, { error: 'missing_collect_secret' })
 
   const body = (await req.json().catch(() => ({}))) as {
     mode?: unknown

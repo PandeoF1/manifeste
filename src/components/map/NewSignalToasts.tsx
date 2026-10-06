@@ -48,7 +48,7 @@ export function NewSignalToasts({
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none absolute inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 flex flex-col items-center gap-2 md:inset-x-auto md:bottom-auto md:top-3 md:right-16 md:items-end"
+      className="pointer-events-none absolute top-3 right-16 z-20 hidden flex-col items-end gap-2 md:flex"
     >
       {toasts.map(({ key, school }) => (
         <button

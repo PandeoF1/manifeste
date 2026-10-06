@@ -2,7 +2,8 @@
 // (et toute photo originale restée attachée à un signalement déjà traité).
 // Déclenchée chaque heure par pg_cron (en-tête x-collect-secret).
 import { createClient } from '@supabase/supabase-js'
-import { json, timingSafeEqual } from '../_shared/http.ts'
+import { hasCollectSecret } from '../_shared/collect-secret.ts'
+import { json } from '../_shared/http.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -14,7 +15,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 })
 
 Deno.serve(async (req) => {
-  if (!timingSafeEqual(req.headers.get('x-collect-secret') ?? '', COLLECT_SECRET)) {
+  if (!(await hasCollectSecret(req, admin, COLLECT_SECRET))) {
     return json(401, { error: 'unauthorized' })
   }
   const cutoff = new Date(Date.now() - RETENTION_HOURS * 3_600_000).toISOString()
