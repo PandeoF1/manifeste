@@ -1,5 +1,5 @@
 import { chunk, mapLimit } from './collector-utils.ts'
-import { extractDomain } from './domain.ts'
+import { canonicalUrl, extractDomain } from './domain.ts'
 import { enrichItems } from './enrich.ts'
 import {
   isRelevant,
@@ -375,7 +375,7 @@ async function handleEvent(
       school_name: event.school_name,
       city: event.city,
       status: event.status,
-      source_url: item.url,
+      source_url: canonicalUrl(item.url),
       observed_at: observedAt,
     })
     return { outcome: 'non_rattache' }
@@ -386,7 +386,7 @@ async function handleEvent(
     school_uai: uai,
     status: event.status,
     source_type: source.source_type,
-    source_url: item.url,
+    source_url: canonicalUrl(item.url),
     source_domain: domain,
     source_id: source.id,
     certainty: event.certainty,

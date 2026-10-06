@@ -23,6 +23,7 @@ import {
   type SourceRunResult,
 } from '../_shared/collector.ts'
 import { planGroups } from '../_shared/collect-plan.ts'
+import { canonicalUrl } from '../_shared/domain.ts'
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
 import { createExtractor, createGeminiClient, modelsFromEnv } from '../_shared/gemini.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
@@ -150,21 +151,22 @@ async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
   try {
     const seen = new Set<string>()
     const press = pending.filter((p) => {
-      if (!isPressItem(p.source.kind, p.item) || seen.has(p.item.url)) return false
-      seen.add(p.item.url)
+      const key = canonicalUrl(p.item.url)
+      if (!isPressItem(p.source.kind, p.item) || seen.has(key)) return false
+      seen.add(key)
       return true
     })
     if (press.length === 0) return { analyzed: 0, calls: 0 }
     const done = new Set<string>()
     for (const urls of batchByLength(
-      press.map((p) => p.item.url),
+      press.map((p) => canonicalUrl(p.item.url)),
       3_000,
       50,
     )) {
       const { data } = await admin.from('media_analyses').select('url').in('url', urls)
       for (const r of data ?? []) done.add(r.url as string)
     }
-    const todo = press.filter((p) => !done.has(p.item.url)).slice(0, MEDIA_PER_RUN)
+    const todo = press.filter((p) => !done.has(canonicalUrl(p.item.url))).slice(0, MEDIA_PER_RUN)
     const client = createGeminiClient({
       apiKey: GEMINI_API_KEY,
       models: GEMINI_MODELS,

@@ -347,3 +347,17 @@ describe('borne par source et par passage', () => {
     expect(seenBatches).toEqual([['a1', 'a2'], ['a3', 'a4'], ['a5']])
   })
 })
+
+describe('adresse canonique', () => {
+  it('retire suivi, fragment et « / » final, garde le reste', async () => {
+    const { canonicalUrl } = await import('@shared/domain.ts')
+    const base = 'https://www.ici.fr/occitanie/tarbes/mobilisation-8218869'
+    expect(canonicalUrl(`${base}?at_medium=lien_RSS&at_locale=56`)).toBe(base)
+    expect(canonicalUrl(`${base}/?utm_source=x#haut`)).toBe(base)
+    expect(canonicalUrl('https://exemple.fr/a?id=12&utm_medium=rss')).toBe(
+      'https://exemple.fr/a?id=12',
+    )
+    expect(canonicalUrl('https://exemple.fr/a?fbclid=z&id=12')).toBe('https://exemple.fr/a?id=12')
+    expect(canonicalUrl('pas une url')).toBe('pas une url')
+  })
+})

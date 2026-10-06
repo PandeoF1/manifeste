@@ -3,7 +3,7 @@
 // angle incidents ou mobilisation ? vocabulaire ?) avec une citation à l'appui. Le texte de
 // l'article n'est pas stocké : seulement ces réponses, l'adresse et le titre.
 import { z } from 'zod'
-import { extractDomain } from './domain.ts'
+import { canonicalUrl, extractDomain } from './domain.ts'
 import type { JsonRequest } from './gemini.ts'
 import type { ScrapedItem } from './fetchers/types.ts'
 
@@ -223,7 +223,7 @@ export function mediaRows(
     return [
       {
         ...answers,
-        url: b.item.url,
+        url: canonicalUrl(b.item.url),
         domain,
         title: articleTitle(b.item),
         source_id: b.source.id,
