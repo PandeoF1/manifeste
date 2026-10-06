@@ -44,6 +44,7 @@ import {
   mediaRows,
   parseMediaAnalyses,
 } from '../supabase/functions/_shared/media.ts'
+import { canonicalUrl } from '../supabase/functions/_shared/domain.ts'
 import { createServiceDb } from '../supabase/functions/_shared/service-db.ts'
 import {
   BACKFILL_SOURCE_IDENTIFIER,
@@ -296,7 +297,9 @@ async function processCommand() {
 // ---------------------------------------------------------------------------------------------
 
 // media : analyse du traitement médiatique des articles déjà en file (titre + chapeau de la page,
-// relus car le texte n'est pas conservé). Relançable : media_done_at marque ce qui est fait.
+// relus car le texte n'est pas conservé). Relançable : media_done_at marque ce qui est fait, mais
+// pas les articles dont la page n'a pas pu être lue (Google limite la résolution des liens) :
+// ils sont retentés au passage suivant. Les articles déjà analysés ne sont pas renvoyés à l'IA.
 
 async function mediaCommand() {
   if (process.argv.includes('--redo')) return mediaRedoCommand()
@@ -316,7 +319,8 @@ async function mediaCommand() {
     models: modelsFromEnv(process.env.GEMINI_MODEL, process.env.GEMINI_FALLBACK_MODELS),
     fetchFn: fetch,
   })
-  const totals = { read: 0, analyzed: 0, skipped: 0 }
+  const totals = { read: 0, analyzed: 0, skipped: 0, unreadable: 0 }
+  let lastId = 0
   while (totals.read < limit) {
     const startedAt = Date.now()
     const { data: rows, error } = await admin
@@ -324,7 +328,8 @@ async function mediaCommand() {
       .select('id, external_id, url, title, publisher_domain, published_at')
       .is('media_done_at', null)
       .in('status', ['done', 'pending'])
-      .order('published_at', { ascending: false })
+      .gt('id', lastId)
+      .order('id')
       .limit(25)
     if (error) throw new Error(`backfill_queue : ${error.message}`)
     if (!rows?.length) {
@@ -332,12 +337,27 @@ async function mediaCommand() {
       break
     }
     // Lien réel de l'article puis titre + chapeau de la page.
+    lastId = Number(rows[rows.length - 1]?.id ?? lastId)
     const items = await enrichItems(fetch, rows.map(fromQueueRow))
-    const batch = items
+    const unreadable = new Set(
+      rows.filter((_, i) => (items[i]?.text.trim().length ?? 0) === 0).map((r) => r.id),
+    )
+    let batch = items
       .map((item, i) => ({ id: String(i), item, source: source as { id: string } }))
       .filter((b) => isPressItem('rss', b.item) && b.item.text.trim().length > 0)
+    const known = new Set<string>()
+    const urls = batch.map((b) => canonicalUrl(b.item.url))
+    for (let i = 0; i < urls.length; i += 25) {
+      const { data } = await admin
+        .from('media_analyses')
+        .select('url')
+        .in('url', urls.slice(i, i + 25))
+      for (const r of data ?? []) known.add(r.url)
+    }
+    batch = batch.filter((b) => !known.has(canonicalUrl(b.item.url)))
     totals.read += rows.length
-    totals.skipped += rows.length - batch.length
+    totals.unreadable += unreadable.size
+    totals.skipped += rows.length - batch.length - unreadable.size
 
     if (batch.length > 0) {
       let analyses
@@ -362,15 +382,16 @@ async function mediaCommand() {
         totals.analyzed += out.length
       }
     }
+    // Page illisible : on ne marque pas, pour la retenter plus tard.
     await admin
       .from('backfill_queue')
       .update({ media_done_at: new Date().toISOString() })
       .in(
         'id',
-        rows.map((r) => r.id),
+        rows.filter((r) => !unreadable.has(r.id)).map((r) => r.id),
       )
     process.stdout.write(
-      `\r${totals.read} articles lus · ${totals.analyzed} analysés · ${totals.skipped} ignorés (page illisible ou hors presse)`,
+      `\r${totals.read} articles lus · ${totals.analyzed} analysés · ${totals.skipped} déjà faits ou hors presse · ${totals.unreadable} illisibles (à retenter)`,
     )
     const wait = 60_000 / rpm - (Date.now() - startedAt)
     if (wait > 0) await sleep(wait)
