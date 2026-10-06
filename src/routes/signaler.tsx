@@ -438,7 +438,7 @@ function PrivacyNotice() {
         Pas de compte ni de nom. Ta position est arrondie à 100 m sur ton téléphone et ne sert qu'à
         vérifier que tu es près de l'établissement (jamais affichée). Ta photo est nettoyée de ses
         métadonnées, floutée si besoin avant publication, et l'original est supprimé après
-        vérification. Le site n'enregistre pas ton IP (les hébergeurs la voient passer, brièvement).{' '}
+        vérification. Ton IP n'est jamais enregistrée.{' '}
         <Link to="/a-propos" className="underline">
           Le détail
         </Link>

@@ -67,10 +67,9 @@ function AboutPage() {
         <p>
           Pas de compte, pas de cookie, pas d'outil d'analyse tiers. Si tu signales un blocus, je
           garde l'établissement, la situation, ta photo si tu en mets une et ta position arrondie à
-          100 m, uniquement pour vérifier que tu es sur place. Le site n'enregistre pas ton adresse
-          IP ; mes hébergeurs la voient passer, comme sur tout site, et la gardent brièvement dans
-          leurs journaux techniques. Pour les stats, je compte les visites sans te suivre d'un jour
-          à l'autre. Une photo publiée, une donnée à effacer : {mail}.
+          100 m, uniquement pour vérifier que tu es sur place. Ton adresse IP n'est jamais
+          enregistrée. Pour les stats, je compte les visites sans te suivre d'un jour à l'autre. Une
+          photo publiée, une donnée à effacer : {mail}.
         </p>
         <details className="rounded-lg border border-border p-3 text-sm">
           <summary className="cursor-pointer font-semibold">Voir le détail</summary>
@@ -101,8 +100,8 @@ function AboutPage() {
             </li>
             <li>
               Cloudflare Turnstile (anti-robot du formulaire), Vercel et Supabase (hébergement) et
-              OpenFreeMap (fond de carte) reçoivent ton adresse IP et tes données techniques de
-              connexion, et peuvent les conserver brièvement dans leurs journaux.
+              OpenFreeMap (fond de carte) reçoivent, comme tout service en ligne, tes données
+              techniques de connexion.
             </li>
             <li>
               Tu peux accéder à tes données, les faire corriger ou effacer en écrivant à {mail}, ou
