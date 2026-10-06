@@ -43,22 +43,6 @@ function AboutPage() {
         </p>
       </header>
 
-      <Section id="qui" title="Qui est derrière ?">
-        <p>
-          Moi, {CREATOR_NAME}. J'ai fait ce site seul, sur mon temps libre, parce que l'info sur les
-          blocus est éparpillée partout et que je trouvais ça dommage de ne pas pouvoir tout voir au
-          même endroit. Le code est public sur{' '}
-          <a href={CREATOR_GITHUB} className="underline" rel="noopener noreferrer">
-            mon GitHub
-          </a>
-          . Une erreur, une idée, un lycée qui manque : écris-moi à {mail}.
-        </p>
-        <p>
-          Je ne suis rattaché à aucun syndicat, parti ou organisation. Le site rapporte ce qui se
-          passe ; il n'appelle à rien.
-        </p>
-      </Section>
-
       <Section id="methode" title="D'où viennent les infos">
         <p>
           Toutes les 10 minutes, le site lit des articles de presse (nationale, régionale, locale),
@@ -161,6 +145,14 @@ function AboutPage() {
         <Link to="/" search={{}} className="btn-primary">
           Voir la carte
         </Link>
+      </p>
+
+      <p className="border-t border-border pt-4 text-sm text-muted">
+        Un projet de {CREATOR_NAME} ·{' '}
+        <a href={CREATOR_GITHUB} className="underline" rel="noopener noreferrer">
+          GitHub
+        </a>{' '}
+        · {mail}
       </p>
     </main>
   )
