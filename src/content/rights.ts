@@ -16,17 +16,18 @@ export interface RightsLink {
 }
 
 export const RIGHTS_INTRO =
-  'Des repères généraux, pas un conseil juridique : la loi change et chaque situation est différente. En cas de doute, demande un avocat.'
+  "Tu n'es pas seul·e, et tu as des droits. Voici l'essentiel à garder sous la main. Ce n'est pas un conseil juridique : en cas de doute, demande un avocat."
 
 export const RIGHTS_SECTIONS: ReadonlyArray<RightsSection> = [
   {
     id: 'forces-de-l-ordre',
-    title: "Face aux forces de l'ordre",
+    title: 'Face aux CRS et à la police',
     points: [
-      'Avant de disperser un rassemblement par la force, elles doivent faire deux sommations (« Obéissance à la loi, dispersez-vous », puis une dernière). Quand elles ont été faites, quitte les lieux calmement.',
-      "Les agents doivent porter leur numéro d'identification (le RIO), de façon visible. Tu peux le noter.",
-      'Reste avec d’autres personnes plutôt que seul·e, et garde ton calme : insultes, jets d’objets ou dégradations peuvent mener à des poursuites.',
-      "Blessé·e ou témoin de violences : demande un médecin, garde les preuves (photos, vidéos, noms de témoins), note l'heure et le lieu. Tu peux saisir le Défenseur des droits.",
+      'Avant de disperser un rassemblement par la force, ils doivent faire deux sommations (« Obéissance à la loi, dispersez-vous », puis « dernière sommation »). Écoute-les : après, ils peuvent faire usage de la force, mieux vaut être parti·e.',
+      "Chaque agent doit porter son numéro d'identification (le RIO), bien visible. Le Conseil d'État a rappelé qu'il doit rester lisible, y compris en manif. Si tu peux, note-le.",
+      'Reste en groupe, ne te laisse pas isoler, et préviens un proche de là où tu es.',
+      "Ne tombe pas dans la provocation : insultes, jets d'objets ou dégradations, c'est le meilleur moyen de finir en garde à vue.",
+      "Blessé·e ou témoin de violences : fais-toi examiner par un médecin, garde les preuves (photos, vidéos, noms de témoins), note l'heure et le lieu. Tu peux saisir le Défenseur des droits.",
     ],
   },
   {
@@ -44,7 +45,7 @@ export const RIGHTS_SECTIONS: ReadonlyArray<RightsSection> = [
     id: 'garde-a-vue',
     title: 'Si tu es placé·e en garde à vue',
     points: [
-      'On doit t’informer tout de suite de tes droits et du motif.',
+      "Respire, tu as des droits dès la première minute. On doit t'informer tout de suite de tes droits et du motif.",
       'Tu peux faire prévenir un proche (tes parents), voir un médecin et parler à un avocat. Demande-le dès le début.',
       'Ton identité, tu dois la donner. Pour le reste, tu peux garder le silence et attendre ton avocat.',
       "Relis le procès-verbal avant de le signer. S'il ne correspond pas à ce que tu as dit, demande qu'on le corrige.",
