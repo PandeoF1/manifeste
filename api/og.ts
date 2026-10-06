@@ -153,20 +153,28 @@ function school(s: SchoolSummary): Node {
   )
 }
 
-// Polices embarquées (Inter, licence OFL) : aucune requête vers un service de polices.
-const fonts = Promise.all(
-  ([400, 800, 900] as const).map(async (weight) => ({
-    name: 'Inter',
-    weight,
-    style: 'normal' as const,
-    data: await fetch(new URL(`./fonts/inter-${weight}.woff`, import.meta.url)).then((r) =>
-      r.arrayBuffer(),
-    ),
-  })),
-)
+// Polices Inter (licence OFL) servies par le site lui-même (public/fonts) : aucune requête
+// vers un service tiers. Chargées une fois par instance.
+let fontsCache: Promise<
+  Array<{ name: string; weight: 400 | 800 | 900; style: 'normal'; data: ArrayBuffer }>
+> | null = null
+function loadFonts(origin: string) {
+  fontsCache ??= Promise.all(
+    ([400, 800, 900] as const).map(async (weight) => {
+      const res = await fetch(`${origin}/fonts/inter-${weight}.woff`)
+      if (!res.ok) throw new Error(`police ${weight} : HTTP ${res.status}`)
+      return { name: 'Inter', weight, style: 'normal' as const, data: await res.arrayBuffer() }
+    }),
+  ).catch((e: unknown) => {
+    fontsCache = null // nouvel essai à la prochaine requête
+    throw e
+  })
+  return fontsCache
+}
 
 export default async function handler(req: Request): Promise<Response> {
-  const uai = new URL(req.url).searchParams.get('uai')
+  const url = new URL(req.url)
+  const uai = url.searchParams.get('uai')
   let body: Node
   try {
     if (uai) {
@@ -194,7 +202,7 @@ export default async function handler(req: Request): Promise<Response> {
   return new ImageResponse(body as unknown as ReactElement, {
     width: 1200,
     height: 630,
-    fonts: await fonts,
+    fonts: await loadFonts(url.origin),
     headers: {
       // Rafraîchi toutes les 5 min côté CDN ; les messageries gardent leur propre cache.
       'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',

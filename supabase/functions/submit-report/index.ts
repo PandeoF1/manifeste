@@ -30,7 +30,10 @@ function fail(status: number, error: SubmitErrorCode) {
 }
 
 async function verifyTurnstile(token: string | undefined): Promise<boolean> {
-  if (!TURNSTILE_SECRET) return true
+  // Sans clé secrète, le captcha n'est sauté qu'en local (supabase functions serve) :
+  // en production, un oubli de configuration doit bloquer, pas ouvrir le formulaire aux robots.
+  if (!TURNSTILE_SECRET)
+    return Deno.env.get('SB_REGION') == null && !Deno.env.get('DENO_DEPLOYMENT_ID')
   if (!token) return false
   // L'IP du visiteur n'est volontairement pas transmise à Cloudflare.
   const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
