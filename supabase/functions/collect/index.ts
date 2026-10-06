@@ -35,12 +35,17 @@ const MIN_CERTAINTY: Certainty = (CERTAINTIES as readonly string[]).includes(MIN
   ? (MIN_CERTAINTY_RAW as Certainty)
   : 'moyenne'
 /** Sources lues par un sous-appel : chacun a son propre budget CPU (2 s) et mémoire. */
-const SOURCES_PER_WORKER = Number(Deno.env.get('COLLECT_SOURCES_PER_WORKER') ?? 4)
+const SOURCES_PER_WORKER = Number(Deno.env.get('COLLECT_SOURCES_PER_WORKER') ?? 3)
 /** Sous-appels de lecture simultanés. */
-const WORKER_CONCURRENCY = Number(Deno.env.get('COLLECT_WORKER_CONCURRENCY') ?? 4)
+const WORKER_CONCURRENCY = Number(Deno.env.get('COLLECT_WORKER_CONCURRENCY') ?? 8)
 /** Sources traitées par passage ; les autres (les plus récemment collectées) attendent le suivant. */
-const MAX_SOURCES_PER_RUN = Number(Deno.env.get('COLLECT_MAX_SOURCES_PER_RUN') ?? 80)
+const MAX_SOURCES_PER_RUN = Number(Deno.env.get('COLLECT_MAX_SOURCES_PER_RUN') ?? 120)
 /** Éléments envoyés à Gemini par requête (le quota compte les requêtes, pas les éléments). */
+/**
+ * Éléments nouveaux lus par source et par passage (les plus récents) : borne le travail d'un
+ * sous-appel (lecture des articles) ; le reste est repris au passage suivant.
+ */
+const MAX_ITEMS_PER_SOURCE = Number(Deno.env.get('COLLECT_MAX_ITEMS_PER_SOURCE') ?? 20)
 const ITEMS_PER_GEMINI_CALL = Number(Deno.env.get('COLLECT_ITEMS_PER_GEMINI_CALL') ?? 60)
 
 const SOURCE_COLUMNS = 'id, kind, identifier, label, source_type'
@@ -79,7 +84,11 @@ async function analyze(pending: Pending[], results: SourceRunResult[], startedAt
 
 /** Sous-appel : lecture seule d'un groupe de sources. */
 async function gather(ids: string[]) {
-  const { results, pending } = await gatherSources(await loadSources(ids), { db, fetchFn: fetch })
+  const { results, pending } = await gatherSources(await loadSources(ids), {
+    db,
+    fetchFn: fetch,
+    maxItemsPerSource: MAX_ITEMS_PER_SOURCE,
+  })
   return { results, pending: pending.map(pendingToJson) }
 }
 

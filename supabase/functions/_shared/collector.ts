@@ -185,15 +185,18 @@ export async function gatherSources(
       const recent = fetched
         .filter((i) => now.getTime() - i.publishedAt.getTime() <= lookbackMs)
         .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
-        // Une carte peut compter des centaines de points ; un fil d'actu, on lit les 30 derniers.
-        .slice(0, source.kind === 'mymaps' ? 300 : (opts.maxItemsPerSource ?? 30))
+        .slice(0, 300)
       const seen = await opts.db.seenIds(
         source.id,
         recent.map((i) => i.externalId),
       )
       const fresh = recent.filter((i) => !seen.has(i.externalId))
       r.new_items = fresh.length
-      const relevant = fresh.filter((i) => i.alwaysRelevant || isRelevant(i.text))
+      // Les pertinents (lecture de l'article, IA) sont bornés par passage, les plus récents
+      // d'abord ; les suivants, non marqués comme vus, sont repris au passage suivant.
+      // Une carte peut compter des centaines de points : pas de borne.
+      const limit = source.kind === 'mymaps' ? 300 : (opts.maxItemsPerSource ?? 30)
+      const relevant = fresh.filter((i) => i.alwaysRelevant || isRelevant(i.text)).slice(0, limit)
       r.relevant = relevant.length
       const irrelevantItems = fresh.filter((i) => !i.alwaysRelevant && !isRelevant(i.text))
       const irrelevant = irrelevantItems.map((i) => i.externalId)

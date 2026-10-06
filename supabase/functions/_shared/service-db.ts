@@ -7,14 +7,19 @@ import type { SchoolCandidate } from './matching.ts'
 export function createServiceDb(admin: SupabaseClient): CollectorDb {
   return {
     async seenIds(sourceId, externalIds) {
-      if (externalIds.length === 0) return new Set()
-      const { data, error } = await admin
-        .from('scraped_items')
-        .select('external_id')
-        .eq('source_id', sourceId)
-        .in('external_id', externalIds)
-      if (error) throw new Error(`scraped_items: ${error.message}`)
-      return new Set(data.map((r) => r.external_id as string))
+      // Par paquets : les identifiants (liens Google Actualités) sont longs et la requête
+      // passe dans l'URL.
+      const seen = new Set<string>()
+      for (let i = 0; i < externalIds.length; i += 50) {
+        const { data, error } = await admin
+          .from('scraped_items')
+          .select('external_id')
+          .eq('source_id', sourceId)
+          .in('external_id', externalIds.slice(i, i + 50))
+        if (error) throw new Error(`scraped_items: ${error.message}`)
+        for (const r of data) seen.add(r.external_id as string)
+      }
+      return seen
     },
     async markSeen(sourceId, externalIds) {
       if (externalIds.length === 0) return

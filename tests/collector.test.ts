@@ -317,3 +317,33 @@ describe('carte My Maps dans la collecte', () => {
     })
   })
 })
+
+describe('borne par source et par passage', () => {
+  it('lit les plus récents d’abord et reprend les suivants au passage d’après', async () => {
+    const { db } = fakeDb({})
+    const long = ' Les élèves ont installé des poubelles devant l’entrée dès 7 h.'.repeat(8)
+    const items = [1, 2, 3, 4, 5]
+      .map(
+        (n) => `<item><title>Blocus au lycée numéro ${n}</title>
+          <link>https://www.ouest-france.fr/article-${n}</link><guid>a${n}</guid>
+          <pubDate>${new Date(now.getTime() - n * 600_000).toUTCString()}</pubDate>
+          <description>${long}</description></item>`,
+      )
+      .join('')
+    const xml = `<?xml version="1.0"?><rss><channel>${items}</channel></rss>`
+    const feed = vi.fn(async () => new Response(xml, { status: 200 }))
+    const rss = { ...source, id: 'rss-1', kind: 'rss' as const, identifier: 'https://x.fr/rss' }
+    const seenBatches: string[][] = []
+    const extract = vi.fn(
+      async (batch: ReadonlyArray<{ id: string; item: { externalId: string } }>) => {
+        seenBatches.push(batch.map((b) => b.item.externalId))
+        return [] as ExtractedEvent[]
+      },
+    )
+    const opts = { db, fetchFn: feed, extract, now, maxItemsPerSource: 2 }
+    const runs = []
+    for (let i = 0; i < 4; i++) runs.push((await collectSources([rss], opts))[0]?.relevant)
+    expect(runs).toEqual([2, 2, 1, 0])
+    expect(seenBatches).toEqual([['a1', 'a2'], ['a3', 'a4'], ['a5']])
+  })
+})
