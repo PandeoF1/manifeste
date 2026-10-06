@@ -12,7 +12,6 @@
 // collector_trace, que la page affiche en temps réel. Jamais pour les passages planifiés.
 import {
   analyzePending,
-  chunk,
   gatherSources,
   mapLimit,
   pendingFromJson,
@@ -22,6 +21,7 @@ import {
   type PendingJson,
   type SourceRunResult,
 } from '../_shared/collector.ts'
+import { planGroups } from '../_shared/collect-plan.ts'
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
 import { createExtractor, modelsFromEnv } from '../_shared/gemini.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
@@ -50,6 +50,11 @@ const MAX_SOURCES_PER_RUN = Number(Deno.env.get('COLLECT_MAX_SOURCES_PER_RUN') ?
  * sous-appel (lecture des articles) ; le reste est repris au passage suivant.
  */
 const MAX_ITEMS_PER_SOURCE = Number(Deno.env.get('COLLECT_MAX_ITEMS_PER_SOURCE') ?? 20)
+/**
+ * Recherches Google Actualités par passage : au-delà, Google répond 503 aux serveurs de
+ * Supabase. Les autres attendent les passages suivants (les plus anciennes d'abord).
+ */
+const MAX_GOOGLE_NEWS_PER_RUN = Number(Deno.env.get('COLLECT_MAX_GOOGLE_NEWS_PER_RUN') ?? 6)
 /** Éléments envoyés à Gemini par requête (le quota compte les requêtes, pas les éléments). */
 const ITEMS_PER_GEMINI_CALL = Number(Deno.env.get('COLLECT_ITEMS_PER_GEMINI_CALL') ?? 60)
 
@@ -162,19 +167,19 @@ async function withRateLimitRetry(run: () => Promise<Response>): Promise<Respons
 async function dispatch(startedAt: number, ctx: Ctx) {
   const { data, error } = await admin
     .from('scrape_sources')
-    .select('id, label')
+    .select('id, label, identifier')
     .eq('enabled', true)
     .order('last_run_at', { ascending: true, nullsFirst: true })
     .limit(MAX_SOURCES_PER_RUN)
   if (error) throw new Error(error.message)
 
-  const groups = chunk(data ?? [], SOURCES_PER_WORKER)
+  const groups = planGroups(data ?? [], SOURCES_PER_WORKER, MAX_GOOGLE_NEWS_PER_RUN)
   ctx.tracer.emit({
     actor: 'collecteur',
     target: 'collecteur',
     phase: 'start',
-    label: `${data?.length ?? 0} sources`,
-    n: data?.length ?? 0,
+    label: `${groups.flat().length} sources`,
+    n: groups.flat().length,
     detail: `${groups.length} lecteurs, ${WORKER_CONCURRENCY} en parallèle`,
   })
   const call = ctx.fetchFor('collecteur')

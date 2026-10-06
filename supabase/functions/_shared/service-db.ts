@@ -8,15 +8,15 @@ import type { TraceEvent } from './trace.ts'
 export function createServiceDb(admin: SupabaseClient): CollectorDb {
   return {
     async seenIds(sourceId, externalIds) {
-      // Par paquets : les identifiants (liens Google Actualités) sont longs et la requête
-      // passe dans l'URL.
+      // Par paquets : la requête passe dans l'URL et les identifiants Google Actualités
+      // (~250 caractères) la font vite dépasser ce que la passerelle accepte.
       const seen = new Set<string>()
-      for (let i = 0; i < externalIds.length; i += 50) {
+      for (const batch of batchByLength(externalIds, 3_000, 50)) {
         const { data, error } = await admin
           .from('scraped_items')
           .select('external_id')
           .eq('source_id', sourceId)
-          .in('external_id', externalIds.slice(i, i + 50))
+          .in('external_id', batch)
         if (error) throw new Error(`scraped_items: ${error.message}`)
         for (const r of data) seen.add(r.external_id as string)
       }
@@ -112,4 +112,22 @@ export function traceSink(admin: SupabaseClient) {
       .insert(events.map(({ t, ...e }) => ({ ...e, t: new Date(t).toISOString() })))
     if (error) throw new Error(`collector_trace: ${error.message}`)
   }
+}
+
+/** Découpe une liste en paquets d'au plus `maxChars` caractères cumulés et `maxItems` éléments. */
+export function batchByLength(values: string[], maxChars: number, maxItems: number): string[][] {
+  const out: string[][] = []
+  let cur: string[] = []
+  let len = 0
+  for (const v of values) {
+    if (cur.length && (len + v.length > maxChars || cur.length >= maxItems)) {
+      out.push(cur)
+      cur = []
+      len = 0
+    }
+    cur.push(v)
+    len += v.length
+  }
+  if (cur.length) out.push(cur)
+  return out
 }
