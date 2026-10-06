@@ -17,7 +17,13 @@ export interface MediaRow {
   tone: 'favorable' | 'neutre' | 'defavorable'
   quote_demands: string | null
   quote_framing: string | null
+  /** Longueur du texte lu par l'IA ; null pour les analyses antérieures à cette mesure. */
+  text_chars?: number | null
 }
+
+/** En dessous, l'IA n'a vu qu'un titre : on ne peut pas dire si les revendications sont exposées. */
+export const MIN_TEXT_CHARS = 200
+const readable = (r: MediaRow) => r.text_chars == null || r.text_chars >= MIN_TEXT_CHARS
 
 /**
  * Média et propriétaire. Vérifié sur le web le 6 octobre 2026 (CB News, The Media Leader,
@@ -172,6 +178,8 @@ export interface OutletStats {
   articles: number
   /** Parts (0 à 1) sur les articles qui parlent de la mobilisation. */
   demands: number
+  /** Articles sur lesquels `demands` est calculé (ceux dont l'IA a lu plus qu'un titre). */
+  demandsBase: number
   studentVoices: number
   officialVoices: number
   incidentsFocus: number
@@ -200,12 +208,13 @@ export function badgesFor(s: Omit<OutletStats, 'badges' | 'key'>): Badge[] {
   if (s.articles < MIN_ARTICLES_BADGE) return []
   const out: Badge[] = []
   const pct = (x: number) => `${Math.round(x * 100)} %`
-  if (s.incidentsFocus >= 0.5 && s.demands <= 0.25)
+  const demandsKnown = s.demandsBase >= MIN_ARTICLES_BADGE
+  if (demandsKnown && s.incidentsFocus >= 0.5 && s.demands <= 0.25)
     out.push({
       id: 'degats',
       label: 'Peu de revendications, surtout des incidents',
       tone: 'poor',
-      rule: `Sur ${s.articles} articles : angle « incidents » dans ${pct(s.incidentsFocus)}, revendications citées dans ${pct(s.demands)} (règle : ≥ 50 % et ≤ 25 %).`,
+      rule: `Sur ${s.articles} articles : angle « incidents » dans ${pct(s.incidentsFocus)}, revendications citées dans ${pct(s.demands)} des ${s.demandsBase} dont l'IA a lu plus qu'un titre (règle : ≥ 50 % et ≤ 25 %).`,
     })
   if (s.officialVoices >= 0.5 && s.studentVoices <= 0.2)
     out.push({
@@ -214,19 +223,12 @@ export function badgesFor(s: Omit<OutletStats, 'badges' | 'key'>): Badge[] {
       tone: 'poor',
       rule: `Sur ${s.articles} articles : police, préfecture ou direction s'expriment dans ${pct(s.officialVoices)}, les lycéens dans ${pct(s.studentVoices)} (règle : ≥ 50 % et ≤ 20 %).`,
     })
-  if (s.defavorable >= 0.5)
-    out.push({
-      id: 'hostile',
-      label: 'Ton défavorable majoritaire',
-      tone: 'poor',
-      rule: `Sur ${s.articles} articles : ton défavorable dans ${pct(s.defavorable)} (règle : ≥ 50 %). Mesure subjective, à vérifier.`,
-    })
-  if (s.demands >= 0.6)
+  if (demandsKnown && s.demands >= 0.6)
     out.push({
       id: 'revendications',
       label: 'Revendications souvent citées',
       tone: 'good',
-      rule: `Sur ${s.articles} articles : revendications citées dans ${pct(s.demands)} (règle : ≥ 60 %).`,
+      rule: `Sur ${s.demandsBase} articles dont l'IA a lu plus qu'un titre : revendications citées dans ${pct(s.demands)} (règle : ≥ 60 %).`,
     })
   if (s.studentVoices >= 0.5)
     out.push({
@@ -260,6 +262,7 @@ export function aggregate(rows: ReadonlyArray<MediaRow>, by: 'outlet' | 'owner')
     .map(([key, list]) => {
       const n = list.length
       const share = (f: (r: MediaRow) => boolean) => list.filter(f).length / n
+      const readableList = list.filter(readable)
       const termCount = new Map<string, number>()
       for (const r of list) for (const t of r.terms) termCount.set(t, (termCount.get(t) ?? 0) + 1)
       const o = by === 'owner' ? { name: key, owner: key } : outletOf(key)
@@ -267,7 +270,10 @@ export function aggregate(rows: ReadonlyArray<MediaRow>, by: 'outlet' | 'owner')
         name: o.name,
         owner: o.owner,
         articles: n,
-        demands: share((r) => r.mentions_demands),
+        demands: readableList.length
+          ? readableList.filter((r) => r.mentions_demands).length / readableList.length
+          : 0,
+        demandsBase: readableList.length,
         studentVoices: share((r) => r.voices.includes('lyceens')),
         officialVoices: share((r) => r.voices.some((v) => OFFICIAL.has(v))),
         incidentsFocus: share((r) => r.focus === 'incidents'),

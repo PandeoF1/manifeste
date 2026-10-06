@@ -38,6 +38,11 @@ const GEMINI_MODELS = modelsFromEnv(
   Deno.env.get('GEMINI_MODEL'),
   Deno.env.get('GEMINI_FALLBACK_MODELS'),
 )
+/** Analyse des médias : modèle à part (MEDIA_MODEL), le jugement demande plus que l'extraction. */
+const MEDIA_MODELS = modelsFromEnv(
+  Deno.env.get('MEDIA_MODEL') || Deno.env.get('GEMINI_MODEL'),
+  Deno.env.get('GEMINI_FALLBACK_MODELS'),
+)
 const MIN_CERTAINTY_RAW = Deno.env.get('COLLECT_MIN_CERTAINTY') ?? 'moyenne'
 const MIN_CERTAINTY: Certainty = (CERTAINTIES as readonly string[]).includes(MIN_CERTAINTY_RAW)
   ? (MIN_CERTAINTY_RAW as Certainty)
@@ -169,7 +174,7 @@ async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
     const todo = press.filter((p) => !done.has(canonicalUrl(p.item.url))).slice(0, MEDIA_PER_RUN)
     const client = createGeminiClient({
       apiKey: GEMINI_API_KEY,
-      models: GEMINI_MODELS,
+      models: MEDIA_MODELS,
       fetchFn: ctx.fetchFor('collecteur'),
     })
     let analyzed = 0

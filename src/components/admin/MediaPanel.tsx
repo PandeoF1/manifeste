@@ -26,7 +26,7 @@ const mediaQuery = (days: number) => ({
     let q = supabase
       .from('media_analyses')
       .select(
-        'url, domain, title, published_at, about_movement, mentions_demands, demands, voices, focus, incidents, police_violence, terms, tone, quote_demands, quote_framing',
+        'url, domain, title, published_at, about_movement, mentions_demands, demands, voices, focus, incidents, police_violence, terms, tone, quote_demands, quote_framing, text_chars',
       )
       .order('published_at', { ascending: false })
       .limit(3000)
@@ -247,7 +247,9 @@ export function MediaPanel() {
                     <Th title="Part des articles dont l'angle principal est les incidents">
                       Angle incidents
                     </Th>
-                    <Th title="Ton envers la mobilisation : favorable / défavorable">Ton + / −</Th>
+                    <Th title="Ton envers la mobilisation. Peu fiable : suit surtout l'angle « incidents ». Aucun constat n'en découle.">
+                      Ton + / − (indicatif)
+                    </Th>
                     <th className="p-3 font-medium">Constats</th>
                   </tr>
                 </thead>

@@ -71,6 +71,11 @@ Flash-Lite à 15/min et 500/jour. Le modèle par défaut est donc `gemini-3.5-fl
 collecte envoie tous les éléments d'un passage en un seul appel (60 éléments par requête). Avec la
 facturation activée, tu peux passer `GEMINI_MODEL=gemini-3.8-flash`.
 
+**Analyse des médias** : `MEDIA_MODEL` (secret de la fonction `collect`) choisit le modèle de cette
+analyse, séparément de l'extraction ; sans lui, `GEMINI_MODEL` s'applique. Pour refaire les analyses
+déjà en base avec un autre modèle ou une consigne mise à jour :
+`GEMINI_API_KEY=… npm run backfill -- media --redo --model gemini-3.8-flash` (reprise automatique).
+
 Si Gemini est saturé (erreur 503), la collecte réessaie puis bascule sur un modèle de secours
 (`GEMINI_FALLBACK_MODELS`, par défaut `gemini-3.5-flash,gemini-3.6-flash,gemini-3.8-flash`).
 

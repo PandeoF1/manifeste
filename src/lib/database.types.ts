@@ -257,6 +257,7 @@ export type Database = {
           quote_demands: string | null
           quote_framing: string | null
           model: string | null
+          text_chars: number | null
           analyzed_at: string
         }
         Insert: Partial<Database['public']['Tables']['media_analyses']['Row']> & {

@@ -141,12 +141,13 @@ export const MEDIA_SYSTEM_PROMPT = `Tu analyses la façon dont des articles de p
 
 Pour chaque article, réponds de façon factuelle, uniquement d'après le texte fourni :
 - about_movement : false si l'article ne parle pas de la mobilisation lycéenne (alors le reste importe peu).
-- mentions_demands : true si l'article nomme la cause ou les revendications des lycéens, même brièvement ; false s'il décrit le blocus sans dire pourquoi.
+- mentions_demands : true si l'article nomme la cause ou les revendications des lycéens, même brièvement ; false s'il décrit le blocus sans dire pourquoi. Citer le mot « revendications » sans dire lesquelles ne compte pas. Le texte fourni peut n'être qu'un titre ou un chapeau : ne devine pas ce que l'article contient au-delà.
 - demands : les revendications nommées, en quelques mots chacune.
 - voices : qui s'exprime réellement dans l'article (citation directe ou rapportée).
 - focus : l'angle dominant. "incidents" si l'article parle surtout de dégradations, poubelles brûlées, violences, interpellations, perturbations.
+- police_violence : true dès que l'article mentionne un usage de la force par la police ou la gendarmerie (gaz lacrymogène, grenade, tir de LBD, charge, blessé par les forces de l'ordre) ou des accusations de « violences policières », qu'elles soient rapportées ou démenties. false s'il n'y a aucune force publique en cause (violences entre jeunes, incendies, dégradations).
 - terms : les mots que l'article emploie pour désigner les participants (parmi la liste).
-- tone : envers la mobilisation. "defavorable" si elle est présentée surtout comme un problème (désordre, danger, élèves manipulés), "favorable" si ses raisons sont présentées avec sympathie, sinon "neutre".
+- tone : la position du journal lui-même envers la mobilisation, pas le sujet traité. Rapporter des incidents, des interpellations ou des violences, même nombreux, reste "neutre" : un fait n'est pas un jugement. "defavorable" uniquement si la voix du journal délégitime les lycéens (« casseurs », « manipulés », « prise d'otage », reproche explicite). "favorable" si leurs raisons sont exposées avec sympathie ou si le journal prend leur défense. Un lycéen blessé ou une enquête visant un policier ne rendent pas un article défavorable aux lycéens.
 - quote_demands / quote_framing : recopie mot pour mot un court extrait du texte (≤ 200 caractères). N'invente jamais d'extrait ; null s'il n'y en a pas.
 Ne recopie aucun nom de personne mineure. Réponds uniquement avec le JSON demandé.`
 
@@ -215,7 +216,7 @@ export function articleTitle(item: ScrapedItem): string {
 /** Lignes à enregistrer (table media_analyses) pour les analyses d'un lot. */
 export function mediaRows(
   analyses: ReadonlyArray<MediaAnalysis>,
-  batch: ReadonlyArray<{ id: string; item: ScrapedItem; source: { id: string } }>,
+  batch: ReadonlyArray<{ id: string; item: ScrapedItem; source: { id: string | null } }>,
   model: string | null,
 ) {
   const byId = new Map(batch.map((b) => [b.id, b]))
@@ -233,6 +234,7 @@ export function mediaRows(
         source_id: b.source.id,
         published_at: b.item.publishedAt.toISOString(),
         model,
+        text_chars: b.item.text.length,
       },
     ]
   })

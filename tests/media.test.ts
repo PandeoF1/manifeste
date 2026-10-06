@@ -116,12 +116,32 @@ describe('statistiques par média', () => {
     const cnews = byOutlet.find((o) => o.key === 'cnews.fr')
     expect(cnews?.articles).toBe(17)
     expect(cnews?.terms[0]).toEqual(['casseurs', 17])
-    expect(cnews?.badges.map((b) => b.id)).toEqual(['degats', 'officiel', 'hostile'])
+    expect(cnews?.badges.map((b) => b.id)).toEqual(['degats', 'officiel'])
     expect(byOutlet.some((o) => o.key === 'europe1.fr')).toBe(false)
     const owners = aggregate(rows, 'owner')
     expect(owners[0]?.name).toBe('Groupe Canal+ (Bolloré)')
     expect(cnews?.badges[0]?.rule).toContain('Sur 17 articles')
     expect(topDemands(rows)).toEqual([['réforme du bac', 1]])
+  })
+
+  it('les revendications se mesurent sur les articles dont l’IA a lu plus qu’un titre', () => {
+    const rows = [
+      ...Array.from({ length: 16 }, () =>
+        row('lefigaro.fr', { focus: 'incidents', text_chars: 90 }),
+      ),
+      ...Array.from({ length: 15 }, (_, i) =>
+        row('lemonde.fr', { mentions_demands: i < 12, text_chars: i < 12 ? 400 : null }),
+      ),
+    ]
+    const stats = aggregate(rows, 'outlet')
+    const figaro = stats.find((s) => s.key === 'lefigaro.fr')
+    expect(figaro?.demandsBase).toBe(0)
+    // Titres seuls : pas de constat « peu de revendications », faute de mesure.
+    expect(figaro?.badges.map((b) => b.id)).not.toContain('degats')
+    const monde = stats.find((s) => s.key === 'lemonde.fr')
+    expect(monde?.demandsBase).toBe(15)
+    expect(monde?.demands).toBeCloseTo(0.8)
+    expect(monde?.badges.map((b) => b.id)).toContain('revendications')
   })
 
   it('pas de constat en dessous de 3 articles, et domaine inconnu affiché tel quel', () => {
@@ -131,6 +151,7 @@ describe('statistiques par média', () => {
         owner: 'y',
         articles: 14,
         demands: 0,
+        demandsBase: 14,
         studentVoices: 0,
         officialVoices: 1,
         incidentsFocus: 1,

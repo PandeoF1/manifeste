@@ -7,6 +7,7 @@
  *   npm run backfill -- fetch --since 2026-09-14 [--until 2026-10-05] [--dry-run]
  *   npm run backfill -- process [--rpm 60] [--max-calls 100]
  *   npm run backfill -- media [--rpm 60] [--limit 500]   (analyse des médias des articles en file)
+ *   npm run backfill -- media --redo [--model gemini-3.8-flash]   (refait les analyses déjà en base)
  *   npm run backfill -- status
  *   npm run backfill -- retry-errors
  *
@@ -298,6 +299,7 @@ async function processCommand() {
 // relus car le texte n'est pas conservé). Relançable : media_done_at marque ce qui est fait.
 
 async function mediaCommand() {
+  if (process.argv.includes('--redo')) return mediaRedoCommand()
   const admin = supabaseAdmin()
   const rpm = Number(arg('rpm') ?? 60)
   const limit = Number(arg('limit') ?? Infinity)
@@ -369,6 +371,93 @@ async function mediaCommand() {
       )
     process.stdout.write(
       `\r${totals.read} articles lus · ${totals.analyzed} analysés · ${totals.skipped} ignorés (page illisible ou hors presse)`,
+    )
+    const wait = 60_000 / rpm - (Date.now() - startedAt)
+    if (wait > 0) await sleep(wait)
+  }
+  console.log(`\nModèles : ${[...client.served].join(', ') || 'aucun'} · ${client.calls} appels.`)
+}
+
+// media --redo : refait les analyses déjà en base (nouvelle consigne, meilleur modèle). Les pages
+// sont relues (le texte n'est pas conservé). Reprise automatique : une ligne refaite reçoit
+// text_chars, celles qui n'en ont pas sont à refaire.
+async function mediaRedoCommand() {
+  const admin = supabaseAdmin()
+  const rpm = Number(arg('rpm') ?? 30)
+  const limit = Number(arg('limit') ?? Infinity)
+  const model = arg('model') ?? process.env.GEMINI_MODEL
+  const client = createGeminiClient({
+    apiKey: env('GEMINI_API_KEY'),
+    models: modelsFromEnv(model, process.env.GEMINI_FALLBACK_MODELS),
+    fetchFn: fetch,
+  })
+  const totals = { read: 0, redone: 0, skipped: 0 }
+  let lastId = '00000000-0000-0000-0000-000000000000'
+  while (totals.read < limit) {
+    const startedAt = Date.now()
+    const { data: rows, error } = await admin
+      .from('media_analyses')
+      .select('id, url, domain, source_id, published_at')
+      .is('text_chars', null)
+      .gt('id', lastId)
+      .order('id')
+      .limit(25)
+    if (error) throw new Error(`media_analyses : ${error.message}`)
+    if (!rows?.length) {
+      console.log('\nToutes les analyses sont refaites.')
+      break
+    }
+    lastId = rows[rows.length - 1]?.id ?? lastId
+    const items = await enrichItems(
+      fetch,
+      rows.map((r) =>
+        fromQueueRow({
+          external_id: r.url,
+          url: r.url,
+          title: '',
+          publisher_domain: r.domain,
+          published_at: r.published_at ?? new Date().toISOString(),
+        }),
+      ),
+    )
+    const batch = items
+      .map((item, i) => ({
+        id: String(i),
+        item,
+        source: { id: rows[i]?.source_id ?? null },
+      }))
+      .filter((b) => b.item.text.trim().length > 0)
+    totals.read += rows.length
+    totals.skipped += rows.length - batch.length
+
+    if (batch.length > 0) {
+      let analyses
+      try {
+        analyses = parseMediaAnalyses(await client.generate(mediaRequest(batch)), batch)
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        console.log(`\nGemini : ${message}`)
+        if (isQuotaExhausted(message)) {
+          console.log('Quota atteint : relancez « media --redo » plus tard (reprise automatique).')
+          break
+        }
+        await sleep(5_000)
+        lastId = '00000000-0000-0000-0000-000000000000'
+        continue
+      }
+      const out = mediaRows(analyses, batch, [...client.served].at(-1) ?? null)
+      if (out.length) {
+        // Même article : l'adresse (url) est la clé, la nouvelle analyse remplace l'ancienne.
+        const { error: upsertError } = await admin.from('media_analyses').upsert(
+          out.map((o) => ({ ...o, analyzed_at: new Date().toISOString() })),
+          { onConflict: 'url' },
+        )
+        if (upsertError) throw new Error(`media_analyses : ${upsertError.message}`)
+        totals.redone += out.length
+      }
+    }
+    process.stdout.write(
+      `\r${totals.read} lus · ${totals.redone} refaites · ${totals.skipped} ignorées (page illisible)`,
     )
     const wait = 60_000 / rpm - (Date.now() - startedAt)
     if (wait > 0) await sleep(wait)
