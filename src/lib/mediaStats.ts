@@ -21,8 +21,12 @@ export interface MediaRow {
   text_chars?: number | null
 }
 
-/** En dessous, l'IA n'a vu qu'un titre : on ne peut pas dire si les revendications sont exposées. */
-export const MIN_TEXT_CHARS = 200
+/**
+ * En dessous, l'IA n'a vu qu'un titre ou un court chapeau (articles payants, flash radio) : on ne
+ * peut pas dire si les revendications sont exposées ni qui s'exprime. Sinon les médias qui
+ * donnent peu de texte seraient pénalisés à tort.
+ */
+export const MIN_TEXT_CHARS = 500
 const readable = (r: MediaRow) => r.text_chars == null || r.text_chars >= MIN_TEXT_CHARS
 
 /**
@@ -178,7 +182,7 @@ export interface OutletStats {
   articles: number
   /** Parts (0 à 1) sur les articles qui parlent de la mobilisation. */
   demands: number
-  /** Articles sur lesquels `demands` est calculé (ceux dont l'IA a lu plus qu'un titre). */
+  /** Articles sur lesquels `demands` et les paroles sont calculées (texte lu suffisant). */
   demandsBase: number
   studentVoices: number
   officialVoices: number
@@ -208,34 +212,34 @@ export function badgesFor(s: Omit<OutletStats, 'badges' | 'key'>): Badge[] {
   if (s.articles < MIN_ARTICLES_BADGE) return []
   const out: Badge[] = []
   const pct = (x: number) => `${Math.round(x * 100)} %`
-  const demandsKnown = s.demandsBase >= MIN_ARTICLES_BADGE
-  if (demandsKnown && s.incidentsFocus >= 0.5 && s.demands <= 0.25)
+  const textKnown = s.demandsBase >= MIN_ARTICLES_BADGE
+  if (textKnown && s.incidentsFocus >= 0.5 && s.demands <= 0.25)
     out.push({
       id: 'degats',
       label: 'Peu de revendications, surtout des incidents',
       tone: 'poor',
-      rule: `Sur ${s.articles} articles : angle « incidents » dans ${pct(s.incidentsFocus)}, revendications citées dans ${pct(s.demands)} des ${s.demandsBase} dont l'IA a lu plus qu'un titre (règle : ≥ 50 % et ≤ 25 %).`,
+      rule: `Sur ${s.articles} articles : angle « incidents » dans ${pct(s.incidentsFocus)}, revendications citées dans ${pct(s.demands)} des ${s.demandsBase} dont l'IA a lu au moins ${MIN_TEXT_CHARS} caractères (règle : ≥ 50 % et ≤ 25 %).`,
     })
-  if (s.officialVoices >= 0.5 && s.studentVoices <= 0.2)
+  if (textKnown && s.officialVoices >= 0.5 && s.studentVoices <= 0.2)
     out.push({
       id: 'officiel',
       label: 'Surtout la parole officielle',
       tone: 'poor',
-      rule: `Sur ${s.articles} articles : police, préfecture ou direction s'expriment dans ${pct(s.officialVoices)}, les lycéens dans ${pct(s.studentVoices)} (règle : ≥ 50 % et ≤ 20 %).`,
+      rule: `Sur ${s.demandsBase} articles dont l'IA a lu au moins ${MIN_TEXT_CHARS} caractères : police, préfecture ou direction s'expriment dans ${pct(s.officialVoices)}, les lycéens dans ${pct(s.studentVoices)} (règle : ≥ 50 % et ≤ 20 %).`,
     })
-  if (demandsKnown && s.demands >= 0.6)
+  if (textKnown && s.demands >= 0.6)
     out.push({
       id: 'revendications',
       label: 'Revendications souvent citées',
       tone: 'good',
-      rule: `Sur ${s.demandsBase} articles dont l'IA a lu plus qu'un titre : revendications citées dans ${pct(s.demands)} (règle : ≥ 60 %).`,
+      rule: `Sur ${s.demandsBase} articles dont l'IA a lu au moins ${MIN_TEXT_CHARS} caractères : revendications citées dans ${pct(s.demands)} (règle : ≥ 60 %).`,
     })
-  if (s.studentVoices >= 0.5)
+  if (textKnown && s.studentVoices >= 0.5)
     out.push({
       id: 'parole',
       label: 'Parole aux lycéens fréquente',
       tone: 'good',
-      rule: `Sur ${s.articles} articles : lycéens cités dans ${pct(s.studentVoices)} (règle : ≥ 50 %).`,
+      rule: `Sur ${s.demandsBase} articles dont l'IA a lu au moins ${MIN_TEXT_CHARS} caractères : lycéens cités dans ${pct(s.studentVoices)} (règle : ≥ 50 %).`,
     })
   if (out.length === 0 && s.incidentsFocus >= 0.35)
     out.push({
@@ -263,6 +267,8 @@ export function aggregate(rows: ReadonlyArray<MediaRow>, by: 'outlet' | 'owner')
       const n = list.length
       const share = (f: (r: MediaRow) => boolean) => list.filter(f).length / n
       const readableList = list.filter(readable)
+      const shareRead = (f: (r: MediaRow) => boolean) =>
+        readableList.length ? readableList.filter(f).length / readableList.length : 0
       const termCount = new Map<string, number>()
       for (const r of list) for (const t of r.terms) termCount.set(t, (termCount.get(t) ?? 0) + 1)
       const o = by === 'owner' ? { name: key, owner: key } : outletOf(key)
@@ -274,8 +280,8 @@ export function aggregate(rows: ReadonlyArray<MediaRow>, by: 'outlet' | 'owner')
           ? readableList.filter((r) => r.mentions_demands).length / readableList.length
           : 0,
         demandsBase: readableList.length,
-        studentVoices: share((r) => r.voices.includes('lyceens')),
-        officialVoices: share((r) => r.voices.some((v) => OFFICIAL.has(v))),
+        studentVoices: shareRead((r) => r.voices.includes('lyceens')),
+        officialVoices: shareRead((r) => r.voices.some((v) => OFFICIAL.has(v))),
         incidentsFocus: share((r) => r.focus === 'incidents'),
         incidents: share((r) => r.incidents),
         policeViolence: share((r) => r.police_violence),

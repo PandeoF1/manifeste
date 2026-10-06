@@ -83,13 +83,14 @@ export function MediaPanel() {
   const global = all.reduce(
     (acc, s) => {
       acc.n += s.articles
-      acc.demands += s.demands * s.articles
-      acc.students += s.studentVoices * s.articles
+      acc.base += s.demandsBase
+      acc.demands += s.demands * s.demandsBase
+      acc.students += s.studentVoices * s.demandsBase
       acc.incidents += s.incidentsFocus * s.articles
       acc.police += s.policeViolence * s.articles
       return acc
     },
-    { n: 0, demands: 0, students: 0, incidents: 0, police: 0 },
+    { n: 0, base: 0, demands: 0, students: 0, incidents: 0, police: 0 },
   )
   const demands = topDemands(rows)
   const [exporting, setExporting] = useState(false)
@@ -190,11 +191,11 @@ export function MediaPanel() {
             <Kpi label="Articles analysés" value={String(global.n)} />
             <Kpi
               label="Citent les revendications"
-              value={global.n ? pct(global.demands / global.n) : '–'}
+              value={global.base ? pct(global.demands / global.base) : '–'}
             />
             <Kpi
               label="Donnent la parole aux lycéens"
-              value={global.n ? pct(global.students / global.n) : '–'}
+              value={global.base ? pct(global.students / global.base) : '–'}
             />
             <Kpi
               label="Angle « incidents »"
@@ -239,8 +240,12 @@ export function MediaPanel() {
                   <tr className="border-b border-border">
                     <th className="p-3 font-medium">{by === 'owner' ? 'Propriétaire' : 'Média'}</th>
                     <th className="p-3 font-medium">Articles</th>
-                    <Th title="Part des articles qui nomment les revendications">Revendications</Th>
-                    <Th title="Part des articles où des lycéens s'expriment">Parole aux lycéens</Th>
+                    <Th title="Part des articles qui nomment les revendications (calculée sur ceux dont l'IA a lu au moins 500 caractères)">
+                      Revendications
+                    </Th>
+                    <Th title="Part des articles où des lycéens s'expriment (calculée sur ceux dont l'IA a lu au moins 500 caractères)">
+                      Parole aux lycéens
+                    </Th>
                     <Th title="Part des articles où police, préfecture ou direction s'expriment">
                       Parole officielle
                     </Th>

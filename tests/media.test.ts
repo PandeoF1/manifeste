@@ -130,7 +130,7 @@ describe('statistiques par média', () => {
         row('lefigaro.fr', { focus: 'incidents', text_chars: 90 }),
       ),
       ...Array.from({ length: 15 }, (_, i) =>
-        row('lemonde.fr', { mentions_demands: i < 12, text_chars: i < 12 ? 400 : null }),
+        row('lemonde.fr', { mentions_demands: i < 12, text_chars: i < 12 ? 600 : null }),
       ),
     ]
     const stats = aggregate(rows, 'outlet')
