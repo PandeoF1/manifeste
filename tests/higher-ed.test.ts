@@ -187,7 +187,7 @@ describe('rattachement des sites', () => {
         impl({
           ...base,
           uai: '0340005E',
-          implantation_lib: 'INSTITUT D’ETUDES POLITIQUES D’EXEMPLE',
+          implantation_lib: 'INSTITUT D’ETUDES POLITIQUE D’EXEMPLE',
           bcnag_n_nature_uai_libelle_editi: "Institut d'études politiques",
           coordonnees: { lat: 49.5, lon: 3 },
         }),
