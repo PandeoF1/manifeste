@@ -63,7 +63,7 @@ for (const row of data ?? []) {
     ],
     ['avec cookies de la page', BATCH_URL, cookies ? { cookie: cookies } : {}],
   ]
-  let real: string | null = null
+  let real: string | null | undefined = null
   for (const [label, target, extra] of variants) {
     const res = await fetch(target, {
       method: 'POST',
