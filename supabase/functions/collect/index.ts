@@ -138,6 +138,26 @@ async function gather(ids: string[], ctx: Ctx) {
   return { results, pending: pending.map(pendingToJson) }
 }
 
+/**
+ * Supabase limite les appels entre fonctions d'une même chaîne (« Rate limit exceeded for
+ * trace … Retry after N ») : on attend le délai indiqué, deux fois au plus.
+ */
+async function withRateLimitRetry(run: () => Promise<Response>): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await run()
+    } catch (e) {
+      const err = e as { name?: string; message?: string; retryAfterMs?: number }
+      const limited =
+        err?.name === 'RateLimitError' || /rate limit exceeded/i.test(err?.message ?? '')
+      if (!limited || attempt >= 2) throw e
+      const hinted = err.retryAfterMs ?? Number(err.message?.match(/retry after (\d+)/i)?.[1])
+      const wait = Number.isFinite(hinted) && hinted > 0 ? Math.min(hinted, 15_000) : 5_000
+      await new Promise((r) => setTimeout(r, wait + Math.random() * 500))
+    }
+  }
+}
+
 /** Répartiteur : lectures en parallèle, puis analyse groupée. */
 async function dispatch(startedAt: number, ctx: Ctx) {
   const { data, error } = await admin
@@ -160,12 +180,18 @@ async function dispatch(startedAt: number, ctx: Ctx) {
   const call = ctx.fetchFor('collecteur')
   const gathered = await mapLimit(groups, WORKER_CONCURRENCY, async (group) => {
     try {
-      const res = await call(`${SUPABASE_URL}/functions/v1/collect`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-collect-secret': COLLECT_SECRET },
-        body: JSON.stringify({ mode: 'gather', source_ids: group.map((s) => s.id), ...ctx.trace }),
-        signal: AbortSignal.timeout(60_000),
-      })
+      const res = await withRateLimitRetry(() =>
+        call(`${SUPABASE_URL}/functions/v1/collect`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-collect-secret': COLLECT_SECRET },
+          body: JSON.stringify({
+            mode: 'gather',
+            source_ids: group.map((s) => s.id),
+            ...ctx.trace,
+          }),
+          signal: AbortSignal.timeout(60_000),
+        }),
+      )
       const body = (await res.json()) as {
         results?: SourceRunResult[]
         pending?: PendingJson[]

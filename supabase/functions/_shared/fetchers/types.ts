@@ -20,15 +20,27 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
 export const USER_AGENT = 'ManifesteBot/0.1 (+https://github.com/pandeof1/manifest)'
 
+/** Pauses avant de réessayer après un 429 / 503 (Google Actualités refuse les rafales). */
+export const RETRY_DELAYS_MS = [2_500, 6_000]
+
 export async function fetchText(
   fetchFn: FetchLike,
   url: string,
   timeoutMs = 15_000,
+  retryDelaysMs: readonly number[] = RETRY_DELAYS_MS,
 ): Promise<string> {
-  const res = await fetchFn(url, {
-    headers: { 'user-agent': USER_AGENT, accept: '*/*' },
-    signal: AbortSignal.timeout(timeoutMs),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status} sur ${url}`)
-  return await readText(res)
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetchFn(url, {
+      headers: { 'user-agent': USER_AGENT, accept: '*/*' },
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    if (res.ok) return await readText(res)
+    const delay = retryDelaysMs[attempt]
+    if ((res.status !== 429 && res.status !== 503) || delay == null) {
+      throw new Error(`HTTP ${res.status} sur ${url}`)
+    }
+    await res.body?.cancel()
+    // Un peu d'aléa : les lecteurs parallèles ne reviennent pas tous au même instant.
+    await new Promise((r) => setTimeout(r, delay * (0.75 + Math.random() * 0.5)))
+  }
 }

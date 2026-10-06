@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { parseTelegramChannel } from '@shared/fetchers/telegram.ts'
 import { parseFeed, stripHtml } from '@shared/fetchers/rss.ts'
 import { parseBlueskyFeed } from '@shared/fetchers/bluesky.ts'
+import { fetchText } from '@shared/fetchers/types.ts'
 
 const fixture = (name: string) =>
   readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')
@@ -49,5 +50,42 @@ describe('bluesky', () => {
     const items = parseBlueskyFeed(JSON.parse(fixture('bluesky.json')))
     expect(items).toHaveLength(1)
     expect(items[0]?.url).toBe('https://bsky.app/profile/syndicat.bsky.social/post/3kxyz')
+  })
+})
+
+describe('fetchText', () => {
+  it('réessaie après un 503 ou un 429, pas après un 404', async () => {
+    const statuses = [503, 429, 200]
+    let calls = 0
+    const flaky = async () => {
+      const status = statuses[calls++] ?? 200
+      return new Response(status === 200 ? 'ok' : '', { status })
+    }
+    await expect(
+      fetchText(flaky, 'https://news.google.com/rss/search?q=x', 1000, [0, 0]),
+    ).resolves.toBe('ok')
+    expect(calls).toBe(3)
+
+    calls = 0
+    const gone = async () => {
+      calls++
+      return new Response('', { status: 404 })
+    }
+    await expect(fetchText(gone, 'https://exemple.fr/rss', 1000, [0, 0])).rejects.toThrow(
+      'HTTP 404',
+    )
+    expect(calls).toBe(1)
+  })
+
+  it('abandonne après les nouvelles tentatives', async () => {
+    let calls = 0
+    const down = async () => {
+      calls++
+      return new Response('', { status: 503 })
+    }
+    await expect(fetchText(down, 'https://news.google.com/rss', 1000, [0])).rejects.toThrow(
+      'HTTP 503',
+    )
+    expect(calls).toBe(2)
   })
 })
