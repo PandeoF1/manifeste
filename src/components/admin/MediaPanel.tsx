@@ -48,6 +48,11 @@ const FOCUS_LABEL: Record<MediaRow['focus'], string> = {
   incidents: 'Incidents',
   mixte: 'Mixte',
 }
+const TONE_LABEL: Record<MediaRow['tone'], string> = {
+  favorable: 'favorable',
+  neutre: 'neutre',
+  defavorable: 'défavorable',
+}
 const TONE_CLASS: Record<MediaRow['tone'], string> = {
   favorable: 'text-good',
   neutre: 'text-muted',
@@ -271,7 +276,8 @@ function OutletRow({
                       {outletOf(a.domain).name}
                       {a.published_at ? ` · ${dateFmt.format(new Date(a.published_at))}` : ''}
                       {' · '}
-                      {FOCUS_LABEL[a.focus]} · <span className={TONE_CLASS[a.tone]}>{a.tone}</span>
+                      {FOCUS_LABEL[a.focus]} ·{' '}
+                      <span className={TONE_CLASS[a.tone]}>{TONE_LABEL[a.tone]}</span>
                       {a.mentions_demands ? ' · revendications' : ' · sans revendications'}
                     </span>
                   </div>

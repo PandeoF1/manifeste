@@ -266,6 +266,22 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['media_analyses']['Row']>
         Relationships: []
       }
+      school_proposals: {
+        Row: {
+          id: string
+          name: string
+          city: string
+          status: ReportStatus
+          lat: number
+          lng: number
+          photo_path: string | null
+          source_url: string | null
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['school_proposals']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['school_proposals']['Row']>
+        Relationships: []
+      }
       unmatched_extractions: {
         Row: {
           id: string
@@ -344,6 +360,20 @@ export type Database = {
       admin_analytics_series: {
         Args: { p_range?: string }
         Returns: Json
+      }
+      admin_school_proposals: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      admin_resolve_school_proposal: {
+        Args: {
+          p_id: string
+          p_link_uai?: string | null
+          p_name?: string | null
+          p_city?: string | null
+          p_new_uai?: string | null
+        }
+        Returns: string
       }
       admin_analytics: {
         Args: { p_days?: number }

@@ -72,6 +72,8 @@ Deno.serve(async (req) => {
   }
   const parsed = submissionFieldsSchema.safeParse({
     school_uai: text('school_uai'),
+    new_school_name: text('new_school_name'),
+    new_school_city: text('new_school_city'),
     status: text('status'),
     lat: text('lat'),
     lng: text('lng'),
@@ -96,14 +98,19 @@ Deno.serve(async (req) => {
       if (hasMetadata(photo)) return fail(422, 'photo_metadata')
     }
 
-    const { data: distance, error: distanceError } = await admin.rpc('school_distance_m', {
-      p_uai: input.school_uai,
-      p_lat: input.lat,
-      p_lng: input.lng,
-    })
-    if (distanceError) throw distanceError
-    if (distance === null) return fail(404, 'unknown_school')
-    if (distance > MAX_DISTANCE_M) return fail(422, 'too_far')
+    // Lycée de la liste : la position doit en être proche. Lycée proposé : l'équipe vérifie.
+    let distance: number | null = null
+    if (input.school_uai) {
+      const { data, error: distanceError } = await admin.rpc('school_distance_m', {
+        p_uai: input.school_uai,
+        p_lat: input.lat,
+        p_lng: input.lng,
+      })
+      if (distanceError) throw distanceError
+      if (data === null) return fail(404, 'unknown_school')
+      if (data > MAX_DISTANCE_M) return fail(422, 'too_far')
+      distance = data
+    }
 
     const { data: allowed, error: rateError } = await admin.rpc('consume_rate_limit', {
       p_ip: clientIp(req),
@@ -121,6 +128,23 @@ Deno.serve(async (req) => {
         .from('submissions')
         .upload(photoPath, photo, { contentType: `image/${photoKind}`, upsert: false })
       if (error) throw error
+    }
+
+    if (!input.school_uai) {
+      const { error } = await admin.from('school_proposals').insert({
+        name: input.new_school_name,
+        city: input.new_school_city,
+        status: input.status,
+        lat: roundCoord(input.lat),
+        lng: roundCoord(input.lng),
+        photo_path: photoPath,
+        source_url: input.source_url ?? null,
+      })
+      if (error) {
+        if (photoPath) await admin.storage.from('submissions').remove([photoPath])
+        throw error
+      }
+      return json(201, { ok: true })
     }
 
     const { error: insertError } = await admin.from('reports').insert({
@@ -143,7 +167,7 @@ Deno.serve(async (req) => {
       photo_path: photoPath,
       lat: roundCoord(input.lat),
       lng: roundCoord(input.lng),
-      distance_m: distance,
+      distance_m: distance ?? 0,
     })
     if (privateError) throw privateError
 

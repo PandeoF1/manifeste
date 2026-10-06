@@ -16,23 +16,39 @@ const coord = (min: number, max: number) =>
   z.coerce.number().refine((n) => Number.isFinite(n) && n >= min && n <= max, 'Position invalide.')
 
 /** Champs texte du formulaire de signalement (multipart), validés côté client et serveur. */
-export const submissionFieldsSchema = z.object({
-  school_uai: z.string().regex(/^[0-9]{7}[A-Z]$/, 'Lycée invalide.'),
-  status: z.enum(REPORT_STATUSES, { message: 'Statut invalide.' }),
-  lat: coord(-90, 90),
-  lng: coord(-180, 180),
-  source_url: z
-    .string()
-    .trim()
-    .max(2000)
-    .optional()
-    .transform((v) => (v ? v : undefined))
-    .refine(
-      (v) => v === undefined || extractDomain(v) !== null,
-      'Le lien doit commencer par https://',
-    ),
-  turnstile_token: z.string().max(4096).optional(),
-})
+const optionalText = (min: number, max: number, message: string) =>
+  z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().trim().min(min, message).max(max, message).optional(),
+  )
+
+export const submissionFieldsSchema = z
+  .object({
+    school_uai: z
+      .string()
+      .regex(/^[0-9]{7}[A-Z]$/, 'Lycée invalide.')
+      .optional(),
+    /** Lycée absent de la liste : nom et ville proposés (vérifiés par l'équipe). */
+    new_school_name: optionalText(3, 120, 'Indique le nom du lycée (3 à 120 caractères).'),
+    new_school_city: optionalText(1, 80, 'Indique la ville du lycée.'),
+    status: z.enum(REPORT_STATUSES, { message: 'Statut invalide.' }),
+    lat: coord(-90, 90),
+    lng: coord(-180, 180),
+    source_url: z
+      .string()
+      .trim()
+      .max(2000)
+      .optional()
+      .transform((v) => (v ? v : undefined))
+      .refine(
+        (v) => v === undefined || extractDomain(v) !== null,
+        'Le lien doit commencer par https://',
+      ),
+    turnstile_token: z.string().max(4096).optional(),
+  })
+  .refine((v) => (v.school_uai ? !v.new_school_name : !!(v.new_school_name && v.new_school_city)), {
+    message: 'Choisis le lycée concerné, ou indique son nom et sa ville.',
+  })
 export type SubmissionFields = z.output<typeof submissionFieldsSchema>
 
 /** Codes d'erreur renvoyés par l'Edge Function submit-report. */

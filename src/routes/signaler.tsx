@@ -37,6 +37,8 @@ function ReportPage() {
   const [geoError, setGeoError] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
   const [school, setSchool] = useState<School | null>(null)
+  /** Lycée absent de la liste : nom et ville saisis (vérifiés par l'équipe). */
+  const [customSchool, setCustomSchool] = useState<{ name: string; city: string } | null>(null)
   const [status, setStatus] = useState<ReportStatus | null>(null)
   const [photo, setPhoto] = useState<HTMLCanvasElement | null>(null)
   const [redacted, setRedacted] = useState<HTMLCanvasElement | null>(null)
@@ -98,11 +100,13 @@ function ReportPage() {
     e.preventDefault()
     setFormError(null)
     if (!position) return setFormError("Active ta localisation : c'est elle qui situe le blocus.")
-    if (!school) return setFormError('Choisis le lycée concerné.')
+    if (!school && !customSchool) return setFormError('Choisis le lycée concerné.')
     if (!status) return setFormError('Choisis la situation.')
     if (turnstileEnabled && !token) return setFormError('Termine la vérification anti-robot.')
     const fields = submissionFieldsSchema.safeParse({
-      school_uai: school.uai,
+      ...(customSchool
+        ? { new_school_name: customSchool.name, new_school_city: customSchool.city }
+        : { school_uai: school?.uai }),
       status,
       lat: position.lat,
       lng: position.lng,
@@ -113,7 +117,9 @@ function ReportPage() {
       return setFormError(fields.error.issues[0]?.message ?? 'Formulaire invalide.')
 
     const form = new FormData()
-    form.set('school_uai', fields.data.school_uai)
+    if (fields.data.school_uai) form.set('school_uai', fields.data.school_uai)
+    if (fields.data.new_school_name) form.set('new_school_name', fields.data.new_school_name)
+    if (fields.data.new_school_city) form.set('new_school_city', fields.data.new_school_city)
     form.set('status', fields.data.status)
     // Arrondi à ~100 m dès le téléphone : la position exacte ne quitte jamais l'appareil.
     form.set('lat', String(roundCoord(fields.data.lat)))
@@ -134,6 +140,11 @@ function ReportPage() {
             Ton signalement est entre les mains de l'équipe. Il apparaîtra sur la carte une fois
             vérifié, photo floutée comprise. Aucune information sur toi n'a été conservée.
           </p>
+          {customSchool && (
+            <p className="text-sm text-muted">
+              Le lycée « {customSchool.name} » sera ajouté à la carte après vérification.
+            </p>
+          )}
           <Link to="/" search={{}} className="btn-primary">
             Voir la carte
           </Link>
@@ -189,7 +200,15 @@ function ReportPage() {
             position={position}
             preferredUai={preferredUai}
             selected={school}
-            onSelect={setSchool}
+            onSelect={(s) => {
+              setCustomSchool(null)
+              setSchool(s)
+            }}
+            custom={customSchool}
+            onCustom={(c) => {
+              setCustomSchool(c)
+              if (c) setSchool(null)
+            }}
           />
         )}
 
@@ -289,11 +308,15 @@ function SchoolPicker({
   preferredUai,
   selected,
   onSelect,
+  custom,
+  onCustom,
 }: {
   position: Position
   preferredUai: string | undefined
   selected: School | null
   onSelect: (s: School) => void
+  custom: { name: string; city: string } | null
+  onCustom: (c: { name: string; city: string } | null) => void
 }) {
   const nearby = useQuery(nearbySchoolsQuery(position.lat, position.lng))
   const [query, setQuery] = useState('')
@@ -303,8 +326,8 @@ function SchoolPicker({
 
   // Pré-sélection.
   useEffect(() => {
-    if (!selected && nearest) onSelect(nearest)
-  }, [nearest, selected, onSelect])
+    if (!selected && !custom && nearest) onSelect(nearest)
+  }, [nearest, selected, custom, onSelect])
 
   const list: School[] = query.trim().length >= 2 ? (search.data ?? []) : (nearby.data ?? [])
 
@@ -355,6 +378,49 @@ function SchoolPicker({
       <p className="text-xs text-muted">
         Seuls les lycées à moins de 2 km de ta position seront acceptés.
       </p>
+      {custom ? (
+        <div className="card space-y-3">
+          <p className="text-sm font-semibold">Ajouter mon lycée</p>
+          <p className="text-xs text-muted">
+            L'équipe vérifie et l'ajoute à la carte ; ton signalement suit le même chemin que les
+            autres.
+          </p>
+          <label className="block text-sm">
+            Nom du lycée
+            <input
+              className="input mt-1 w-full"
+              value={custom.name}
+              maxLength={120}
+              placeholder="Ex. Lycée agricole Jean-Monnet"
+              onChange={(e) => onCustom({ ...custom, name: e.target.value })}
+            />
+          </label>
+          <label className="block text-sm">
+            Ville
+            <input
+              className="input mt-1 w-full"
+              value={custom.city}
+              maxLength={80}
+              onChange={(e) => onCustom({ ...custom, city: e.target.value })}
+            />
+          </label>
+          <button
+            type="button"
+            className="text-sm text-muted underline"
+            onClick={() => onCustom(null)}
+          >
+            Finalement, il est dans la liste
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="text-sm font-semibold underline"
+          onClick={() => onCustom({ name: query.trim(), city: '' })}
+        >
+          Mon lycée n'est pas dans la liste
+        </button>
+      )}
     </fieldset>
   )
 }

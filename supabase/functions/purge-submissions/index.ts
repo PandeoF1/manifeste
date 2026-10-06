@@ -35,20 +35,20 @@ Deno.serve(async (req) => {
     reports: { moderation: string }
   }>
   const stale = rows.filter((r) => r.reports.moderation !== 'pending' || r.created_at < cutoff)
-  if (stale.length === 0) return json(200, { purged: 0 })
 
-  const { error: removeError } = await admin.storage
-    .from('submissions')
-    .remove(stale.map((r) => r.photo_path))
-  if (removeError) return json(500, { error: removeError.message })
-
-  await admin
-    .from('report_submissions')
-    .update({ photo_path: null })
-    .in(
-      'report_id',
-      stale.map((r) => r.report_id),
-    )
+  if (stale.length > 0) {
+    const { error: removeError } = await admin.storage
+      .from('submissions')
+      .remove(stale.map((r) => r.photo_path))
+    if (removeError) return json(500, { error: removeError.message })
+    await admin
+      .from('report_submissions')
+      .update({ photo_path: null })
+      .in(
+        'report_id',
+        stale.map((r) => r.report_id),
+      )
+  }
   // Un signalement resté sans décision 48 h est rejeté (il n'est plus d'actualité).
   await admin
     .from('reports')
@@ -57,5 +57,24 @@ Deno.serve(async (req) => {
     .eq('source_type', 'utilisateur')
     .lt('created_at', cutoff)
 
-  return json(200, { purged: stale.length })
+  // Lycées proposés sans décision après 7 jours : supprimés avec leur photo.
+  const proposalCutoff = new Date(Date.now() - 7 * 24 * 3_600_000).toISOString()
+  const { data: oldProposals } = await admin
+    .from('school_proposals')
+    .select('id, photo_path')
+    .lt('created_at', proposalCutoff)
+    .limit(500)
+  if (oldProposals?.length) {
+    const photos = oldProposals.map((p) => p.photo_path).filter((p): p is string => !!p)
+    if (photos.length) await admin.storage.from('submissions').remove(photos)
+    await admin
+      .from('school_proposals')
+      .delete()
+      .in(
+        'id',
+        oldProposals.map((p) => p.id),
+      )
+  }
+
+  return json(200, { purged: stale.length, proposals_purged: oldProposals?.length ?? 0 })
 })

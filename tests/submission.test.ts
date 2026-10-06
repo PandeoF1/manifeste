@@ -67,3 +67,27 @@ describe('formulaire de signalement', () => {
     expect(roundCoord(2.34477)).toBe(2.345)
   })
 })
+
+describe('lycée absent de la liste', () => {
+  const base = { status: 'bloque', lat: 48.85, lng: 2.35 }
+  it('accepte un lycée de la liste ou un nom + une ville, pas les deux ni aucun', async () => {
+    const { submissionFieldsSchema: schema } = await import('@shared/submission.ts')
+    expect(schema.safeParse({ ...base, school_uai: '0750001A' }).success).toBe(true)
+    expect(
+      schema.safeParse({ ...base, new_school_name: 'Lycée agricole X', new_school_city: 'Y' })
+        .success,
+    ).toBe(true)
+    expect(schema.safeParse({ ...base, new_school_name: 'Lycée agricole X' }).success).toBe(false)
+    expect(schema.safeParse({ ...base, new_school_name: '', new_school_city: '' }).success).toBe(
+      false,
+    )
+    expect(
+      schema.safeParse({
+        ...base,
+        school_uai: '0750001A',
+        new_school_name: 'Lycée agricole X',
+        new_school_city: 'Y',
+      }).success,
+    ).toBe(false)
+  })
+})

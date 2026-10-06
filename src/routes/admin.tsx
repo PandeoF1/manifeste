@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { LoginForm } from '@/components/admin/LoginForm'
 import { MediaPanel } from '@/components/admin/MediaPanel'
 import { PendingPanel } from '@/components/admin/PendingPanel'
+import { ProposalsPanel, proposalsQuery } from '@/components/admin/ProposalsPanel'
 import { ReportsPanel } from '@/components/admin/ReportsPanel'
 import { SettingsPanel } from '@/components/admin/SettingsPanel'
 import { SourcesPanel } from '@/components/admin/SourcesPanel'
@@ -16,6 +17,7 @@ import { isAdminSession, pendingQuery, useSession } from '@/queries/admin'
 const TABS = [
   'sources',
   'moderation',
+  'lycees',
   'signaux',
   'non-rattaches',
   'domaines',
@@ -28,6 +30,7 @@ type Tab = (typeof TABS)[number]
 const TAB_LABELS: Record<Tab, string> = {
   sources: 'Sources',
   moderation: 'Modération',
+  lycees: 'Lycées proposés',
   signaux: 'Signaux',
   'non-rattaches': 'Non rattachés',
   domaines: 'Domaines de confiance',
@@ -90,12 +93,14 @@ function AdminPage() {
           >
             {TAB_LABELS[t]}
             {t === 'moderation' && <PendingCount />}
+            {t === 'lycees' && <ProposalCount />}
           </Link>
         ))}
       </nav>
       <div className="mt-4">
         {tab === 'sources' && <SourcesPanel />}
         {tab === 'moderation' && <PendingPanel />}
+        {tab === 'lycees' && <ProposalsPanel />}
         {tab === 'signaux' && <ReportsPanel />}
         {tab === 'non-rattaches' && <UnmatchedPanel />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
@@ -109,6 +114,12 @@ function AdminPage() {
 
 function PendingCount() {
   const { data } = useQuery(pendingQuery)
+  if (!data?.length) return null
+  return <span className="ml-1 rounded-full bg-bloque px-2 text-xs text-white">{data.length}</span>
+}
+
+function ProposalCount() {
+  const { data } = useQuery(proposalsQuery)
   if (!data?.length) return null
   return <span className="ml-1 rounded-full bg-bloque px-2 text-xs text-white">{data.length}</span>
 }
