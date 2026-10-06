@@ -42,3 +42,41 @@ describe('statistiques du site', () => {
     expect(parseSiteStats(null).daily).toEqual([])
   })
 })
+
+describe('zoom des statistiques', () => {
+  it('lit une série et garde les trous (null)', async () => {
+    const { parseSeries } = await import('@/lib/siteStats')
+    const s = parseSeries({
+      range: '2h',
+      step_seconds: 300,
+      points: [
+        {
+          t: '2026-10-06T15:00:00Z',
+          views: 3,
+          visitors: null,
+          online: 2,
+          lcp: 900,
+          inp: null,
+          api: '150',
+        },
+      ],
+      pages: [{ page: 'carte', views: 3 }],
+      summary: {
+        views: 3,
+        peak_online: 2,
+        peak_online_at: '2026-10-06T15:01:00Z',
+        lcp_p75: 900,
+        api_p75: null,
+      },
+    })
+    expect(s.points[0]).toMatchObject({ views: 3, visitors: null, online: 2, api: 150 })
+    expect(s.summary.peakOnline).toBe(2)
+    expect(parseSeries({ range: 'xx' }).range).toBe('24h')
+  })
+
+  it('formate les tranches en heure de Paris', async () => {
+    const { formatBucket } = await import('@/lib/siteStats')
+    expect(formatBucket('2026-10-06T15:05:00Z', 300)).toBe('17:05')
+    expect(formatBucket('2026-10-06T22:00:00Z', 86_400)).toBe('7 oct.')
+  })
+})

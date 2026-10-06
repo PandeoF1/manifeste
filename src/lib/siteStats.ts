@@ -140,3 +140,113 @@ export function parseSiteStats(raw: unknown): SiteStats {
       })),
   }
 }
+
+/** Périodes du zoom (tranches : 5 min, 15 min, 1 h, 1 jour). */
+export const RANGES = [
+  { id: '2h', label: '2 h' },
+  { id: '24h', label: '24 h' },
+  { id: '7d', label: '7 j' },
+  { id: '30d', label: '30 j' },
+  { id: '90d', label: '90 j' },
+] as const
+export type RangeId = (typeof RANGES)[number]['id']
+
+export interface SeriesPoint {
+  t: string
+  views: number
+  /** Nouveaux visiteurs de la tranche (infra-journalier) ou uniques du jour ; null = inconnu. */
+  visitors: number | null
+  online: number | null
+  lcp: number | null
+  inp: number | null
+  api: number | null
+}
+export interface Series {
+  range: RangeId
+  stepSeconds: number
+  points: SeriesPoint[]
+  pages: Array<{ page: string; views: number }>
+  summary: {
+    views: number
+    peakOnline: number | null
+    peakOnlineAt: string | null
+    lcpP75: number | null
+    apiP75: number | null
+  }
+}
+
+export function parseSeries(raw: unknown): Series {
+  const r = (raw ?? {}) as Record<string, unknown>
+  const arr = (v: unknown) => (Array.isArray(v) ? (v as Record<string, unknown>[]) : [])
+  const s = (r.summary ?? {}) as Record<string, unknown>
+  const range = RANGES.some((x) => x.id === r.range) ? (r.range as RangeId) : '24h'
+  return {
+    range,
+    stepSeconds: num(r.step_seconds) || 900,
+    points: arr(r.points).map((p) => ({
+      t: String(p.t),
+      views: num(p.views),
+      visitors: numOrNull(p.visitors),
+      online: numOrNull(p.online),
+      lcp: numOrNull(p.lcp),
+      inp: numOrNull(p.inp),
+      api: numOrNull(p.api),
+    })),
+    pages: arr(r.pages).map((p) => ({ page: String(p.page), views: num(p.views) })),
+    summary: {
+      views: num(s.views),
+      peakOnline: numOrNull(s.peak_online),
+      peakOnlineAt: s.peak_online_at == null ? null : String(s.peak_online_at),
+      lcpP75: numOrNull(s.lcp_p75),
+      apiP75: numOrNull(s.api_p75),
+    },
+  }
+}
+
+/** Libellé d'une tranche selon sa durée (heure de Paris). */
+export function formatBucket(iso: string, stepSeconds: number, long = false): string {
+  const d = new Date(iso)
+  const tz = 'Europe/Paris'
+  if (stepSeconds >= 86_400)
+    return new Intl.DateTimeFormat('fr-FR', {
+      timeZone: tz,
+      day: 'numeric',
+      month: 'short',
+      ...(long ? { weekday: 'short' } : {}),
+    }).format(d)
+  const time = new Intl.DateTimeFormat('fr-FR', {
+    timeZone: tz,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d)
+  if (stepSeconds >= 3_600 || long) {
+    const day = new Intl.DateTimeFormat('fr-FR', {
+      timeZone: tz,
+      weekday: 'short',
+      day: 'numeric',
+    }).format(d)
+    return `${day} ${time}`
+  }
+  return time
+}
+
+/** Libellé court pour l'axe : heure (infra-horaire), jour (horaire ou journalier). */
+export function formatAxis(iso: string, stepSeconds: number): string {
+  const d = new Date(iso)
+  const tz = 'Europe/Paris'
+  if (stepSeconds < 3_600)
+    return new Intl.DateTimeFormat('fr-FR', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d)
+  if (stepSeconds < 86_400)
+    return new Intl.DateTimeFormat('fr-FR', {
+      timeZone: tz,
+      weekday: 'short',
+      day: 'numeric',
+    }).format(d)
+  return new Intl.DateTimeFormat('fr-FR', { timeZone: tz, day: 'numeric', month: 'short' }).format(
+    d,
+  )
+}

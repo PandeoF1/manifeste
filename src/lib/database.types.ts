@@ -312,6 +312,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: { source_id: string; total: number; hidden: number }[]
       }
+      admin_analytics_series: {
+        Args: { p_range?: string }
+        Returns: Json
+      }
       admin_analytics: {
         Args: { p_days?: number }
         Returns: Json
