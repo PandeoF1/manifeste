@@ -3,6 +3,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CollectorDb } from './collector.ts'
 import type { SchoolCandidate } from './matching.ts'
+import type { TraceEvent } from './trace.ts'
 
 export function createServiceDb(admin: SupabaseClient): CollectorDb {
   return {
@@ -100,5 +101,15 @@ export function createServiceDb(admin: SupabaseClient): CollectorDb {
         })),
       )
     },
+  }
+}
+
+/** Écriture des traces du mode direct (insertions groupées). */
+export function traceSink(admin: SupabaseClient) {
+  return async (events: TraceEvent[]) => {
+    const { error } = await admin
+      .from('collector_trace')
+      .insert(events.map(({ t, ...e }) => ({ ...e, t: new Date(t).toISOString() })))
+    if (error) throw new Error(`collector_trace: ${error.message}`)
   }
 }

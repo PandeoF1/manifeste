@@ -153,6 +153,26 @@ export type Database = {
           },
         ]
       }
+      collector_trace: {
+        Row: {
+          id: number
+          run_id: string
+          t: string
+          actor: 'collecteur' | 'lecteurs'
+          target: string
+          phase: 'start' | 'req' | 'res' | 'err' | 'end'
+          label: string
+          detail: string | null
+          ms: number | null
+          n: number | null
+          status: number | null
+        }
+        Insert: Omit<Database['public']['Tables']['collector_trace']['Row'], 'id' | 't'> & {
+          t?: string
+        }
+        Update: Partial<Database['public']['Tables']['collector_trace']['Row']>
+        Relationships: []
+      }
       collector_runs: {
         Row: {
           id: string

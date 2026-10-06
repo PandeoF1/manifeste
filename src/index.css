@@ -192,7 +192,18 @@ body {
   }
 }
 
+/* Collecte en direct : pointillés qui défilent sur une arête active. */
+@keyframes live-dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+.live-dash {
+  animation: live-dash 0.6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .live-dash,
   .live-dot,
   .toast-in,
   .fab {

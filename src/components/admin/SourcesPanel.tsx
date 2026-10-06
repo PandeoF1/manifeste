@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, ScrollText, Trash2 } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { Play, Radio, ScrollText, Trash2 } from 'lucide-react'
 import { formatRelative } from '@shared/status.ts'
 import {
   SCRAPE_KINDS,
@@ -171,14 +172,19 @@ export function SourcesPanel() {
           <h2 id="sources-list" className="text-base font-semibold">
             Sources surveillées ({sources.data?.length ?? 0})
           </h2>
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={run.isPending}
-            onClick={() => run.mutate(undefined)}
-          >
-            <Play size={16} /> {run.isPending ? 'Collecte en cours…' : 'Lancer la collecte'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/admin/direct" className="btn-secondary">
+              <Radio size={16} aria-hidden="true" /> Mode direct
+            </Link>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={run.isPending}
+              onClick={() => run.mutate(undefined)}
+            >
+              <Play size={16} /> {run.isPending ? 'Collecte en cours…' : 'Lancer la collecte'}
+            </button>
+          </div>
         </div>
         {run.error && (
           <p role="alert" className="mt-2 text-sm text-bloque">

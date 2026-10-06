@@ -225,7 +225,12 @@ export async function gatherSources(
 export async function analyzePending(
   pending: ReadonlyArray<Pending>,
   results: SourceRunResult[],
-  opts: CollectorOptions & { budgetMs?: number; startedAt?: number },
+  opts: CollectorOptions & {
+    budgetMs?: number
+    startedAt?: number
+    /** Après chaque lot analysé : devenir de ses éléments (mode direct). */
+    onBatch?: (logs: ReadonlyArray<ItemLog>, size: number) => void
+  },
 ): Promise<SourceRunResult[]> {
   const startedAt = opts.startedAt ?? Date.now()
   const minCertainty = opts.minCertainty ?? 'moyenne'
@@ -255,6 +260,7 @@ export async function analyzePending(
       }
       break
     }
+    const groupLogs: ItemLog[] = []
     const batch = group.map((p, idx) => ({ id: String(idx), item: p.item, source: p.source }))
     let events: ExtractedEvent[]
     try {
@@ -285,15 +291,18 @@ export async function analyzePending(
         city: event.city,
         status: event.status,
       }
+      let log: ItemLog
       try {
-        r.items.push({
+        log = {
           ...base,
           ...(await handleEvent(event, entry.item, entry.source, r, minCertainty, opts.db)),
-        })
+        }
       } catch (e) {
         r.error = e instanceof Error ? e.message : String(e)
-        r.items.push({ ...base, outcome: 'erreur', detail: r.error.slice(0, 300) })
+        log = { ...base, outcome: 'erreur', detail: r.error.slice(0, 300) }
       }
+      r.items.push(log)
+      groupLogs.push(log)
     }
     // Éléments lus par l'IA sans aucun fait de blocage.
     const withEvents = new Set(events.map((e) => e.item_id))
@@ -310,6 +319,7 @@ export async function analyzePending(
     for (const p of group)
       bySource.set(p.source.id, [...(bySource.get(p.source.id) ?? []), p.item.externalId])
     for (const [sourceId, ids] of bySource) await opts.db.markSeen(sourceId, ids)
+    opts.onBatch?.(groupLogs, group.length)
   }
 
   for (const r of results) await opts.db.recordRun(r)
