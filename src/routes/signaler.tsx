@@ -337,7 +337,7 @@ function SchoolPicker({
               className="flex min-h-14 w-full items-center justify-between gap-3 px-3 py-2 text-left aria-checked:bg-bg"
             >
               <span className="min-w-0">
-                <span className="block truncate font-medium">{s.name}</span>
+                <span className="line-clamp-2 font-medium break-words">{s.name}</span>
                 <span className="block text-sm text-muted">
                   {s.city}
                   {s.distance_m != null

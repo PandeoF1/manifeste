@@ -68,6 +68,21 @@ body,
   height: 100%;
 }
 
+/* Chaque page défile dans son propre <main> : la fenêtre, elle, ne bouge jamais. Sans ça,
+   l'ouverture du clavier sur téléphone fait défiler la fenêtre entière, qui reste décalée
+   après fermeture (bande vide sous l'app). */
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Un fieldset s'élargit par défaut à son contenu le plus long (min-width: min-content) :
+   un nom de lycée interminable faisait déborder toute la page à droite. */
+fieldset {
+  min-width: 0;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
