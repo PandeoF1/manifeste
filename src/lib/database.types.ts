@@ -59,6 +59,7 @@ export type Database = {
           source_type: SourceType
           trusted: boolean
           enabled: boolean
+          reports_hidden: boolean
           last_run_at: string | null
           last_error: string | null
           created_at: string
@@ -71,6 +72,7 @@ export type Database = {
           source_type?: SourceType
           trusted?: boolean
           enabled?: boolean
+          reports_hidden?: boolean
           last_run_at?: string | null
           last_error?: string | null
           created_at?: string
@@ -90,6 +92,7 @@ export type Database = {
           moderation: ModerationStatus
           certainty: 'haute' | 'moyenne' | 'faible' | null
           photo_public_path: string | null
+          hidden: boolean
           observed_at: string
           created_at: string
         }
@@ -104,6 +107,7 @@ export type Database = {
           moderation?: ModerationStatus
           certainty?: 'haute' | 'moyenne' | 'faible' | null
           photo_public_path?: string | null
+          hidden?: boolean
           observed_at: string
           created_at?: string
         }
@@ -303,6 +307,10 @@ export type Database = {
       ping_live: {
         Args: { p_session: string; p_page: string }
         Returns: undefined
+      }
+      admin_source_report_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: { source_id: string; total: number; hidden: number }[]
       }
       admin_analytics: {
         Args: { p_days?: number }

@@ -171,6 +171,14 @@ export function ReportsPanel() {
                   >
                     {MODERATION_LABELS[r.moderation]}
                   </span>
+                  {r.hidden && (
+                    <span
+                      className="rounded-full border border-border px-2 text-xs text-muted"
+                      title="Source masquée : invisible sur le site public"
+                    >
+                      Masqué (source)
+                    </span>
+                  )}
                 </div>
               </div>
               {r.source_url && (

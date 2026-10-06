@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Play, Radio, ScrollText, Trash2 } from 'lucide-react'
+import { EyeOff, Play, Radio, ScrollText, Trash2 } from 'lucide-react'
 import { formatRelative } from '@shared/status.ts'
 import {
   SCRAPE_KINDS,
@@ -33,6 +33,15 @@ export function SourcesPanel() {
   const [logOpen, setLogOpen] = useState<string | null>(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.all })
+  // Signaux validés par source (et combien sont masqués).
+  const counts = useQuery({
+    queryKey: [...queryKeys.admin.all, 'source-report-counts'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('admin_source_report_counts')
+      if (error) throw error
+      return new Map(data.map((r) => [r.source_id, r]))
+    },
+  })
 
   const add = useMutation({
     mutationFn: async (input: NewSource) => {
@@ -57,8 +66,21 @@ export function SourcesPanel() {
       const { error } = await supabase.from('scrape_sources').update(patch).eq('id', id)
       if (error) throw error
     },
-    onSuccess: invalidate,
+    onSuccess: (_data, { patch }) => {
+      void invalidate()
+      // Signaux masqués / réaffichés : la carte et la liste changent.
+      if ('reports_hidden' in patch) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
+      }
+    },
   })
+  /** Confirmation avant de masquer les signaux publiés d'une source (réversible). */
+  const askHide = (s: ScrapeSource, extra = '') => {
+    const n = counts.data?.get(s.id)?.total ?? 0
+    return window.confirm(
+      `${extra}Masquer ${n > 0 ? `les ${n} signal${n > 1 ? 'aux' : ''}` : 'les signaux'} de « ${s.label} » ? Ils disparaissent de la carte et de la liste, sans être supprimés (réversible).`,
+    )
+  }
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('scrape_sources').delete().eq('id', id)
@@ -204,7 +226,14 @@ export function SourcesPanel() {
             <li key={s.id} className="p-3">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium">{s.label}</div>
+                  <div className="flex items-center gap-2 font-medium">
+                    {s.label}
+                    {s.reports_hidden && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted">
+                        <EyeOff size={12} aria-hidden="true" /> signaux masqués
+                      </span>
+                    )}
+                  </div>
                   <div className="truncate text-sm text-muted">
                     {SCRAPE_KIND_LABELS[s.kind]} · {s.identifier}
                   </div>
@@ -222,11 +251,39 @@ export function SourcesPanel() {
                     type="checkbox"
                     className="size-5"
                     checked={s.enabled}
-                    onChange={(e) =>
-                      update.mutate({ id: s.id, patch: { enabled: e.target.checked } })
-                    }
+                    onChange={(e) => {
+                      const enabled = e.target.checked
+                      // Désactiver : proposer de masquer aussi ce qu'elle a déjà publié.
+                      const hide =
+                        !enabled &&
+                        !s.reports_hidden &&
+                        (counts.data?.get(s.id)?.total ?? 0) > 0 &&
+                        askHide(s, 'Collecte désactivée. ')
+                      update.mutate({
+                        id: s.id,
+                        patch: hide ? { enabled, reports_hidden: true } : { enabled },
+                      })
+                    }}
                   />
                   Active
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-5"
+                    checked={!s.reports_hidden}
+                    onChange={(e) => {
+                      const visible = e.target.checked
+                      if (!visible && !askHide(s)) return
+                      update.mutate({ id: s.id, patch: { reports_hidden: !visible } })
+                    }}
+                  />
+                  Signaux visibles
+                  {counts.data?.get(s.id) && (
+                    <span className="text-muted tabular-nums">
+                      ({counts.data.get(s.id)?.total})
+                    </span>
+                  )}
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
