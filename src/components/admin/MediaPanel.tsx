@@ -122,6 +122,11 @@ export function MediaPanel() {
         absents du texte sont écartés. Les constats sont calculés par des règles affichées au
         survol, pas par l'IA. Visible uniquement ici.
       </p>
+      <p className="rounded-lg border border-border bg-surface p-3 text-sm">
+        <strong>Analyse automatique en pause</strong> (coût). Les chiffres ci-dessous sont ceux déjà
+        enregistrés. Pour la relancer : secret <code>MEDIA_ANALYSIS_ENABLED=true</code> puis
+        redéploiement de <code>collect</code>.
+      </p>
 
       <div className="flex flex-wrap items-center gap-2">
         <Segmented

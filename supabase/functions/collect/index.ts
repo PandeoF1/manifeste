@@ -66,6 +66,11 @@ const MAX_GOOGLE_NEWS_PER_RUN = Number(Deno.env.get('COLLECT_MAX_GOOGLE_NEWS_PER
 /** Éléments envoyés à Gemini par requête (le quota compte les requêtes, pas les éléments). */
 const ITEMS_PER_GEMINI_CALL = Number(Deno.env.get('COLLECT_ITEMS_PER_GEMINI_CALL') ?? 60)
 
+/**
+ * Analyse des médias : coûteuse (lecture des articles par Gemini), désactivée par défaut.
+ * Pour la réactiver : secret MEDIA_ANALYSIS_ENABLED=true, puis redéployer `collect`.
+ */
+const MEDIA_ENABLED = Deno.env.get('MEDIA_ANALYSIS_ENABLED') === 'true'
 /** Articles de presse analysés (traitement médiatique) par passage, et par appel Gemini. */
 const MEDIA_PER_RUN = Number(Deno.env.get('COLLECT_MEDIA_PER_RUN') ?? 150)
 const MEDIA_PER_CALL = 25
@@ -153,6 +158,7 @@ async function analyze(
  * dans le temps restant. Ne fait jamais échouer la collecte.
  */
 async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
+  if (!MEDIA_ENABLED) return { analyzed: 0, calls: 0 }
   try {
     const seen = new Set<string>()
     const press = pending.filter((p) => {
