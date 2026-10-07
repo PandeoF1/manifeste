@@ -136,9 +136,12 @@ export async function moderate(report: PendingReport, decision: Decision): Promi
   let photoPublicPath: string | null = null
   if (decision.kind === 'validate' && decision.photo) {
     photoPublicPath = `${report.id}.jpg`
+    // Pas d'« upsert » : il exige des droits de lecture et de mise à jour sur le bucket, que le
+    // staff n'a pas (insertion et suppression seulement). On retire l'ancienne version, puis on publie.
+    await supabase.storage.from('photos').remove([photoPublicPath])
     const { error } = await supabase.storage
       .from('photos')
-      .upload(photoPublicPath, decision.photo, { contentType: 'image/jpeg', upsert: true })
+      .upload(photoPublicPath, decision.photo, { contentType: 'image/jpeg' })
     if (error) throw error
   }
   const { error } = await supabase
