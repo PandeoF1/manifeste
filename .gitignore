@@ -13,3 +13,4 @@ supabase/.branches
 outreach/
 scripts/outreach*.ts
 tests/outreach.test.ts
+.vitest/
