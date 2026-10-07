@@ -40,12 +40,17 @@ export function PhotoRedactor({ image, onChange, onRemove }: Props) {
     }
   }, [redacted, draft])
 
+  // Le canvas est affiché en « object-contain » : l'image peut être plus étroite que l'élément
+  // (bandes vides sur les côtés). Les coordonnées se calculent donc sur la zone réellement dessinée.
   function toImage(e: PointerEvent<HTMLCanvasElement>) {
     const canvas = e.currentTarget
     const box = canvas.getBoundingClientRect()
+    const scale = Math.min(box.width / canvas.width, box.height / canvas.height)
+    const left = box.left + (box.width - canvas.width * scale) / 2
+    const top = box.top + (box.height - canvas.height * scale) / 2
     return {
-      x: ((e.clientX - box.left) / box.width) * canvas.width,
-      y: ((e.clientY - box.top) / box.height) * canvas.height,
+      x: Math.min(canvas.width, Math.max(0, (e.clientX - left) / scale)),
+      y: Math.min(canvas.height, Math.max(0, (e.clientY - top) / scale)),
     }
   }
 
