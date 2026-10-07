@@ -8,3 +8,8 @@ supabase/.temp
 supabase/.branches
 .DS_Store
 .env.backfill
+.env.outreach
+# local-only tooling
+outreach/
+scripts/outreach*.ts
+tests/outreach.test.ts
