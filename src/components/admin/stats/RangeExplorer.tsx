@@ -100,7 +100,11 @@ export function RangeExplorer() {
             <Summary
               label={daily ? 'Visiteurs (somme des jours)' : 'Nouveaux visiteurs'}
               value={fmtInt(visitorsTotal)}
-              hint={daily ? undefined : "d'aujourd'hui (les jours passés ne sont pas détaillés)"}
+              hint={
+                daily
+                  ? undefined
+                  : 'premiers passages du jour, recomptés chaque jour · historique depuis la mise en place'
+              }
             />
             <Summary
               label="Pic en ligne"
