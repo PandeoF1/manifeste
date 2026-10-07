@@ -4,6 +4,7 @@ import {
   flattenResume,
   isFormat,
   isVue,
+  shapeRows,
   toCsv,
   toGeoJson,
   type Row,
@@ -50,6 +51,16 @@ describe('exports de données ouvertes', () => {
     expect(flat).toContainEqual({ cle: 'etablissements', valeur: 930 })
     expect(flat).toContainEqual({ cle: 'pic.etablissements', valeur: 396 })
     expect(flat).toContainEqual({ cle: 'origines.presse.signalements', valeur: 2426 })
+  })
+
+  it('remet les colonnes dans l\u2019ordre de lecture et nomme la colonne des zones', () => {
+    const [jour] = shapeRows('jours', [{ facs: 1, jour: '2026-10-06', etablissements: 396 }])
+    expect(Object.keys(jour ?? {}).slice(0, 3)).toEqual(['jour', 'etablissements', 'bloques'])
+    const [dep] = shapeRows('departements', [{ zone: '31', etablissements: 47, facs: 3 }])
+    expect(Object.keys(dep ?? {})[0]).toBe('departement')
+    expect(dep?.departement).toBe('31')
+    const [acad] = shapeRows('academies', [{ zone: 'Toulouse', etablissements: 86 }])
+    expect(acad?.academie).toBe('Toulouse')
   })
 
   it('refuse les vues et formats inconnus, nomme le fichier avec la date', () => {

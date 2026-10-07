@@ -53,6 +53,16 @@ interface Vues {
   academies: Zone[]
 }
 
+/** L'API nomme la colonne « departement » ou « academie » ; la page utilise « zone » partout. */
+function normalize<K extends keyof Vues>(vue: K, data: Vues[K]): Vues[K] {
+  if ((vue !== 'departements' && vue !== 'academies') || !Array.isArray(data)) return data
+  const key = vue === 'departements' ? 'departement' : 'academie'
+  return (data as unknown as Array<Record<string, unknown>>).map((row) => ({
+    ...row,
+    zone: row.zone ?? row[key],
+  })) as unknown as Vues[K]
+}
+
 /**
  * Les données ouvertes sont servies par /api/donnees (cache de 5 minutes au CDN, ouvert à
  * tous). Si la route est absente (développement) ou en panne, on interroge la base.
@@ -62,7 +72,7 @@ async function fetchVue<K extends keyof Vues>(vue: K): Promise<Vues[K]> {
     const res = await fetch(`/api/donnees?vue=${vue}`, { headers: { accept: 'application/json' } })
     if (res.ok && res.headers.get('content-type')?.includes('json')) {
       const body = (await res.json()) as { donnees?: Vues[K] }
-      if (body.donnees != null) return body.donnees
+      if (body.donnees != null) return normalize(vue, body.donnees)
     }
   } catch {
     // repli ci-dessous

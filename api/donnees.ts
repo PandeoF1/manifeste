@@ -11,6 +11,7 @@ import {
   flattenResume,
   isFormat,
   isVue,
+  shapeRows,
   toCsv,
   toGeoJson,
   type Row,
@@ -49,6 +50,9 @@ export default async function handler(req: Request): Promise<Response> {
   } catch {
     return fail(502, 'base indisponible, réessaie dans un instant')
   }
+
+  // Vues en lignes : colonnes dans l'ordre de lecture (le résumé reste un objet).
+  if (Array.isArray(data)) data = shapeRows(vue, data as Row[])
 
   const download: Record<string, string> =
     url.searchParams.get('telecharger') === '1'

@@ -10,6 +10,95 @@ export const VUES = [
 ] as const
 export type Vue = (typeof VUES)[number]
 
+/**
+ * Ordre des colonnes de chaque vue. La base renvoie du jsonb, qui range les clés par ordre
+ * alphabétique : on remet ici un ordre de lecture (jour, nom... avant les compteurs).
+ * Les vues par zone nomment la colonne « departement » ou « academie » dans les exports.
+ */
+const COLUMNS: Record<Exclude<Vue, 'resume'>, string[]> = {
+  jours: [
+    'jour',
+    'etablissements',
+    'bloques',
+    'filtrants',
+    'leves',
+    'departements',
+    'lycees',
+    'facs',
+    'signalements',
+    'via_presse',
+    'via_organisations',
+    'via_autres_sources',
+    'via_signalements_sur_place',
+  ],
+  departements: [
+    'departement',
+    'etablissements',
+    'lycees',
+    'facs',
+    'premier_jour',
+    'dernier_jour',
+    'signalements',
+    'bloques_maintenant',
+    'filtrants_maintenant',
+  ],
+  academies: [
+    'academie',
+    'etablissements',
+    'lycees',
+    'facs',
+    'premier_jour',
+    'dernier_jour',
+    'signalements',
+    'bloques_maintenant',
+    'filtrants_maintenant',
+  ],
+  etablissements: [
+    'uai',
+    'nom',
+    'commune',
+    'departement',
+    'academie',
+    'niveau',
+    'lat',
+    'lng',
+    'premier_blocage',
+    'dernier_signalement',
+    'dernier_statut',
+    'statut_direct',
+    'signalements',
+    'sites_sources',
+    'origines',
+  ],
+  signalements: [
+    'observe_le',
+    'jour',
+    'uai',
+    'nom',
+    'commune',
+    'departement',
+    'academie',
+    'niveau',
+    'statut',
+    'origine',
+    'site_source',
+    'lien_source',
+    'certitude',
+  ],
+}
+
+/** Remet les colonnes dans l'ordre de lecture (et nomme la colonne des vues par zone). */
+export function shapeRows(vue: Vue, rows: ReadonlyArray<Row>): Row[] {
+  if (vue === 'resume') return [...rows]
+  const columns = COLUMNS[vue]
+  return rows.map((row) => {
+    const source: Row = 'zone' in row ? { ...row, [columns[0] ?? 'zone']: row.zone } : row
+    const out: Row = {}
+    for (const c of columns) out[c] = source[c] ?? null
+    return out
+  })
+}
+
 export const FORMATS = ['json', 'csv', 'geojson'] as const
 export type Format = (typeof FORMATS)[number]
 
