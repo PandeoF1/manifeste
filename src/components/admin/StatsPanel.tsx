@@ -75,14 +75,14 @@ export function StatsPanel() {
         <Tile label="Visiteurs uniques aujourd'hui" value={s.today_visitors} />
         <Tile label="Pages vues aujourd'hui" value={today?.views ?? 0} />
         <Tile
-          label="Visiteurs / jour (moy. 7 j)"
+          label={`Visiteurs / jour (moy. ${past.length || 7} j)`}
           value={avg7 == null ? '–' : Math.round(avg7)}
+          // Pas de pourcentage : la journée en cours est incomplète, la comparer à un jour entier
+          // donnerait toujours une baisse trompeuse.
           hint={
             avg7 == null
               ? 'pas encore d’historique'
-              : today
-                ? `${today.visitors >= avg7 ? '+' : ''}${Math.round(((today.visitors - avg7) / avg7) * 100)} % aujourd'hui`
-                : undefined
+              : `${past.length} jour${past.length > 1 ? 's' : ''} de données · aujourd'hui encore en cours`
           }
         />
       </section>
