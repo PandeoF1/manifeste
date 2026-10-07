@@ -6,6 +6,7 @@ import {
   activeSchools,
   escapeHtml,
   nationalSummary,
+  openData,
   parisTime,
   plural,
   schoolSummary,
@@ -25,7 +26,7 @@ interface Meta {
   jsonLd?: object
 }
 
-export type Page = 'home' | 'liste' | 'lycee'
+export type Page = 'home' | 'liste' | 'lycee' | 'donnees'
 
 const SITE_TITLE = 'Carte des blocus de lycées et de facs en direct - Manifeste'
 const SITE_DESCRIPTION =
@@ -52,10 +53,62 @@ function schoolsHtml(schools: ActiveSchool[]): string {
     .join('')
 }
 
-const NAV = `<nav><a href="/">Carte des blocus</a> · <a href="/liste">Liste des établissements bloqués</a> · <a href="/a-propos">À propos et méthode</a></nav>`
+const NAV = `<nav><a href="/">Carte des blocus</a> · <a href="/liste">Liste des établissements bloqués</a> · <a href="/donnees">Les chiffres et les données</a> · <a href="/a-propos">À propos et méthode</a></nav>`
+
+interface ResumeDonnees {
+  premier_jour: string | null
+  signalements: number
+  etablissements: number
+  departements: number
+  facs: number
+}
+
+/** Page « Données » pour les moteurs : chiffres du moment, liens d'export, schéma Dataset. */
+async function donneesMeta(origin: string, fallback: Meta): Promise<Meta> {
+  const r = (await openData('resume')) as ResumeDonnees
+  const depuis = r.premier_jour ? ` depuis le ${r.premier_jour.split('-').reverse().join('/')}` : ''
+  const description = `${plural(r.etablissements, 'établissement signalé', 'établissements signalés')} bloqué${r.etablissements > 1 ? 's' : ''} ou en barrage filtrant${depuis}, dans ${plural(r.departements, 'département', 'départements')}. Chiffres jour par jour, par académie et par département, à télécharger en CSV, JSON et GeoJSON, sous licence libre.`
+  const exports = [
+    ['jours', 'csv', 'Chiffres jour par jour (CSV)'],
+    ['departements', 'csv', 'Chiffres par département (CSV)'],
+    ['academies', 'csv', 'Chiffres par académie (CSV)'],
+    ['etablissements', 'geojson', 'Établissements (GeoJSON)'],
+    ['signalements', 'csv', 'Tous les signalements (CSV)'],
+  ] as const
+  const link = (vue: string, format: string) => `${origin}/api/donnees?vue=${vue}&format=${format}`
+  return {
+    ...fallback,
+    title: 'Les chiffres du mouvement lycéen et étudiant : données libres - Manifeste',
+    description,
+    body: `<main><h1>Les chiffres du mouvement lycéen et étudiant</h1><p>${escapeHtml(description)}</p><h2>Télécharger les données</h2><ul>${exports
+      .map(
+        ([v, f, label]) => `<li><a href="${escapeHtml(link(v, f))}">${escapeHtml(label)}</a></li>`,
+      )
+      .join(
+        '',
+      )}</ul><p>Licence Creative Commons BY 4.0 : réutilisation libre, en citant Manifeste (manifeste.pandeo.fr).</p>${NAV}</main>`,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'Dataset',
+      name: 'Établissements bloqués : lycées et facs, mouvement lycéen et étudiant',
+      description,
+      url: `${origin}/donnees`,
+      inLanguage: 'fr-FR',
+      isAccessibleForFree: true,
+      license: 'https://creativecommons.org/licenses/by/4.0/',
+      creator: { '@type': 'Organization', name: 'Manifeste', url: `${origin}/` },
+      distribution: exports.map(([v, f]) => ({
+        '@type': 'DataDownload',
+        encodingFormat: f === 'csv' ? 'text/csv' : 'application/geo+json',
+        contentUrl: link(v, f),
+      })),
+    },
+  }
+}
 
 async function buildMeta(origin: string, page: Page, uai: string | null): Promise<Meta> {
-  const url = page === 'liste' ? `${origin}/liste` : `${origin}/`
+  const url =
+    page === 'liste' ? `${origin}/liste` : page === 'donnees' ? `${origin}/donnees` : `${origin}/`
   const fallback: Meta = {
     title: page === 'liste' ? 'Liste des lycées et facs bloqués en direct - Manifeste' : SITE_TITLE,
     description: SITE_DESCRIPTION,
@@ -64,6 +117,7 @@ async function buildMeta(origin: string, page: Page, uai: string | null): Promis
     body: `<main><h1>Carte des blocus de lycées et de facs en direct</h1><p>${escapeHtml(SITE_DESCRIPTION)}</p>${NAV}</main>`,
   }
   try {
+    if (page === 'donnees') return await donneesMeta(origin, fallback)
     if (page === 'lycee' && uai) {
       const s = await schoolSummary(uai)
       if (!s) return fallback
@@ -155,7 +209,13 @@ export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url)
   const uai = url.searchParams.get('uai')
   const pageParam = url.searchParams.get('page')
-  const page: Page = uai ? 'lycee' : pageParam === 'liste' ? 'liste' : 'home'
+  const page: Page = uai
+    ? 'lycee'
+    : pageParam === 'liste'
+      ? 'liste'
+      : pageParam === 'donnees'
+        ? 'donnees'
+        : 'home'
   const [shell, meta] = await Promise.all([
     fetch(`${url.origin}/index.html`).then((r) => r.text()),
     buildMeta(url.origin, page, uai),

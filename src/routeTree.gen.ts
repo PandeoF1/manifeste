@@ -12,9 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AProposRouteImport } from './routes/a-propos'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as DonneesRouteImport } from './routes/donnees'
 import { Route as ListeRouteImport } from './routes/liste'
 import { Route as SignalerRouteImport } from './routes/signaler'
 import { Route as AdminDirectRouteImport } from './routes/admin_.direct'
+import { Route as EmbedCarteRouteImport } from './routes/embed.carte'
+import { Route as EmbedChiffresRouteImport } from './routes/embed.chiffres'
 import { Route as LyceeUaiRouteImport } from './routes/lycee.$uai'
 
 const IndexRoute = IndexRouteImport.update({
@@ -32,6 +35,11 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DonneesRoute = DonneesRouteImport.update({
+  id: '/donnees',
+  path: '/donnees',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ListeRoute = ListeRouteImport.update({
   id: '/liste',
   path: '/liste',
@@ -47,6 +55,16 @@ const AdminDirectRoute = AdminDirectRouteImport.update({
   path: '/admin/direct',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmbedCarteRoute = EmbedCarteRouteImport.update({
+  id: '/embed/carte',
+  path: '/embed/carte',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmbedChiffresRoute = EmbedChiffresRouteImport.update({
+  id: '/embed/chiffres',
+  path: '/embed/chiffres',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LyceeUaiRoute = LyceeUaiRouteImport.update({
   id: '/lycee/$uai',
   path: '/lycee/$uai',
@@ -57,18 +75,24 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/donnees': typeof DonneesRoute
   '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
   '/admin/direct': typeof AdminDirectRoute
+  '/embed/carte': typeof EmbedCarteRoute
+  '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/donnees': typeof DonneesRoute
   '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
   '/admin/direct': typeof AdminDirectRoute
+  '/embed/carte': typeof EmbedCarteRoute
+  '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
 }
 export interface FileRoutesById {
@@ -76,9 +100,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/donnees': typeof DonneesRoute
   '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
   '/admin_/direct': typeof AdminDirectRoute
+  '/embed/carte': typeof EmbedCarteRoute
+  '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
 }
 export interface FileRouteTypes {
@@ -87,27 +114,36 @@ export interface FileRouteTypes {
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/donnees'
     | '/liste'
     | '/signaler'
     | '/admin/direct'
+    | '/embed/carte'
+    | '/embed/chiffres'
     | '/lycee/$uai'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/donnees'
     | '/liste'
     | '/signaler'
     | '/admin/direct'
+    | '/embed/carte'
+    | '/embed/chiffres'
     | '/lycee/$uai'
   id:
     | '__root__'
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/donnees'
     | '/liste'
     | '/signaler'
     | '/admin_/direct'
+    | '/embed/carte'
+    | '/embed/chiffres'
     | '/lycee/$uai'
   fileRoutesById: FileRoutesById
 }
@@ -115,9 +151,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AProposRoute: typeof AProposRoute
   AdminRoute: typeof AdminRoute
+  DonneesRoute: typeof DonneesRoute
   ListeRoute: typeof ListeRoute
   SignalerRoute: typeof SignalerRoute
   AdminDirectRoute: typeof AdminDirectRoute
+  EmbedCarteRoute: typeof EmbedCarteRoute
+  EmbedChiffresRoute: typeof EmbedChiffresRoute
   LyceeUaiRoute: typeof LyceeUaiRoute
 }
 
@@ -144,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/donnees': {
+      id: '/donnees'
+      path: '/donnees'
+      fullPath: '/donnees'
+      preLoaderRoute: typeof DonneesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/liste': {
       id: '/liste'
       path: '/liste'
@@ -165,6 +211,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDirectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/embed/carte': {
+      id: '/embed/carte'
+      path: '/embed/carte'
+      fullPath: '/embed/carte'
+      preLoaderRoute: typeof EmbedCarteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/embed/chiffres': {
+      id: '/embed/chiffres'
+      path: '/embed/chiffres'
+      fullPath: '/embed/chiffres'
+      preLoaderRoute: typeof EmbedChiffresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lycee/$uai': {
       id: '/lycee/$uai'
       path: '/lycee/$uai'
@@ -179,9 +239,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AProposRoute: AProposRoute,
   AdminRoute: AdminRoute,
+  DonneesRoute: DonneesRoute,
   ListeRoute: ListeRoute,
   SignalerRoute: SignalerRoute,
   AdminDirectRoute: AdminDirectRoute,
+  EmbedCarteRoute: EmbedCarteRoute,
+  EmbedChiffresRoute: EmbedChiffresRoute,
   LyceeUaiRoute: LyceeUaiRoute,
 }
 export const routeTree = rootRouteImport

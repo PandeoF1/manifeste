@@ -15,6 +15,7 @@ export function buildSitemap(
   const urls = [
     { loc: `${origin}/`, lastmod: today, changefreq: 'always', priority: '1.0' },
     { loc: `${origin}/liste`, lastmod: today, changefreq: 'always', priority: '0.9' },
+    { loc: `${origin}/donnees`, lastmod: today, changefreq: 'hourly', priority: '0.8' },
     { loc: `${origin}/a-propos`, changefreq: 'monthly', priority: '0.3' },
     ...schools.map((s) => ({
       loc: `${origin}/lycee/${s.uai}`,

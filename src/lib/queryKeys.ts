@@ -8,6 +8,7 @@ export const queryKeys = {
       [...queryKeys.statuses.all, 'period', period, start] as const,
   },
   settings: ['settings'] as const,
+  donnees: (vue: string) => ['donnees', vue] as const,
   school: (uai: string) => ['school', uai] as const,
   schoolReports: (uai: string) => ['school', uai, 'reports'] as const,
   schoolDetail: (uai: string) => ['school', uai, 'detail'] as const,

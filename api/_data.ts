@@ -19,6 +19,22 @@ export function currentStatuses(): Promise<unknown[]> {
   return rest<unknown[]>('school_current_status?select=*&order=last_signal_at.desc')
 }
 
+/** Données ouvertes (fonction SQL publique `open_data`, droits de la clé anon, RLS appliquée). */
+export async function openData(vue: string): Promise<unknown> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/open_data`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON_KEY,
+      authorization: `Bearer ${ANON_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ p_view: vue }),
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!res.ok) throw new Error(`Supabase HTTP ${res.status}`)
+  return res.json()
+}
+
 export interface NationalSummary {
   bloque: number
   filtrant: number

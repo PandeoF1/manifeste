@@ -14,6 +14,7 @@
   --color-filtrant: var(--status-filtrant);
   --color-leve: var(--status-leve);
   --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-poor: var(--poor);
@@ -33,6 +34,7 @@
   --status-filtrant: #b45309;
   --status-leve: #5f6673;
   --chart-1: #0a6cd6;
+  --chart-2: #6d28d9;
   --good: #1a7f37;
   --warn: #b45309;
   --poor: #c0261f;
@@ -51,6 +53,8 @@
     --status-filtrant: #ff9f0a;
     --status-leve: #98a2b3;
     --chart-1: #64d2ff;
+    --chart-2: #c4b5fd;
+    --chart-2: #c4b5fd;
     --good: #30d158;
     --warn: #ff9f0a;
     --poor: #ff453a;
@@ -71,6 +75,7 @@
   --status-filtrant: #b45309;
   --status-leve: #5f6673;
   --chart-1: #0a6cd6;
+  --chart-2: #6d28d9;
   --good: #1a7f37;
   --warn: #b45309;
   --poor: #c0261f;
@@ -92,6 +97,7 @@
   --status-filtrant: #ff9f0a;
   --status-leve: #98a2b3;
   --chart-1: #64d2ff;
+  --chart-2: #c4b5fd;
   --good: #30d158;
   --warn: #ff9f0a;
   --poor: #ff453a;

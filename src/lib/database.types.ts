@@ -334,6 +334,10 @@ export type Database = {
       }
     }
     Functions: {
+      open_data: {
+        Args: { p_view: string }
+        Returns: Json
+      }
       school_status_since: {
         Args: { p_since: string }
         Returns: {

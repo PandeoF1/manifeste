@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, createRootRouteWithContext, useRouterState } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { TopBar } from '@/components/layout/TopBar'
-import { applyThemeClass, useTheme } from '@/lib/theme'
+import { applyThemeClass, useTheme, type Theme } from '@/lib/theme'
 import { ReportFab } from '@/components/layout/ReportFab'
 import { InstallPrompt, OfflineBanner, UpdatePrompt } from '@/components/layout/AppNotices'
 
@@ -20,9 +20,20 @@ function RootLayout() {
   // Le thème est posé sur <html> : le fond de la page entière suit, jamais de bande claire.
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const theme = useTheme()
-  const applied = pathname.startsWith('/admin') ? null : theme
+  // Pages intégrées (iframe) : sombre par défaut, clair avec ?theme=clair ; sans menus.
+  const embed = pathname.startsWith('/embed')
+  const embedTheme: Theme =
+    embed && new URLSearchParams(window.location.search).get('theme') === 'clair' ? 'light' : 'dark'
+  const applied = embed ? embedTheme : pathname.startsWith('/admin') ? null : theme
   useEffect(() => applyThemeClass(applied), [applied])
   useKeyboardScrollReset()
+  if (embed) {
+    return (
+      <div className="flex h-full flex-col">
+        <Outlet />
+      </div>
+    )
+  }
   return (
     <div className="flex h-full flex-col">
       <a
