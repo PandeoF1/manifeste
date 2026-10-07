@@ -272,7 +272,7 @@ function DataPage() {
             Creative Commons BY 4.0
           </a>
           . Tu peux les copier, les modifier et les republier, dans un article, une étude, ou sur un
-          autre site, y compris un site concurrent, à une seule condition : citer la source.
+          autre site, à une seule condition : citer la source.
         </p>
         <p className="rounded-lg border border-border bg-surface p-3 text-sm">
           Source : Manifeste (manifeste.pandeo.fr), données libres sous licence CC BY 4.0.
