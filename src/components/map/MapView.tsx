@@ -27,6 +27,9 @@ const SOURCE_ID = 'schools'
 const RECENT_MS = 30 * 60_000
 /** Durée d'une onde. */
 const PULSE_MS = 2000
+/** Rafale : deux ondes, puis un temps de repos (la carte ne se redessine pas pendant le repos). */
+const BURST_MS = 2 * PULSE_MS
+const CYCLE_MS = 8000
 
 export interface MapViewState {
   lat: number
@@ -281,13 +284,23 @@ export default function MapView({
 
       if (!prefersReducedMotion()) {
         let last = 0
+        let resting = false
         const animate = (t: number) => {
           frame = requestAnimationFrame(animate)
           // Rien à animer (aucun signal récent, onglet masqué) : on ne redessine pas la carte.
           if (!hasRecentRef.current || document.hidden) return
+          const inCycle = t % CYCLE_MS
+          if (inCycle >= BURST_MS) {
+            if (!resting) {
+              resting = true
+              map.setPaintProperty('pulse', 'circle-stroke-opacity', 0)
+            }
+            return
+          }
+          resting = false
           if (t - last < 33) return // ~30 i/s suffit
           last = t
-          const phase = (t % PULSE_MS) / PULSE_MS
+          const phase = (inCycle % PULSE_MS) / PULSE_MS
           // Expansion rapide puis ralentie ; l'onde s'efface complètement avant de repartir.
           const eased = 1 - (1 - phase) ** 3
           map.setPaintProperty('pulse', 'circle-radius', 6 + eased * 24)
