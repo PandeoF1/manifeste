@@ -1,13 +1,13 @@
 import { useSyncExternalStore } from 'react'
 
 /**
- * Panneaux de la carte que le visiteur peut replier (menu latéral, barre du haut, médaillons
- * d'outre-mer). Mémorisé sur l'appareil uniquement ; tout est visible par défaut.
+ * Panneaux de la carte que le visiteur peut replier (menu latéral sur ordinateur, encart des chiffres sur
+ * téléphone, médaillons d'outre-mer). Mémorisé sur l'appareil uniquement ; tout est visible par défaut.
  */
-export type PanelKey = 'side' | 'top' | 'overseas'
+export type PanelKey = 'side' | 'stats' | 'overseas'
 
 const STORAGE_KEY = 'manifeste-hidden-panels'
-const ALL: readonly PanelKey[] = ['side', 'top', 'overseas']
+const ALL: readonly PanelKey[] = ['side', 'stats', 'overseas']
 
 interface KeyValueStorage {
   getItem(key: string): string | null

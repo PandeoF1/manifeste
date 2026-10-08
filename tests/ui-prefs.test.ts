@@ -14,7 +14,7 @@ function memory(initial?: string) {
 describe('createPanelPrefs', () => {
   it('affiche tout par défaut', () => {
     const p = createPanelPrefs(() => memory())
-    expect(['side', 'top', 'overseas'].map((k) => p.isHidden(k as 'side'))).toEqual([
+    expect(['side', 'stats', 'overseas'].map((k) => p.isHidden(k as 'side'))).toEqual([
       false,
       false,
       false,
@@ -35,10 +35,10 @@ describe('createPanelPrefs', () => {
   })
 
   it('ignore un contenu illisible ou inconnu', () => {
-    expect(createPanelPrefs(() => memory('pas du json')).isHidden('top')).toBe(false)
-    expect(createPanelPrefs(() => memory('{"a":1}')).isHidden('top')).toBe(false)
-    const p = createPanelPrefs(() => memory('["top","autre"]'))
-    expect(p.isHidden('top')).toBe(true)
+    expect(createPanelPrefs(() => memory('pas du json')).isHidden('stats')).toBe(false)
+    expect(createPanelPrefs(() => memory('{"a":1}')).isHidden('stats')).toBe(false)
+    const p = createPanelPrefs(() => memory('["stats","autre"]'))
+    expect(p.isHidden('stats')).toBe(true)
   })
 
   it('fonctionne sans stockage (navigation privée)', () => {
