@@ -42,7 +42,7 @@ const km = (m: number | null) =>
  * Lycées proposés par les visiteurs (absents de la liste) : rattacher à un lycée existant,
  * créer le lycée, ou rejeter. Le signal part ensuite en Modération.
  */
-export function ProposalsPanel() {
+export function ProposalsPanel({ canReject = true }: { canReject?: boolean }) {
   const proposals = useQuery(proposalsQuery)
   return (
     <div className="mt-4 space-y-4">
@@ -50,6 +50,7 @@ export function ProposalsPanel() {
         Un visiteur n'a pas trouvé son établissement et l'a saisi lui-même. Vérifie : souvent il
         existe sous un autre nom (voir les établissements proches). Après ta décision, le signal
         arrive en Modération. Sans décision, la proposition est supprimée au bout de 7 jours.
+        {!canReject && ' Si elle ne tient pas, laisse-la : un administrateur la rejettera.'}
       </p>
       {proposals.isPending && <div className="h-32 animate-pulse rounded-xl bg-surface" />}
       {proposals.isError && (
@@ -61,13 +62,13 @@ export function ProposalsPanel() {
         <p className="card text-sm text-muted">Aucune proposition en attente.</p>
       )}
       {proposals.data?.map((p) => (
-        <ProposalCard key={p.id} p={p} />
+        <ProposalCard key={p.id} p={p} canReject={canReject} />
       ))}
     </div>
   )
 }
 
-function ProposalCard({ p }: { p: Proposal }) {
+function ProposalCard({ p, canReject }: { p: Proposal; canReject: boolean }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState(() => formatSchoolName(p.name))
   const [city, setCity] = useState(p.city)
@@ -131,17 +132,19 @@ function ProposalCard({ p }: { p: Proposal }) {
             )}
           </p>
         </div>
-        <button
-          type="button"
-          className="btn-secondary min-h-10 px-3 text-sm"
-          disabled={busy}
-          onClick={() => {
-            if (window.confirm('Rejeter cette proposition ? Le signal est abandonné.'))
-              reject.mutate()
-          }}
-        >
-          <Trash2 size={16} aria-hidden="true" /> Rejeter
-        </button>
+        {canReject && (
+          <button
+            type="button"
+            className="btn-secondary min-h-10 px-3 text-sm"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm('Rejeter cette proposition ? Le signal est abandonné.'))
+                reject.mutate()
+            }}
+          >
+            <Trash2 size={16} aria-hidden="true" /> Rejeter
+          </button>
+        )}
       </header>
 
       {p.photo_path &&

@@ -45,8 +45,8 @@ export const Route = createFileRoute('/admin')({
   head: () => ({ meta: [{ name: 'robots', content: 'noindex' }] }),
 })
 
-/** Onglets d'un modérateur : la validation des signalements, rien d'autre. */
-const MODERATOR_TABS: readonly Tab[] = ['moderation']
+/** Onglets d'un modérateur : valider, traiter les établissements proposés, lire stats et médias. */
+const MODERATOR_TABS: readonly Tab[] = ['moderation', 'lycees', 'stats', 'medias']
 
 function AdminPage() {
   const session = useSession()
@@ -72,7 +72,7 @@ function AdminPage() {
 
   const moderator = role === 'moderator'
   const tabs = moderator ? MODERATOR_TABS : TABS
-  const tab: Tab = moderator ? 'moderation' : search.tab
+  const tab: Tab = moderator && !tabs.includes(search.tab) ? 'moderation' : search.tab
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto p-4">
@@ -101,14 +101,14 @@ function AdminPage() {
           >
             {TAB_LABELS[t]}
             {t === 'moderation' && <PendingCount moderator={moderator} />}
-            {t === 'lycees' && !moderator && <ProposalCount />}
+            {t === 'lycees' && <ProposalCount />}
           </Link>
         ))}
       </nav>
       <div className="mt-4">
         {tab === 'sources' && <SourcesPanel />}
         {tab === 'moderation' && <PendingPanel role={role} />}
-        {tab === 'lycees' && <ProposalsPanel />}
+        {tab === 'lycees' && <ProposalsPanel canReject={!moderator} />}
         {tab === 'signaux' && <ReportsPanel />}
         {tab === 'non-rattaches' && <UnmatchedPanel />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
