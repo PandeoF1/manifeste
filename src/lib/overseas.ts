@@ -108,3 +108,15 @@ export function activeTerritories(points: ReadonlyArray<Located>): ActiveTerrito
 
 /** Vue nationale : assez dézoomé pour que la métropole entière soit à l'écran. */
 export const NATIONAL_MAX_ZOOM = 7
+
+/** France métropolitaine (Corse comprise) : cadrage du médaillon « retour » et zone de détection. */
+export const METROPOLE = {
+  id: 'metropole',
+  label: 'France métropolitaine',
+  bbox: [-5.6, 41.2, 9.8, 51.2] as Bbox,
+}
+
+/** Le centre de la carte est-il en métropole (ou à ses abords immédiats) ? */
+export function inMetropole(lat: number, lng: number): boolean {
+  return lng >= -6 && lng <= 10.5 && lat >= 40.8 && lat <= 51.8
+}

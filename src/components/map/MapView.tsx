@@ -16,7 +16,7 @@ import type { SchoolStatus } from '@/queries/statuses'
 import { addMarkerImages } from './markerImages'
 import { styleBase } from './baseStyle'
 import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
-import { NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
+import { inMetropole, NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
 import type { Theme } from '@/lib/theme'
 import { OverseasInsets } from './OverseasInsets'
 
@@ -130,8 +130,8 @@ export default function MapView({
   const mapRef = useRef<MapLibreMap | null>(null)
   const readyRef = useRef(false)
   const hasRecentRef = useRef(false)
-  // Vue nationale : les médaillons d'outre-mer ne s'affichent que dans ce cas.
-  const [national, setNational] = useState(initialView.z < NATIONAL_MAX_ZOOM)
+  // Carte centrée hors métropole : les médaillons proposent d'y revenir.
+  const [inMetro, setInMetro] = useState(inMetropole(initialView.lat, initialView.lng))
   const latest = useRef({ statuses, onViewChange, onSelect, theme })
   useEffect(() => {
     latest.current = { statuses, onViewChange, onSelect, theme }
@@ -311,9 +311,9 @@ export default function MapView({
     })
 
     map.on('moveend', () => {
-      setNational(map.getZoom() < NATIONAL_MAX_ZOOM)
       // Carte sans fin d'est en ouest : on ramène la longitude dans [-180, 180] pour l'adresse.
       const c = map.getCenter().wrap()
+      setInMetro(inMetropole(c.lat, c.lng))
       latest.current.onViewChange({
         lat: Math.round(c.lat * 1e4) / 1e4,
         lng: Math.round(c.lng * 1e4) / 1e4,
@@ -383,22 +383,21 @@ export default function MapView({
         role="region"
         aria-label="Carte des lycées et des facs concernés. Une liste textuelle est disponible à côté de la carte."
       />
-      {national && (
-        <OverseasInsets
-          statuses={statuses}
-          selectedUai={selected?.uai}
-          onSelect={onSelect}
-          onGoto={(bounds) =>
-            mapRef.current?.fitBounds(bounds, {
-              padding: 40,
-              maxZoom: 10,
-              duration: prefersReducedMotion() ? 0 : 1200,
-            })
-          }
-          theme={theme}
-          styleUrl={STYLE_URL}
-        />
-      )}
+      <OverseasInsets
+        statuses={statuses}
+        showMetropole={!inMetro}
+        selectedUai={selected?.uai}
+        onSelect={onSelect}
+        onGoto={(bounds) =>
+          mapRef.current?.fitBounds(bounds, {
+            padding: 40,
+            maxZoom: 10,
+            duration: prefersReducedMotion() ? 0 : 1200,
+          })
+        }
+        theme={theme}
+        styleUrl={STYLE_URL}
+      />
     </div>
   )
 }

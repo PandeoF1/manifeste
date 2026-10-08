@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Map as MapLibreMap, type GeoJSONSource, type MapLayerMouseEvent } from 'maplibre-gl'
 import type { FeatureCollection, Point } from 'geojson'
 import type { SchoolStatus } from '@/queries/statuses'
-import { activeTerritories, type ActiveTerritory, type Bbox } from '@/lib/overseas'
+import { activeTerritories, inMetropole, METROPOLE, territoryOf, type Bbox } from '@/lib/overseas'
 import { usePanelHidden } from '@/lib/uiPrefs'
 import type { Theme } from '@/lib/theme'
 import { styleBase } from './baseStyle'
@@ -22,6 +22,8 @@ const STATUS_COLOR = [
 
 interface Props {
   statuses: ReadonlyArray<SchoolStatus>
+  /** La carte principale est ailleurs qu'en métropole : un médaillon permet d'y revenir. */
+  showMetropole: boolean
   selectedUai: string | undefined
   onSelect: (uai: string) => void
   /** Clic ailleurs que sur un point : la carte principale se place sur le territoire. */
@@ -41,21 +43,49 @@ function toGeoJSON(rows: ReadonlyArray<SchoolStatus>): FeatureCollection<Point> 
   }
 }
 
+interface InsetItem {
+  id: string
+  label: string
+  bounds: Bbox
+  rows: ReadonlyArray<SchoolStatus>
+  /** Beaucoup de points sur peu de place : marqueurs plus petits. */
+  dense: boolean
+}
+
 /**
- * Médaillons des territoires d'outre-mer ayant au moins un point, par-dessus la vue nationale.
- * Chacun est une mini-carte fixe (même fond, mêmes couleurs) ; un point reste cliquable.
+ * Médaillons de navigation : un par territoire d'outre-mer ayant au moins un point, et la
+ * métropole quand la carte principale est ailleurs. Chacun est une mini-carte fixe (même fond,
+ * mêmes couleurs) ; un point reste cliquable, le reste du médaillon amène la carte principale.
  */
 export function OverseasInsets({
   statuses,
+  showMetropole,
   selectedUai,
   onSelect,
   onGoto,
   theme,
   styleUrl,
 }: Props) {
-  const territories = useMemo(() => activeTerritories(statuses), [statuses])
+  const items = useMemo<InsetItem[]>(() => {
+    const overseas = activeTerritories(statuses).map(({ territory, bounds }) => ({
+      id: territory.id,
+      label: territory.label,
+      bounds,
+      rows: statuses.filter((s) => territory.departments.includes(s.department ?? '')),
+      dense: false,
+    }))
+    if (!showMetropole) return overseas
+    const metropole: InsetItem = {
+      id: METROPOLE.id,
+      label: METROPOLE.label,
+      bounds: METROPOLE.bbox,
+      rows: statuses.filter((s) => !territoryOf(s.department) && inMetropole(s.lat, s.lng)),
+      dense: true,
+    }
+    return [metropole, ...overseas]
+  }, [statuses, showMetropole])
   const [hidden, toggle] = usePanelHidden('overseas')
-  if (territories.length === 0) return null
+  if (items.length === 0) return null
   return (
     <div className="pointer-events-none absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-2 z-[5] flex max-w-[calc(100%-1rem)] flex-col items-start gap-1.5 md:bottom-8 md:left-4">
       <button
@@ -64,7 +94,7 @@ export function OverseasInsets({
         aria-expanded={!hidden}
         className="glass pointer-events-auto inline-flex h-7 items-center gap-1 rounded-full border border-border pr-2 pl-3 text-xs font-semibold shadow-xl"
       >
-        Outre-mer
+        Territoires
         {hidden ? (
           <ChevronUp size={14} aria-hidden="true" />
         ) : (
@@ -73,14 +103,13 @@ export function OverseasInsets({
       </button>
       {!hidden && (
         <ul
-          aria-label="Outre-mer : établissements avec un signal"
+          aria-label="Territoires : établissements avec un signal"
           className="flex flex-wrap items-end gap-1.5"
         >
-          {territories.map((t) => (
+          {items.map((item) => (
             <Inset
-              key={t.territory.id}
-              territory={t}
-              statuses={statuses}
+              key={item.id}
+              item={item}
               selectedUai={selectedUai}
               onSelect={onSelect}
               onGoto={onGoto}
@@ -94,33 +123,20 @@ export function OverseasInsets({
   )
 }
 
-interface InsetProps extends Omit<Props, 'statuses'> {
-  territory: ActiveTerritory
-  statuses: ReadonlyArray<SchoolStatus>
+interface InsetProps extends Omit<Props, 'statuses' | 'showMetropole'> {
+  item: InsetItem
 }
 
-function Inset({
-  territory,
-  statuses,
-  selectedUai,
-  onSelect,
-  onGoto,
-  theme,
-  styleUrl,
-}: InsetProps) {
-  const { territory: info, bounds } = territory
+function Inset({ item, selectedUai, onSelect, onGoto, theme, styleUrl }: InsetProps) {
+  const { label, bounds, rows, dense } = item
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const readyRef = useRef(false)
-  const rows = useMemo(
-    () => statuses.filter((s) => s.department && info.departments.includes(s.department)),
-    [statuses, info],
-  )
   const latest = useRef({ rows, selectedUai, onSelect, onGoto, bounds, theme })
   useEffect(() => {
     latest.current = { rows, selectedUai, onSelect, onGoto, bounds, theme }
   })
-  const boundsKey = bounds.join(',')
+  const boundsKey = `${bounds.join(',')}|${dense}`
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -150,7 +166,7 @@ function Inset({
         source: SOURCE_ID,
         paint: {
           'circle-color': STATUS_COLOR as never,
-          'circle-radius': 11,
+          'circle-radius': dense ? 6 : 11,
           'circle-blur': 1,
           'circle-opacity': ['match', ['get', 'status'], 'leve', 0.25, 0.7],
         },
@@ -161,9 +177,9 @@ function Inset({
         source: SOURCE_ID,
         paint: {
           'circle-color': STATUS_COLOR as never,
-          'circle-radius': 4,
+          'circle-radius': dense ? 2.2 : 4,
           'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 1,
+          'circle-stroke-width': dense ? 0.5 : 1,
         },
       })
       map.addLayer({
@@ -173,7 +189,7 @@ function Inset({
         filter: ['==', ['get', 'uai'], latest.current.selectedUai ?? ''],
         paint: {
           'circle-color': 'rgba(0,0,0,0)',
-          'circle-radius': 9,
+          'circle-radius': dense ? 6 : 9,
           'circle-stroke-color': MAP_BASES[latest.current.theme].selection,
           'circle-stroke-width': 2.5,
         },
@@ -223,7 +239,7 @@ function Inset({
   }, [selectedUai])
 
   const blocked = rows.filter((r) => r.status === 'bloque').length
-  const summary = `${info.label} : ${rows.length} établissement${rows.length > 1 ? 's' : ''}${blocked ? `, dont ${blocked} bloqué${blocked > 1 ? 's' : ''}` : ''}`
+  const summary = `${label} : ${rows.length} établissement${rows.length > 1 ? 's' : ''}${blocked ? `, dont ${blocked} bloqué${blocked > 1 ? 's' : ''}` : ''}`
 
   return (
     <li
@@ -231,7 +247,14 @@ function Inset({
       className="glass pointer-events-auto w-[84px] overflow-hidden rounded-lg border border-border shadow-xl md:w-28"
     >
       <div ref={containerRef} className="h-[52px] w-full md:h-[72px]" />
-      <p className="truncate px-1.5 py-0.5 text-[10px] leading-tight font-semibold">{info.label}</p>
+      <button
+        type="button"
+        onClick={() => onGoto(bounds)}
+        aria-label={`Afficher ${label} sur la carte`}
+        className="block w-full truncate px-1.5 py-0.5 text-left text-[10px] leading-tight font-semibold"
+      >
+        {label}
+      </button>
     </li>
   )
 }
