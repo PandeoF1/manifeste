@@ -14,7 +14,7 @@ The front end is deployed by Vercel's Git integration (not by these workflows): 
 1. **GitHub > Settings > Environments**: use `Preview` (for `develop`) and `Production` (for `main`).
    For `Production`, add "Required reviewers" if you want a manual approval before each deploy.
 2. In each environment:
-   - Variable `SUPABASE_PROJECT_REF`: the project ref (the part before `.supabase.co`).
+   - `SUPABASE_PROJECT_REF` (a secret or a variable, both work): the project ref (the part before `.supabase.co`).
    - Secret `SUPABASE_ACCESS_TOKEN`: a personal access token from
      <https://supabase.com/dashboard/account/tokens> (can be the same for both).
    - Secret `SUPABASE_DB_PASSWORD`: that project's database password.
@@ -25,7 +25,7 @@ The front end is deployed by Vercel's Git integration (not by these workflows): 
    `supabase secrets set`; the workflows never touch them. Leave the dev project without a Gemini
    key if you do not want the collector to run there.
 
-Until `SUPABASE_PROJECT_REF` exists in an environment, the deploy steps are skipped (the job still runs, empty).
+Until `SUPABASE_PROJECT_REF` exists in an environment, the deploy steps are skipped and the job prints a warning.
 
 ## Working on a feature
 
