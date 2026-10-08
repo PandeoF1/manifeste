@@ -34,18 +34,20 @@ const BURST_MS = 2 * PULSE_MS
 const CYCLE_MS = 8000
 
 /** Apparition d'un point (avec un léger rebond) et disparition : durées en ms. */
-const POP_MS = 450
-const DEPOP_MS = 280
+const POP_MS = 600
+const DEPOP_MS = 320
 /** Au-delà, un saut dans le temps : les points changent d'un coup, sans animation. */
-const MAX_ANIMATED = 60
+const MAX_ANIMATED = 150
 
 /** Échelle d'un point animé (feature-state « pop ») : 1 au repos, 0 invisible, un peu plus de 1 au rebond. */
 const POP: ExpressionSpecification = ['coalesce', ['feature-state', 'pop'], 1]
 const POP_ALPHA: ExpressionSpecification = ['min', 1, POP]
+const RING: ExpressionSpecification = ['coalesce', ['feature-state', 'ring'], 1]
 const scaled = (value: number): ExpressionSpecification => ['*', value, POP]
 
 const easeOutBack = (p: number) => 1 + 2.70158 * (p - 1) ** 3 + 1.70158 * (p - 1) ** 2
 const easeInCubic = (p: number) => p ** 3
+const easeOutCubic = (p: number) => 1 - (1 - p) ** 3
 
 interface Anim {
   start: number
@@ -286,6 +288,32 @@ export default function MapView({
         },
       })
 
+      // 3b. Onde d'apparition : un anneau qui part du point quand il arrive (invisible au repos).
+      map.addLayer({
+        id: 'spawn',
+        type: 'circle',
+        source: SOURCE_ID,
+        paint: {
+          'circle-color': 'rgba(0,0,0,0)',
+          'circle-stroke-color': STATUS_COLOR,
+          'circle-stroke-width': 2,
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            3,
+            ['+', 4, ['*', RING, 14]],
+            8,
+            ['+', 6, ['*', RING, 26]],
+            13,
+            ['+', 8, ['*', RING, 40]],
+          ],
+          'circle-stroke-opacity': ['*', 0.9, ['-', 1, RING]],
+          'circle-radius-transition': { duration: 0, delay: 0 },
+          'circle-stroke-opacity-transition': { duration: 0, delay: 0 },
+        },
+      })
+
       // 4. Repère de sélection.
       map.addLayer({
         id: 'selected',
@@ -397,9 +425,10 @@ export default function MapView({
       hasRecentRef.current = data.features.some((f) => f.properties?.recent === true)
       source()?.setData(data)
     }
-    const setPop = (uai: string, pop: number) => {
+    // `pop` : taille du point ; `ring` : avancement de l'onde d'apparition (1 = terminée, invisible).
+    const setPop = (uai: string, pop: number, ring = 1) => {
       a.touched.add(uai)
-      mapRef.current?.setFeatureState({ source: SOURCE_ID, id: uai }, { pop })
+      mapRef.current?.setFeatureState({ source: SOURCE_ID, id: uai }, { pop, ring })
     }
     // Fin ou annulation d'une animation : le point retrouve sa taille normale.
     const settle = (uai: string) => {
@@ -424,8 +453,8 @@ export default function MapView({
           }
           continue
         }
-        const pop = anim.out ? 1 - easeInCubic(p) : easeOutBack(p)
-        setPop(uai, pop)
+        if (anim.out) setPop(uai, 1 - easeInCubic(p))
+        else setPop(uai, easeOutBack(p), easeOutCubic(p))
       }
       if (gone) render()
       a.raf = a.anims.size > 0 ? requestAnimationFrame(tick) : 0
@@ -446,7 +475,7 @@ export default function MapView({
       settle(uai)
       if (animate) {
         // Départ à zéro avant que le point n'entre dans la source : pas d'image à pleine taille.
-        setPop(uai, 0)
+        setPop(uai, 0, 0)
         a.anims.set(uai, { start: now, out: false })
       }
     }
