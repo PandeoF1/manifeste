@@ -120,10 +120,29 @@ describe('resolveObservedAt', () => {
       '2026-10-04T05:00:00.000Z',
     )
   })
-  it('retombe sur la publication si absente, invalide, future ou trop ancienne', () => {
-    for (const v of [null, 'demain', '2026-10-04T13:00:00Z', '2026-09-01T10:00:00Z']) {
+  it('retombe sur la publication si absente, invalide, trop ancienne ou trop lointaine', () => {
+    for (const v of [null, 'demain', '2026-09-01T10:00:00Z', '2026-10-09T10:00:00Z']) {
       expect(resolveObservedAt(v, published)).toEqual(published)
     }
+  })
+  it('refuse une heure à venir le même jour (rien d’annoncé pour un autre jour)', () => {
+    expect(resolveObservedAt('2026-10-04T13:00:00Z', published)).toEqual(published)
+  })
+  it('garde le jour annoncé pour un fait prévu un autre jour', () => {
+    const sundayEvening = new Date('2026-10-04T17:06:00Z') // dimanche 19 h 06 à Paris
+    expect(resolveObservedAt('2026-10-05T09:30:00+02:00', sundayEvening).toISOString()).toBe(
+      '2026-10-05T07:30:00.000Z',
+    )
+  })
+  it('ramène un jour annoncé sans heure à 8 h à Paris', () => {
+    const sundayEvening = new Date('2026-10-04T17:06:00Z')
+    for (const v of ['2026-10-05', '2026-10-05T00:00:00', '2026-10-05T00:00:00+02:00']) {
+      expect(resolveObservedAt(v, sundayEvening).toISOString()).toBe('2026-10-05T06:00:00.000Z')
+    }
+  })
+  it('tient compte de l’heure d’hiver', () => {
+    const saturday = new Date('2026-12-05T12:00:00Z')
+    expect(resolveObservedAt('2026-12-07', saturday).toISOString()).toBe('2026-12-07T07:00:00.000Z')
   })
 })
 
