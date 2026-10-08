@@ -276,7 +276,7 @@ function MapPage() {
             onViewChange={onViewChange}
             onSelect={onSelect}
             theme={theme}
-            raised={showTimeline}
+            overseas={!historyMode}
             datasetKey={historyMode ? 'historique' : period}
           />
         </Suspense>

@@ -69,8 +69,8 @@ interface Props {
   theme: Theme
   /** Change quand les données changent de nature (autre période, mode Historique) : pas d'animation à ce moment-là. */
   datasetKey?: string
-  /** Frise du mode Historique affichée en bas : les médaillons d'outre-mer se placent au-dessus. */
-  raised?: boolean
+  /** Médaillons d'outre-mer (désactivés en mode Historique : chacun est une carte de plus à redessiner). */
+  overseas?: boolean
 }
 
 function heatColor(theme: Theme): ExpressionSpecification {
@@ -154,7 +154,7 @@ export default function MapView({
   onViewChange,
   onSelect,
   theme,
-  raised = false,
+  overseas = true,
   datasetKey = '',
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -545,21 +545,22 @@ export default function MapView({
         role="region"
         aria-label="Carte des lycées et des facs concernés. Une liste textuelle est disponible à côté de la carte."
       />
-      <OverseasInsets
-        statuses={statuses}
-        selectedUai={selected?.uai}
-        onSelect={onSelect}
-        onGoto={(bounds) =>
-          mapRef.current?.fitBounds(bounds, {
-            padding: 40,
-            maxZoom: 10,
-            duration: prefersReducedMotion() ? 0 : 1200,
-          })
-        }
-        theme={theme}
-        styleUrl={STYLE_URL}
-        raised={raised}
-      />
+      {overseas && (
+        <OverseasInsets
+          statuses={statuses}
+          selectedUai={selected?.uai}
+          onSelect={onSelect}
+          onGoto={(bounds) =>
+            mapRef.current?.fitBounds(bounds, {
+              padding: 40,
+              maxZoom: 10,
+              duration: prefersReducedMotion() ? 0 : 1200,
+            })
+          }
+          theme={theme}
+          styleUrl={STYLE_URL}
+        />
+      )}
     </div>
   )
 }
