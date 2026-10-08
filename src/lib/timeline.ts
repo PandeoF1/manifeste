@@ -27,10 +27,10 @@ const eventSchema = z.object({
   s: z.enum(REPORT_STATUSES),
   /** Heure du fait, en millisecondes depuis 1970. */
   t: z.number(),
-  /** Clé de source (une source compte pour une, quel que soit le nombre d'articles). */
-  k: z.string(),
+  /** Clé de source (une source compte pour une, quel que soit le nombre d'articles). Absente pour un signalement sur place. */
+  k: z.string().nullable(),
 })
-const timelineSchema = z.object({ schools: z.array(schoolSchema), events: z.array(eventSchema) })
+const timelineSchema = z.object({ schools: z.array(z.unknown()), events: z.array(z.unknown()) })
 
 export type TimelineSchool = z.infer<typeof schoolSchema>
 export type TimelineEvent = z.infer<typeof eventSchema>
@@ -40,13 +40,23 @@ export interface TimelineData {
   events: TimelineEvent[]
 }
 
-/** Lecture stricte de la réponse de la base ; trie les événements au cas où. */
+/** Garde les lignes valides : une ligne abîmée ne doit pas faire disparaître toute la frise. */
+function keepValid<T>(schema: z.ZodType<T>, rows: unknown[]): T[] {
+  const out: T[] = []
+  for (const row of rows) {
+    const parsed = schema.safeParse(row)
+    if (parsed.success) out.push(parsed.data)
+  }
+  return out
+}
+
+/** Lecture de la réponse de la base (forme générale stricte, lignes tolérantes) ; trie les événements. */
 export function parseTimeline(raw: unknown): TimelineData {
   const data = timelineSchema.parse(raw)
-  const events = data.events.every((e, i) => i === 0 || (data.events[i - 1]?.t ?? 0) <= e.t)
-    ? data.events
-    : [...data.events].sort((a, b) => a.t - b.t)
-  return { schools: data.schools, events }
+  const schools = keepValid(schoolSchema, data.schools)
+  const events = keepValid(eventSchema, data.events)
+  const sorted = events.every((e, i) => i === 0 || (events[i - 1]?.t ?? 0) <= e.t)
+  return { schools, events: sorted ? events : events.sort((a, b) => a.t - b.t) }
 }
 
 const HOUR = 3_600_000
@@ -81,7 +91,7 @@ export function statusesAt(data: TimelineData, at: number, hours: number): Schoo
     latest.set(e.u, { status: e.s, t: e.t })
     let set = sources.get(e.u)
     if (!set) sources.set(e.u, (set = new Set()))
-    set.add(e.k)
+    if (e.k !== null) set.add(e.k)
   }
   const byUai = new Map(data.schools.map((s) => [s.uai, s]))
   const out: SchoolStatus[] = []
@@ -99,7 +109,7 @@ export function statusesAt(data: TimelineData, at: number, hours: number): Schoo
       level: school.level,
       status: last.status,
       last_signal_at: new Date(last.t).toISOString(),
-      source_count: sources.get(uai)?.size ?? 1,
+      source_count: sources.get(uai)?.size ?? 0,
     })
   }
   return out.sort((a, b) => b.last_signal_at.localeCompare(a.last_signal_at))

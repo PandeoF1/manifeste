@@ -98,10 +98,30 @@ describe('parseTimeline', () => {
     expect(parsed.events.map((e) => e.t)).toEqual([1000, 2000])
   })
 
-  it('refuse un statut inconnu', () => {
-    expect(() =>
-      parseTimeline({ schools: [], events: [{ u: 'A', s: 'autre', t: 1, k: 'k' }] }),
-    ).toThrow()
+  it('ignore les lignes invalides sans perdre les autres', () => {
+    const parsed = parseTimeline({
+      schools: [school('A'), { uai: 'B', name: null }],
+      events: [
+        { u: 'A', s: 'autre', t: 1, k: 'k' },
+        { u: 'A', s: 'bloque', t: 2, k: 'k' },
+      ],
+    })
+    expect(parsed.schools.map((s) => s.uai)).toEqual(['A'])
+    expect(parsed.events).toHaveLength(1)
+  })
+
+  it('accepte un signalement sans source (signalement sur place)', () => {
+    const parsed = parseTimeline({
+      schools: [school('A')],
+      events: [{ u: 'A', s: 'bloque', t: 1, k: null }],
+    })
+    expect(parsed.events).toHaveLength(1)
+    expect(statusesAt(parsed, 2, 5)[0]?.source_count).toBe(0)
+  })
+
+  it("refuse une réponse qui n'a pas la bonne forme", () => {
+    expect(() => parseTimeline([])).toThrow()
+    expect(() => parseTimeline({ schools: [] })).toThrow()
   })
 })
 
