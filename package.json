@@ -25,7 +25,8 @@
     "brand": "tsx scripts/generate-brand.ts",
     "backfill": "tsx scripts/backfill.ts",
     "eval:truncation": "tsx scripts/eval-truncation.ts",
-    "audit:reports": "tsx scripts/audit-reports.ts"
+    "audit:reports": "tsx scripts/audit-reports.ts",
+    "eval:prompt": "tsx scripts/eval-prompt.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

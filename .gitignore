@@ -10,6 +10,9 @@ supabase/.branches
 .env.backfill
 .eval-truncation-cache.json
 .audit-reports-cache.json
+.eval-prompt-cache.json
+eval-prompt-report.json
+audit-manuel*
 audit-report.json
 eval-truncation-report.json
 .env.outreach
