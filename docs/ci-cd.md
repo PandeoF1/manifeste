@@ -1,18 +1,18 @@
 # CI/CD
 
-| Event                     | What runs                                               | Database                                              |
-| ------------------------- | ------------------------------------------------------- | ----------------------------------------------------- |
-| Pull request (any branch) | CI: type-check, lint, unit tests, build, SQL tests      | none: migrations are replayed on a throwaway Postgres |
-| Push to `develop`         | CI, then deploy to the **development** Supabase project | `db push` + Edge Functions                            |
-| Push to `main`            | CI, then deploy to the **production** Supabase project  | `db push` + Edge Functions                            |
+| Event                     | What runs                                                                       | Database                                              |
+| ------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Pull request (any branch) | CI: type-check, lint, unit tests, build, SQL tests                              | none: migrations are replayed on a throwaway Postgres |
+| Push to `develop`         | CI, then deploy to the **Preview** environment (development Supabase project)   | `db push` + Edge Functions                            |
+| Push to `main`            | CI, then deploy to the **Production** environment (production Supabase project) | `db push` + Edge Functions                            |
 
 The front end is deployed by Vercel's Git integration (not by these workflows): `main` is production,
 `develop` is a preview deployment.
 
 ## One-time setup
 
-1. **GitHub > Settings > Environments**: create `development` and `production`.
-   For `production`, add "Required reviewers" if you want a manual approval before each deploy.
+1. **GitHub > Settings > Environments**: use `Preview` (for `develop`) and `Production` (for `main`).
+   For `Production`, add "Required reviewers" if you want a manual approval before each deploy.
 2. In each environment:
    - Variable `SUPABASE_PROJECT_REF`: the project ref (the part before `.supabase.co`).
    - Secret `SUPABASE_ACCESS_TOKEN`: a personal access token from

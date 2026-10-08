@@ -1,6 +1,6 @@
 name: Deploy
 
-# develop -> the "development" environment, main -> the "production" environment.
+# develop -> the "Preview" environment (dev project), main -> the "Production" environment.
 # Each GitHub environment holds its own SUPABASE_PROJECT_REF variable; see docs/ci-cd.md.
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
   supabase:
     needs: checks
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    environment: ${{ github.ref_name == 'main' && 'Production' || 'Preview' }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
