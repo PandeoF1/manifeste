@@ -134,7 +134,7 @@ export async function generateJson(
         const status = e instanceof GeminiError ? e.status : 0
         const message = e instanceof Error ? e.message : String(e)
         // Ce modèle refuse le réglage de réflexion : on réessaie sans, une seule fois.
-        if (status === 400 && /thinking/i.test(message) && config.thinkingBudget !== undefined) {
+        if (status === 400 && config.thinkingBudget !== undefined) {
           config = { ...config, thinkingBudget: undefined }
           attempt--
           continue

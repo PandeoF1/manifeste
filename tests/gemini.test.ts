@@ -125,11 +125,11 @@ describe('createExtractor : modèle « collant »', () => {
     )
   })
 
-  it('coupe la réflexion quand un budget est demandé, et réessaie sans si le modèle la refuse', async () => {
+  it('coupe la réflexion quand un budget est demandé, et réessaie sans sur toute erreur 400', async () => {
     const bodies: string[] = []
     const responses = [
       Response.json(
-        { error: { code: 400, message: 'Thinking budget is not supported for this model.' } },
+        { error: { code: 400, message: 'Request contains an invalid argument.' } },
         { status: 400 },
       ),
       ok(),
