@@ -66,7 +66,18 @@ insert into t select 'track_visit : robots ignorés',
   (select count(*) from public.analytics_visitors where day = current_date) = 1;
 insert into t select 'anon ne lit pas l IP de la requête',
   not has_function_privilege('anon', 'public.request_ip()', 'execute');
-insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 17;
+-- Courbes : pas de p75 sous 3 mesures dans le créneau (LCP : 2 mesures plus haut => null).
+insert into public.analytics_vitals (at, page, metric, value)
+  select date_trunc('hour', now()) - interval '2 hours' + interval '1 minute' * g, 'carte', 'API', 400
+  from generate_series(1, 4) g;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"app_metadata":{"role":"admin"}}', true);
+create temp table series_out on commit drop as select public.admin_analytics_series('24h') as j;
+reset role;
+insert into t select 'série : p75 absent sous 3 mesures, présent au-dessus',
+  exists (select 1 from series_out, jsonb_array_elements(j->'points') p where p->>'api' is not null)
+  and not exists (select 1 from series_out, jsonb_array_elements(j->'points') p where p->>'lcp' is not null);
+insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 18;
 
 select name, ok from t;
 do $$ declare f text; begin

@@ -70,6 +70,7 @@ Detailed notes are in French:
 
 - [docs/architecture.fr.md](docs/architecture.fr.md): collection pipeline, on-site reports, data
   imports, adding sources, tests.
+- [docs/ci-cd.md](docs/ci-cd.md): branches, pipelines and one-time setup for the automatic deploys.
 - [docs/deploiement.fr.md](docs/deploiement.fr.md): step-by-step deployment (Supabase, Vercel,
   Cloudflare Turnstile, Gemini).
 
