@@ -1,21 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { CONFIRMED_MIN_SOURCES, sourceConfidence } from '@/lib/confidence'
+import { sourceCount } from '@/lib/confidence'
 
-describe('sourceConfidence', () => {
-  it('confirme à partir de deux sources', () => {
-    expect(sourceConfidence(2)).toMatchObject({
-      level: 'confirme',
-      label: 'Confirmé par 2 sources',
-    })
-    expect(sourceConfidence(7).label).toBe('Confirmé par 7 sources')
-    expect(CONFIRMED_MIN_SOURCES).toBe(2)
-  })
-  it('une source reste une source unique, jamais « confirmée »', () => {
-    expect(sourceConfidence(1)).toMatchObject({ level: 'unique', label: 'Source unique' })
+describe('sourceCount', () => {
+  it('affiche le nombre de sources sans jamais écrire « confirmé »', () => {
+    expect(sourceCount(3)).toMatchObject({ level: 'plusieurs', label: '3 sources' })
+    expect(sourceCount(1)).toMatchObject({ level: 'unique', label: '1 source' })
+    for (const n of [0, 1, 2, 9]) {
+      expect(sourceCount(n).label.toLowerCase()).not.toContain('confirm')
+      expect(sourceCount(n).detail.toLowerCase()).not.toContain('confirmé')
+    }
   })
   it('sans source ou valeur invalide : inconnu', () => {
     for (const v of [0, -3, null, undefined, Number.NaN]) {
-      expect(sourceConfidence(v).level).toBe('inconnu')
+      expect(sourceCount(v).level).toBe('inconnu')
     }
   })
 })

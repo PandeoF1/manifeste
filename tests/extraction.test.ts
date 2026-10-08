@@ -259,3 +259,16 @@ describe('préréglages de sources', () => {
     expect(keys.size).toBe(SOURCE_PRESETS.length)
   })
 })
+
+describe('systemPrompt', () => {
+  it('la règle stricte est absente par défaut et insérée après la règle sur les appels', async () => {
+    const { systemPrompt, SYSTEM_PROMPT, STRICT_RULE } =
+      await import('../supabase/functions/_shared/extraction.ts')
+    expect(systemPrompt()).toBe(SYSTEM_PROMPT)
+    expect(SYSTEM_PROMPT).not.toContain(STRICT_RULE)
+    const strict = systemPrompt(true)
+    expect(strict).toContain(STRICT_RULE)
+    expect(strict.indexOf(STRICT_RULE)).toBeGreaterThan(strict.indexOf('Un appel ou un projet'))
+    expect(strict.length).toBeGreaterThan(SYSTEM_PROMPT.length)
+  })
+})

@@ -10,7 +10,6 @@ import { periodStatusesQuery, statusesQuery, type SchoolStatus } from '@/queries
 import { settingsQuery } from '@/queries/settings'
 import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib/periods'
 import { PeriodPicker } from '@/components/status/PeriodPicker'
-import { CONFIRMED_MIN_SOURCES } from '@/lib/confidence'
 import { useNow } from '@/lib/useNow'
 
 const searchSchema = z.object({
@@ -19,8 +18,6 @@ const searchSchema = z.object({
   dep: z.string().max(3).optional().catch(undefined),
   statut: z.enum(REPORT_STATUSES).optional().catch(undefined),
   periode: z.enum(PERIODS).optional().catch(undefined),
-  // Présente = seulement les établissements rapportés par au moins deux sources.
-  confirme: z.literal(true).optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/liste')({
@@ -73,16 +70,13 @@ function ListPage() {
       .filter((s) => !search.statut || s.status === search.statut)
       .filter((s) => !search.academie || s.academy === search.academie)
       .filter((s) => !search.dep || s.department === search.dep)
-      .filter((s) => !search.confirme || s.source_count >= CONFIRMED_MIN_SOURCES)
       .filter((s) => !q || normalize(`${s.name} ${s.city}`).includes(q))
       .sort((a, b) => b.last_signal_at.localeCompare(a.last_signal_at))
   }, [statuses, search])
 
   const set = (patch: Partial<z.infer<typeof searchSchema>>) =>
     void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
-  const hasFilters = Boolean(
-    search.q || search.academie || search.dep || search.statut || search.confirme,
-  )
+  const hasFilters = Boolean(search.q || search.academie || search.dep || search.statut)
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4 pb-28 md:pb-8">
@@ -127,15 +121,6 @@ function ListPage() {
             </button>
           ))}
         </div>
-        <label className="flex min-h-11 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="size-4"
-            checked={search.confirme === true}
-            onChange={(e) => set({ confirme: e.target.checked ? true : undefined })}
-          />
-          Confirmés seulement (au moins {CONFIRMED_MIN_SOURCES} sources)
-        </label>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="field">
             Académie

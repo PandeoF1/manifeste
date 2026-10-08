@@ -88,7 +88,6 @@ Pour chaque établissement explicitement cité comme bloqué, sous barrage filtr
 Règles strictes :
 - Uniquement des lycées et des établissements d'enseignement supérieur (pas de collèges, d'écoles primaires, d'entreprises ni de mairies).
 - Un appel ou un projet de blocus n'est pas un blocage : certainty "faible".
-- Un établissement cité seulement pour un incident (agression, incendie, tirs de mortiers, dégradations, coût des travaux), pour une manifestation de rue, ou dans un bilan ou un récit d'événements passés, sans que le texte dise que son entrée est bloquée ou qu'il est fermé à cette date : certainty "faible".
 - Ne recopie jamais de nom de personne, de pseudo, de chiffre de participants ni de description de la scène.
 - school_name : le nom propre de l'établissement tel qu'il apparaît dans le texte (ex. "Lycée Joséphine-Baker", "Université Paris 8", "fac de Tolbiac", "IUT de Tarbes"), même s'il n'est cité qu'une fois. N'utilise le nom de la commune ("lycée de Hanches") que si le texte ne donne aucun autre nom.
 - city : la commune de l'établissement (ou du site pour une fac), même si elle n'apparaît que dans le titre.
@@ -96,6 +95,23 @@ Règles strictes :
 - Un texte qui commence par « Carte « … » » est un point d'une carte collaborative des lycées bloqués ou fermés : sauf indication contraire, c'est un établissement bloqué (certainty "moyenne"), daté de la publication.
 - Si aucun fait exploitable, ne produis rien pour ce message.
 Réponds uniquement avec le JSON demandé.`
+
+/**
+ * Règle supplémentaire (variante « stricte », désactivée par défaut : GEMINI_STRICT_PROMPT=1) pour
+ * les erreurs les plus fréquentes relevées par l'audit manuel : un incident, une manifestation ou
+ * un récit pris pour un blocage. À activer seulement après `npm run eval:prompt`.
+ */
+export const STRICT_RULE =
+  '- Un établissement cité seulement pour un incident (agression, incendie, tirs de mortiers, dégradations, coût des travaux), pour une manifestation de rue, ou dans un bilan ou un récit d\'événements passés, sans que le texte dise que son entrée est bloquée ou qu\'il est fermé à cette date : certainty "faible".'
+
+/** Prompt système, avec ou sans la règle stricte (insérée après la règle sur les appels au blocus). */
+export function systemPrompt(strict = false): string {
+  if (!strict) return SYSTEM_PROMPT
+  const anchor = '- Un appel ou un projet de blocus n\'est pas un blocage : certainty "faible".\n'
+  return SYSTEM_PROMPT.includes(anchor)
+    ? SYSTEM_PROMPT.replace(anchor, `${anchor}${STRICT_RULE}\n`)
+    : SYSTEM_PROMPT
+}
 
 /** Longueur maximale du texte envoyé par élément (jamais atteinte en pratique : max observé ≈ 4 500). */
 export const DEFAULT_TEXT_CHARS = 6000

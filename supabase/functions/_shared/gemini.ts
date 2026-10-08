@@ -1,6 +1,6 @@
 import {
   GEMINI_RESPONSE_SCHEMA,
-  SYSTEM_PROMPT,
+  systemPrompt,
   buildUserPrompt,
   parseExtraction,
   type ExtractedEvent,
@@ -44,6 +44,8 @@ export interface GeminiConfig {
    * DEFAULT_TEXT_CHARS. À baisser seulement après `npm run eval:truncation`.
    */
   textChars?: number
+  /** Variante stricte du prompt d'extraction (voir STRICT_RULE). Absent : prompt de base. */
+  strictPrompt?: boolean
   /** Nouvelles tentatives par modèle sur erreur temporaire (défaut 1). */
   retriesPerModel?: number
   /** Attente avant nouvelle tentative (injectable pour les tests). */
@@ -283,9 +285,10 @@ export function createGeminiClient(config: GeminiConfig) {
 export function extractionRequest(
   batch: ReadonlyArray<{ id: string; item: ScrapedItem }>,
   textChars?: number,
+  strictPrompt = false,
 ): JsonRequest {
   return {
-    system: SYSTEM_PROMPT,
+    system: systemPrompt(strictPrompt),
     user: buildUserPrompt(batch, textChars),
     schema: GEMINI_RESPONSE_SCHEMA,
   }
@@ -297,7 +300,10 @@ export async function extractEvents(
   batch: ReadonlyArray<{ id: string; item: ScrapedItem }>,
 ): Promise<ExtractedEvent[]> {
   if (batch.length === 0) return []
-  const { json } = await generateJson(config, extractionRequest(batch, config.textChars))
+  const { json } = await generateJson(
+    config,
+    extractionRequest(batch, config.textChars, config.strictPrompt),
+  )
   return parseExtraction(json, new Set(batch.map((b) => b.id)))
 }
 
