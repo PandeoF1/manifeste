@@ -13,7 +13,7 @@ insert into public.reports (school_uai, status, source_type, source_url, source_
   ('0910001A', 'bloque', 'presse', 'https://presse.example/a', 'presse.example', 'validated', now() - interval '2 hours'),
   ('0910001A', 'bloque', 'collecteur', 'https://t.me/c/1', 't.me', 'validated', now() - interval '3 hours'),
   ('0910002B', 'filtrant', 'utilisateur', 'https://secret.example/prive', 'secret.example', 'validated', now() - interval '1 hour'),
-  ('0910003C', 'bloque', 'presse', 'https://presse.example/b', 'presse.example', 'validated', now() - interval '3 days'),
+  ('0910003C', 'bloque', 'presse', 'https://presse.example/b', 'presse.example', 'validated', now() - interval '4 days'),
   ('0910002B', 'bloque', 'presse', 'https://presse.example/c', 'presse.example', 'pending', now() - interval '1 hour');
 insert into public.reports (school_uai, status, source_type, source_url, source_domain, moderation, hidden, observed_at)
 values ('0910002B', 'bloque', 'presse', 'https://presse.example/masque', 'presse.example', 'validated', true, now() - interval '1 hour');
@@ -31,6 +31,7 @@ insert into t select 'résumé : 3 établissements, 2 départements (en attente 
 insert into t select 'résumé : une fac comptée', (select (j->>'facs')::int = 1 from resume);
 insert into t select 'résumé : origines détaillées',
   (select jsonb_array_length(j->'origines') = 3 from resume);
+-- Écart de 4 jours (et non 3) : près de minuit à Paris, un signalement vieux de 3 jours tombe sur le jour suivant.
 insert into t select 'jours : les jours sans signalement sont présents (4 jours, 0 au milieu)',
   (select jsonb_array_length(j) >= 4 from jours)
   and (select bool_or((p->>'etablissements')::int = 0) from jours, jsonb_array_elements(j) p);

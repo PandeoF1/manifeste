@@ -5,6 +5,7 @@ import { ExternalLink, Map as MapIcon, Megaphone } from 'lucide-react'
 import { formatRelative } from '@shared/status.ts'
 import { ShareButton } from '@/components/ShareButton'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { SourceConfidence } from '@/components/status/SourceConfidence'
 import { useReportsRealtime } from '@/lib/realtime'
 import { useNow } from '@/lib/useNow'
 import { publicPhotoUrl } from '@/lib/photoUrl'
@@ -107,10 +108,12 @@ function SchoolPage() {
             <p className="text-2xl">
               <StatusBadge status={current.status} />
             </p>
-            <p className="text-sm text-muted">
-              Dernier signal {formatRelative(new Date(current.last_signal_at), now)} (
-              {timeFmt.format(new Date(current.last_signal_at))}) · {current.source_count}{' '}
-              {current.source_count > 1 ? 'sources' : 'source'}
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+              <span>
+                Dernier signal {formatRelative(new Date(current.last_signal_at), now)} (
+                {timeFmt.format(new Date(current.last_signal_at))})
+              </span>
+              <SourceConfidence count={current.source_count} />
             </p>
           </>
         ) : (

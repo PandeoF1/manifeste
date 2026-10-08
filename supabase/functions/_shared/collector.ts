@@ -4,8 +4,9 @@ import { enrichItems } from './enrich.ts'
 import {
   isRelevant,
   meetsCertainty,
-  resolveObservedAt,
+  resolveObservation,
   type Certainty,
+  type DateBasis,
   type ExtractedEvent,
 } from './extraction.ts'
 import { fetchSource, type FetchLike, type ScrapedItem } from './fetchers/index.ts'
@@ -38,6 +39,10 @@ export interface NewReport {
   source_id: string
   certainty: Certainty
   observed_at: string
+  /** Traçabilité de la date (voir la migration report_date_trace). */
+  published_at: string
+  extracted_observed_at: string | null
+  date_basis: DateBasis
 }
 
 export interface NewUnmatched {
@@ -417,7 +422,8 @@ async function handleEvent(
     r.low_certainty++
     return { outcome: 'certitude_faible', detail: `certitude ${event.certainty}` }
   }
-  const observedAt = resolveObservedAt(event.observed_at, item.publishedAt).toISOString()
+  const observation = resolveObservation(event.observed_at, item.publishedAt)
+  const observedAt = observation.at.toISOString()
   let uai: string | null = null
   if (item.geo) {
     // Point d'une carte : la position désigne le lycée bien mieux qu'un nom approximatif.
@@ -460,6 +466,9 @@ async function handleEvent(
     source_id: source.id,
     certainty: event.certainty,
     observed_at: observedAt,
+    published_at: item.publishedAt.toISOString(),
+    extracted_observed_at: event.observed_at,
+    date_basis: observation.basis,
   })
   if (outcome === 'inserted') r.reports++
   else r.duplicates++

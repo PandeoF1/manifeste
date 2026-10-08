@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
 import { z } from 'zod'
 import { REPORT_STATUSES, STATUS_LABELS, formatRelative } from '@shared/status.ts'
+import { SourceConfidenceInline } from '@/components/status/SourceConfidence'
 import { StatusIcon } from '@/components/status/StatusIcon'
 import { periodStatusesQuery, statusesQuery, type SchoolStatus } from '@/queries/statuses'
 import { settingsQuery } from '@/queries/settings'
@@ -211,6 +212,7 @@ function ListPage() {
                 <time dateTime={s.last_signal_at} className="block text-muted">
                   {formatRelative(new Date(s.last_signal_at), now)}
                 </time>
+                <SourceConfidenceInline count={s.source_count} />
                 {s.signal_days != null && s.signal_days > 1 && (
                   <span className="block text-muted">{s.signal_days} jours mobilisé</span>
                 )}

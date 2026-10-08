@@ -131,7 +131,9 @@ Deno.serve(async (req) => {
         },
       }))
       const events = parseExtraction(
-        await client.generate(extractionRequest(batch)),
+        await client.generate(
+          extractionRequest(batch, undefined, Deno.env.get('GEMINI_STRICT_PROMPT') === '1'),
+        ),
         new Set(vague.map((r) => r.id)),
       )
       for (const row of vague) {

@@ -63,6 +63,8 @@ const THINKING_BUDGET = thinkingBudgetFromEnv(Deno.env.get('GEMINI_THINKING_BUDG
 const MEDIA_THINKING_BUDGET = thinkingBudgetFromEnv(Deno.env.get('MEDIA_THINKING_BUDGET'), 0)
 /** Longueur maximale du texte envoyé par élément à l'extraction (défaut : 6000). */
 const TEXT_CHARS = textCharsFromEnv(Deno.env.get('EXTRACTION_TEXT_CHARS'))
+/** Variante stricte du prompt (incidents, manifestations et récits = certitude faible). */
+const STRICT_PROMPT = Deno.env.get('GEMINI_STRICT_PROMPT') === '1'
 const MIN_CERTAINTY_RAW = Deno.env.get('COLLECT_MIN_CERTAINTY') ?? 'moyenne'
 const MIN_CERTAINTY: Certainty = (CERTAINTIES as readonly string[]).includes(MIN_CERTAINTY_RAW)
   ? (MIN_CERTAINTY_RAW as Certainty)
@@ -140,6 +142,7 @@ async function analyze(
     models: GEMINI_MODELS,
     thinkingBudget: THINKING_BUDGET,
     textChars: TEXT_CHARS,
+    strictPrompt: STRICT_PROMPT,
     fetchFn: ctx.fetchFor('collecteur'),
   })
   await analyzePending(pending, results, {

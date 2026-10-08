@@ -4,6 +4,7 @@ import { X, ExternalLink, FileText, Megaphone } from 'lucide-react'
 import { ShareButton } from '@/components/ShareButton'
 import { formatRelative } from '@shared/status.ts'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { SourceConfidence } from '@/components/status/SourceConfidence'
 import { schoolReportsQuery, type SchoolStatus } from '@/queries/statuses'
 import { publicPhotoUrl } from '@/lib/photoUrl'
 
@@ -49,9 +50,9 @@ export function SchoolPanel({ school, onClose }: { school: SchoolStatus; onClose
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         <StatusBadge status={school.status} />
         <span className="text-sm text-muted">
-          dernier signal à {timeFmt.format(last)} ({formatRelative(last)}) · {school.source_count}{' '}
-          {school.source_count > 1 ? 'sources' : 'source'}
+          dernier signal à {timeFmt.format(last)} ({formatRelative(last)})
         </span>
+        <SourceConfidence count={school.source_count} />
       </div>
 
       <h3 className="mt-4 text-sm font-semibold">Sources (24 h)</h3>
