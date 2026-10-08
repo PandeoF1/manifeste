@@ -338,6 +338,10 @@ export type Database = {
         Args: { p_view: string }
         Returns: Json
       }
+      timeline_events: {
+        Args: { p_since: string }
+        Returns: Json
+      }
       school_status_since: {
         Args: { p_since: string }
         Returns: {

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
@@ -7,15 +7,34 @@ import type { MapViewState } from '@/components/map/MapView'
 import { LiveFeed } from '@/components/map/LiveFeed'
 import { NewSignalToasts } from '@/components/map/NewSignalToasts'
 import { SchoolPanel } from '@/components/map/SchoolPanel'
+import { Timeline } from '@/components/map/Timeline'
 import { HeroStats, Legend } from '@/components/status/HeroStats'
 import { ShareButton } from '@/components/ShareButton'
-import { computeStats, periodStatusesQuery, statusesQuery } from '@/queries/statuses'
+import {
+  computeStats,
+  periodStatusesQuery,
+  statusesQuery,
+  type SchoolStatus,
+} from '@/queries/statuses'
+import { timelineQuery } from '@/queries/timeline'
 import { settingsQuery } from '@/queries/settings'
 import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib/periods'
 import { PeriodPicker } from '@/components/status/PeriodPicker'
 import { useReportsRealtime } from '@/lib/realtime'
 import { useTheme } from '@/lib/theme'
 import { usePanelHidden } from '@/lib/uiPrefs'
+import { debounce } from '@/lib/debounce'
+import { useNow } from '@/lib/useNow'
+import { useMediaQuery } from '@/lib/useMediaQuery'
+import {
+  DEFAULT_TIMELINE_RANGE,
+  TIMELINE_RANGES,
+  fmtMomentShort,
+  hourChoices,
+  rangeStart,
+  statusesAt,
+  type TimelineRange,
+} from '@/lib/timeline'
 
 // MapLibre (~800 ko) est chargé à part : les chiffres et la liste s'affichent avant la carte.
 const MapView = lazy(() => import('@/components/map/MapView'))
@@ -35,9 +54,19 @@ const searchSchema = z.object({
     .regex(/^[0-9]{7}[A-Z]$/)
     .optional()
     .catch(undefined),
-  // Absente = direct (URL partagée par défaut inchangée).
-  periode: z.enum(PERIODS).optional().catch(undefined),
+  // Absente = direct (URL partagée par défaut inchangée). « historique » : la frise pour rejouer
+  // la carte, avec l'instant (t, millisecondes ; absent = maintenant), la durée d'un signalement
+  // (h, heures ; absente = réglage du site) et la période de la frise (r ; absente = 24 h).
+  periode: z
+    .enum([...PERIODS, 'historique'])
+    .optional()
+    .catch(undefined),
+  t: z.number().int().optional().catch(undefined),
+  h: z.number().int().min(1).max(168).optional().catch(undefined),
+  r: z.enum(TIMELINE_RANGES).optional().catch(undefined),
 })
+
+const NONE: ReadonlyArray<SchoolStatus> = []
 
 export const Route = createFileRoute('/')({
   validateSearch: searchSchema,
@@ -55,7 +84,10 @@ function MapPage() {
   const theme = useTheme()
   const [sideHidden, toggleSide] = usePanelHidden('side')
   const [statsHidden, toggleStats] = usePanelHidden('stats')
-  const period: Period = search.periode ?? 'direct'
+  const historyMode = search.periode === 'historique'
+  const period: Period =
+    search.periode === undefined || search.periode === 'historique' ? 'direct' : search.periode
+  const isPhone = useMediaQuery('(max-width: 767px)')
   const { data: settings = DEFAULT_SETTINGS } = useQuery(settingsQuery)
   const {
     data: statuses = [],
@@ -67,23 +99,91 @@ function MapPage() {
   // (changer de période ferait sinon apparaître de faux nouveaux lycées).
   const { data: live = [] } = useQuery(statusesQuery)
   useReportsRealtime()
-  const history = period === 'direct' ? undefined : periodDescription(period, settings)
+
+  // Mode Historique : instant affiché (null = maintenant), période de la frise, durée d'un signal.
+  const to = useNow(60_000).getTime()
+  const range: TimelineRange = search.r ?? DEFAULT_TIMELINE_RANGE
+  const hours = search.h ?? settings.statusTtlHours
+  const from = rangeStart(range, settings, to)
+  const [atState, setAtState] = useState<number | null>(search.t ?? null)
+  const at = atState === null ? to : Math.min(to, Math.max(from, atState))
+  const timeline = useQuery({ ...timelineQuery(settings), enabled: historyMode })
+  const replayed = useMemo(
+    () => (historyMode && timeline.data ? statusesAt(timeline.data, at, hours) : undefined),
+    [historyMode, timeline.data, at, hours],
+  )
+  const shown = historyMode ? (replayed ?? NONE) : statuses
+  const loading = historyMode ? timeline.isPending : isPending
+
+  const history = historyMode
+    ? `dans les ${hours} h avant le ${fmtMomentShort(at)}`
+    : period === 'direct'
+      ? undefined
+      : periodDescription(period, settings)
   const setPeriod = useCallback(
     (p: Period) => {
+      setAtState(null)
       void navigate({
-        search: (prev) => ({ ...prev, periode: p === 'direct' ? undefined : p }),
+        search: (prev) => ({
+          ...prev,
+          periode: p === 'direct' ? undefined : p,
+          t: undefined,
+          h: undefined,
+          r: undefined,
+        }),
         replace: true,
       })
     },
     [navigate],
   )
+  const openHistory = useCallback(() => {
+    void navigate({ search: (prev) => ({ ...prev, periode: 'historique' }), replace: true })
+  }, [navigate])
+  const patchHistory = useCallback(
+    (patch: { t?: number | undefined; h?: number | undefined; r?: TimelineRange | undefined }) => {
+      void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
+    },
+    [navigate],
+  )
+  // Pendant la lecture, la position change plusieurs fois par seconde : on n'écrit l'adresse
+  // qu'une fois le mouvement fini.
+  const commitAt = useMemo(
+    () => debounce((t: number | undefined) => patchHistory({ t }), 400),
+    [patchHistory],
+  )
+  useEffect(() => () => commitAt.cancel(), [commitAt])
+  const onAtChange = useCallback(
+    (ms: number, commit: boolean) => {
+      const atEnd = ms >= to - 60_000
+      setAtState(atEnd ? null : ms)
+      if (commit) commitAt(atEnd ? undefined : Math.round(ms))
+    },
+    [to, commitAt],
+  )
 
-  const stats = useMemo(() => computeStats(statuses), [statuses])
-  const shareUrl = period === 'direct' ? '/' : `/?periode=${period}`
+  const stats = useMemo(
+    () => computeStats(shown, historyMode ? at : to),
+    [shown, historyMode, at, to],
+  )
+  const historyParams = [
+    search.t !== undefined && `t=${search.t}`,
+    search.h !== undefined && `h=${search.h}`,
+    search.r !== undefined && `r=${search.r}`,
+  ].filter(Boolean)
+  const shareUrl = historyMode
+    ? `/?${['periode=historique', ...historyParams].join('&')}`
+    : period === 'direct'
+      ? '/'
+      : `/?periode=${period}`
   const shareText = history
     ? `${stats.bloque} établissements ont été bloqués ${history} en France.`
     : `${stats.bloque} établissements bloqués en ce moment en France.`
-  const selected = statuses.find((s) => s.uai === search.uai)
+  // En mode Historique, la fiche reste ouverte même si l'établissement n'a pas de signal à cet instant.
+  const selected =
+    shown.find((s) => s.uai === search.uai) ??
+    (historyMode ? statuses.find((s) => s.uai === search.uai) : undefined)
+  const showTimeline = historyMode && !(isPhone && selected)
+  const historyPicker = { active: historyMode, onSelect: openHistory }
 
   const [initialView] = useState<MapViewState>(() => {
     const d = defaultView()
@@ -121,7 +221,7 @@ function MapPage() {
             updatedAt={dataUpdatedAt}
             isError={isError}
             history={history}
-            picker={<PeriodPicker value={period} onChange={setPeriod} />}
+            picker={<PeriodPicker value={period} onChange={setPeriod} history={historyPicker} />}
           />
           <Legend />
           <ShareButton
@@ -135,10 +235,10 @@ function MapPage() {
           Derniers signaux
         </h2>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {isPending ? (
+          {loading ? (
             <FeedSkeleton />
           ) : (
-            <LiveFeed statuses={statuses} selectedUai={search.uai} onSelect={onSelect} />
+            <LiveFeed statuses={shown} selectedUai={search.uai} onSelect={onSelect} />
           )}
         </div>
       </aside>
@@ -160,12 +260,13 @@ function MapPage() {
         </button>
         <Suspense fallback={<div className="absolute inset-0 bg-bg" aria-busy="true" />}>
           <MapView
-            statuses={statuses}
+            statuses={shown}
             initialView={initialView}
             selected={selected}
             onViewChange={onViewChange}
             onSelect={onSelect}
             theme={theme}
+            raised={showTimeline}
           />
         </Suspense>
 
@@ -183,6 +284,7 @@ function MapPage() {
                   <PeriodPicker
                     value={period}
                     onChange={setPeriod}
+                    history={historyPicker}
                     className="pointer-events-auto my-1"
                   />
                 }
@@ -218,8 +320,34 @@ function MapPage() {
           />
         )}
 
-        {!isPending && statuses.length === 0 && (
-          <p className="glass absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm whitespace-nowrap shadow md:top-4 md:bottom-auto">
+        {showTimeline && (
+          <div className="absolute inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 md:inset-x-auto md:bottom-4 md:left-1/2 md:w-[min(56rem,calc(100%-6rem))] md:-translate-x-1/2">
+            <Timeline
+              data={timeline.data}
+              isPending={timeline.isPending}
+              isError={timeline.isError}
+              from={from}
+              to={to}
+              at={at}
+              onAtChange={onAtChange}
+              range={range}
+              onRangeChange={(r) =>
+                patchHistory({ r: r === DEFAULT_TIMELINE_RANGE ? undefined : r })
+              }
+              hours={hours}
+              hourOptions={hourChoices(settings.statusTtlHours)}
+              onHoursChange={(h) =>
+                patchHistory({ h: h === settings.statusTtlHours ? undefined : h })
+              }
+              onExit={() => setPeriod('direct')}
+            />
+          </div>
+        )}
+
+        {!loading && shown.length === 0 && (
+          <p
+            className={`glass pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm whitespace-nowrap shadow md:top-4 md:bottom-auto ${historyMode ? 'max-md:hidden' : 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]'}`}
+          >
             {history ? `Aucun blocus signalé ${history}` : 'Aucun blocus signalé pour le moment'}
           </p>
         )}

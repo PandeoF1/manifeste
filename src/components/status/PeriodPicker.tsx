@@ -1,13 +1,19 @@
+import { History } from 'lucide-react'
 import { PERIODS, PERIOD_SHORT_LABELS, type Period } from '@/lib/periods'
 
-/** Choix de la période : barre segmentée de boutons bascule. */
+/**
+ * Choix de la période : barre segmentée de boutons bascule. Avec `history`, un dernier bouton
+ * « Historique » ouvre la frise pour rejouer la carte ; il remplace alors le choix de période.
+ */
 export function PeriodPicker({
   value,
   onChange,
+  history,
   className = '',
 }: {
   value: Period
   onChange: (period: Period) => void
+  history?: { active: boolean; onSelect: () => void }
   className?: string
 }) {
   return (
@@ -17,14 +23,14 @@ export function PeriodPicker({
       className={`inline-flex rounded-full border border-border bg-bg/70 p-0.5 text-xs font-semibold ${className}`}
     >
       {PERIODS.map((p) => {
-        const active = p === value
+        const active = !history?.active && p === value
         return (
           <button
             key={p}
             type="button"
             aria-pressed={active}
             onClick={() => onChange(p)}
-            className={`min-h-8 rounded-full px-3 whitespace-nowrap transition-colors ${
+            className={`min-h-8 rounded-full whitespace-nowrap transition-colors ${history ? 'px-2.5' : 'px-3'} ${
               active ? 'bg-fg text-bg' : 'text-muted hover:text-fg'
             }`}
           >
@@ -38,6 +44,19 @@ export function PeriodPicker({
           </button>
         )
       })}
+      {history && (
+        <button
+          type="button"
+          aria-pressed={history.active}
+          onClick={history.onSelect}
+          className={`inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 whitespace-nowrap transition-colors ${
+            history.active ? 'bg-fg text-bg' : 'text-muted hover:text-fg'
+          }`}
+        >
+          <History size={13} aria-hidden="true" />
+          Historique
+        </button>
+      )}
     </div>
   )
 }
