@@ -88,6 +88,7 @@ Pour chaque établissement explicitement cité comme bloqué, sous barrage filtr
 Règles strictes :
 - Uniquement des lycées et des établissements d'enseignement supérieur (pas de collèges, d'écoles primaires, d'entreprises ni de mairies).
 - Un appel ou un projet de blocus n'est pas un blocage : certainty "faible".
+- Un établissement cité seulement pour un incident (agression, incendie, tirs de mortiers, dégradations, coût des travaux), pour une manifestation de rue, ou dans un bilan ou un récit d'événements passés, sans que le texte dise que son entrée est bloquée ou qu'il est fermé à cette date : certainty "faible".
 - Ne recopie jamais de nom de personne, de pseudo, de chiffre de participants ni de description de la scène.
 - school_name : le nom propre de l'établissement tel qu'il apparaît dans le texte (ex. "Lycée Joséphine-Baker", "Université Paris 8", "fac de Tolbiac", "IUT de Tarbes"), même s'il n'est cité qu'une fois. N'utilise le nom de la commune ("lycée de Hanches") que si le texte ne donne aucun autre nom.
 - city : la commune de l'établissement (ou du site pour une fac), même si elle n'apparaît que dans le titre.
