@@ -6,12 +6,28 @@ import type { ScrapedItem } from './fetchers/types.ts'
 export const CERTAINTIES = ['haute', 'moyenne', 'faible'] as const
 export type Certainty = (typeof CERTAINTIES)[number]
 
-/** Filtre lexical avant l'appel IA, pour ne pas payer l'extraction sur du hors-sujet. */
-const KEYWORDS =
-  /\b(lyc[ée]es?|lp|lgt|lpo|blocus|bloqu[ée]e?s?|bloquent|barrage|filtrant|piquet|mobilisation (lyc[ée]enne|[ée]tudiante))\b/i
+/**
+ * Filtre lexical avant l'appel IA, pour ne pas payer l'extraction sur du hors-sujet.
+ *
+ * Deux règles, l'une OU l'autre :
+ * - l'ancien filtre, conservé tel quel : aucun élément gardé jusqu'ici n'est perdu ;
+ * - un mot d'établissement (lycéens, cité scolaire, fac, campus, Sciences Po…) ET un mot de
+ *   blocage (blocage, fermé, occupé, évacué…). L'ancien filtre ratait « blocage » et « lycéens »,
+ *   donc « Le blocage de la cité scolaire de Saint-Nazaire » ou « Blocage de Sciences Po ».
+ * Le texte est comparé sans accents ni majuscules.
+ */
+const LEGACY_KEYWORDS =
+  /\b(lycees?|lp|lgt|lpo|blocus|bloquee?s?|bloquent|barrage|filtrant|piquet|mobilisation (lyceenne|etudiante))\b/
+const SCHOOL_WORDS =
+  /\b(lyceen(ne)?s?|lycees?|lp|lgt|lpo|fac|facultes?|universit\w*|campus|iut|sciences po|etudiant\w*|cite scolaire|inspe)\b/
+const BLOCKING_WORDS =
+  /(blocus|bloqu|blocage|barrage|filtrant|piquet|mobilis|occup|greve|ferme|evacu|manifest|sit-in|rassemblement|incendie|banderole|barricade)/
+
+const plain = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 
 export function isRelevant(text: string): boolean {
-  return KEYWORDS.test(text)
+  const t = plain(text)
+  return LEGACY_KEYWORDS.test(t) || (SCHOOL_WORDS.test(t) && BLOCKING_WORDS.test(t))
 }
 
 /** Événement tel que renvoyé par le modèle, validé strictement. */
