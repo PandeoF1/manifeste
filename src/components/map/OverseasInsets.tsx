@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Map as MapLibreMap, type GeoJSONSource, type MapLayerMouseEvent } from 'maplibre-gl'
 import type { FeatureCollection, Point } from 'geojson'
 import type { SchoolStatus } from '@/queries/statuses'
-import { activeTerritories, type ActiveTerritory } from '@/lib/overseas'
+import { activeTerritories, type ActiveTerritory, type Bbox } from '@/lib/overseas'
+import { usePanelHidden } from '@/lib/uiPrefs'
 import type { Theme } from '@/lib/theme'
 import { styleBase } from './baseStyle'
 import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
@@ -22,6 +24,8 @@ interface Props {
   statuses: ReadonlyArray<SchoolStatus>
   selectedUai: string | undefined
   onSelect: (uai: string) => void
+  /** Clic ailleurs que sur un point : la carte principale se place sur le territoire. */
+  onGoto: (bounds: Bbox) => void
   theme: Theme
   styleUrl: string
 }
@@ -41,26 +45,52 @@ function toGeoJSON(rows: ReadonlyArray<SchoolStatus>): FeatureCollection<Point> 
  * Médaillons des territoires d'outre-mer ayant au moins un point, par-dessus la vue nationale.
  * Chacun est une mini-carte fixe (même fond, mêmes couleurs) ; un point reste cliquable.
  */
-export function OverseasInsets({ statuses, selectedUai, onSelect, theme, styleUrl }: Props) {
+export function OverseasInsets({
+  statuses,
+  selectedUai,
+  onSelect,
+  onGoto,
+  theme,
+  styleUrl,
+}: Props) {
   const territories = useMemo(() => activeTerritories(statuses), [statuses])
+  const [hidden, toggle] = usePanelHidden('overseas')
   if (territories.length === 0) return null
   return (
-    <ul
-      aria-label="Outre-mer : établissements avec un signal"
-      className="pointer-events-none absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-2 z-[5] flex max-w-[calc(100%-1rem)] flex-wrap items-end gap-1.5 md:bottom-8 md:left-4"
-    >
-      {territories.map((t) => (
-        <Inset
-          key={t.territory.id}
-          territory={t}
-          statuses={statuses}
-          selectedUai={selectedUai}
-          onSelect={onSelect}
-          theme={theme}
-          styleUrl={styleUrl}
-        />
-      ))}
-    </ul>
+    <div className="pointer-events-none absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-2 z-[5] flex max-w-[calc(100%-1rem)] flex-col items-start gap-1.5 md:bottom-8 md:left-4">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={!hidden}
+        className="glass pointer-events-auto inline-flex h-7 items-center gap-1 rounded-full border border-border pr-2 pl-3 text-xs font-semibold shadow-xl"
+      >
+        Outre-mer
+        {hidden ? (
+          <ChevronUp size={14} aria-hidden="true" />
+        ) : (
+          <ChevronDown size={14} aria-hidden="true" />
+        )}
+      </button>
+      {!hidden && (
+        <ul
+          aria-label="Outre-mer : établissements avec un signal"
+          className="flex flex-wrap items-end gap-1.5"
+        >
+          {territories.map((t) => (
+            <Inset
+              key={t.territory.id}
+              territory={t}
+              statuses={statuses}
+              selectedUai={selectedUai}
+              onSelect={onSelect}
+              onGoto={onGoto}
+              theme={theme}
+              styleUrl={styleUrl}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -69,7 +99,15 @@ interface InsetProps extends Omit<Props, 'statuses'> {
   statuses: ReadonlyArray<SchoolStatus>
 }
 
-function Inset({ territory, statuses, selectedUai, onSelect, theme, styleUrl }: InsetProps) {
+function Inset({
+  territory,
+  statuses,
+  selectedUai,
+  onSelect,
+  onGoto,
+  theme,
+  styleUrl,
+}: InsetProps) {
   const { territory: info, bounds } = territory
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -78,9 +116,9 @@ function Inset({ territory, statuses, selectedUai, onSelect, theme, styleUrl }: 
     () => statuses.filter((s) => s.department && info.departments.includes(s.department)),
     [statuses, info],
   )
-  const latest = useRef({ rows, selectedUai, onSelect, theme })
+  const latest = useRef({ rows, selectedUai, onSelect, onGoto, bounds, theme })
   useEffect(() => {
-    latest.current = { rows, selectedUai, onSelect, theme }
+    latest.current = { rows, selectedUai, onSelect, onGoto, bounds, theme }
   })
   const boundsKey = bounds.join(',')
 
@@ -140,14 +178,18 @@ function Inset({ territory, statuses, selectedUai, onSelect, theme, styleUrl }: 
           'circle-stroke-width': 2.5,
         },
       })
+      // Clic sur un point : sélection ; ailleurs sur le médaillon : la carte principale s'y place.
+      map.on('click', (e: MapLayerMouseEvent) => {
+        const hit = map.queryRenderedFeatures(e.point, { layers: ['glow', 'core'] })[0]
+        const uai = hit?.properties?.uai
+        if (typeof uai === 'string') latest.current.onSelect(uai)
+        else latest.current.onGoto(latest.current.bounds)
+      })
       for (const layer of ['glow', 'core']) {
-        map.on('click', layer, (e: MapLayerMouseEvent) => {
-          const uai = e.features?.[0]?.properties?.uai
-          if (typeof uai === 'string') latest.current.onSelect(uai)
-        })
         map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
-        map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
+        map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = 'zoom-in'))
       }
+      map.getCanvas().style.cursor = 'zoom-in'
       styleBase(map, MAP_BASES[latest.current.theme])
       readyRef.current = true
     })

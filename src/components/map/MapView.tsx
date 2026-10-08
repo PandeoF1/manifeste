@@ -25,10 +25,6 @@ setWorkerUrl(workerUrl)
 const STYLE_URL =
   import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/positron'
 const SOURCE_ID = 'schools'
-const MAX_BOUNDS: [[number, number], [number, number]] = [
-  [-70, -25],
-  [60, 55],
-]
 /** Un signal de moins de 30 min « pulse » sur la carte. */
 const RECENT_MS = 30 * 60_000
 /** Durée d'une onde. */
@@ -153,7 +149,6 @@ export default function MapView({
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
-      maxBounds: MAX_BOUNDS,
     })
     mapRef.current = map
     map.touchZoomRotate.disableRotation()
@@ -317,7 +312,8 @@ export default function MapView({
 
     map.on('moveend', () => {
       setNational(map.getZoom() < NATIONAL_MAX_ZOOM)
-      const c = map.getCenter()
+      // Carte sans fin d'est en ouest : on ramène la longitude dans [-180, 180] pour l'adresse.
+      const c = map.getCenter().wrap()
       latest.current.onViewChange({
         lat: Math.round(c.lat * 1e4) / 1e4,
         lng: Math.round(c.lng * 1e4) / 1e4,
@@ -360,12 +356,9 @@ export default function MapView({
     const apply = () => {
       map.setFilter('selected', ['==', ['get', 'uai'], selected?.uai ?? ''])
       if (!selected) return
-      // Outre-mer : en vue nationale, le médaillon montre le point (le panneau s'ouvre) ; les
-      // territoires hors de la carte (Pacifique) ne sont de toute façon pas atteignables.
-      const overseas = territoryOf(selected.department)
-      const [[west], [east]] = MAX_BOUNDS
-      if (overseas && map.getZoom() < NATIONAL_MAX_ZOOM) return
-      if (selected.lng < west || selected.lng > east) return
+      // Outre-mer : en vue nationale, le médaillon montre le point (le panneau s'ouvre) sans
+      // déplacer la carte.
+      if (territoryOf(selected.department) && map.getZoom() < NATIONAL_MAX_ZOOM) return
       const inView = map.getBounds().contains([selected.lng, selected.lat])
       if (!inView || map.getZoom() < 8) {
         map.flyTo({
@@ -395,6 +388,13 @@ export default function MapView({
           statuses={statuses}
           selectedUai={selected?.uai}
           onSelect={onSelect}
+          onGoto={(bounds) =>
+            mapRef.current?.fitBounds(bounds, {
+              padding: 40,
+              maxZoom: 10,
+              duration: prefersReducedMotion() ? 0 : 1200,
+            })
+          }
           theme={theme}
           styleUrl={STYLE_URL}
         />
