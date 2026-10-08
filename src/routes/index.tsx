@@ -102,7 +102,8 @@ function MapPage() {
   return (
     <main className="flex min-h-0 flex-1">
       <h1 className="sr-only">
-        Carte des blocus de lycées et de facs en direct : les établissements bloqués en France
+        Map et carte des blocus de lycées et de facs en direct : les établissements bloqués en
+        France
       </h1>
 
       {/* Ordinateur : panneau latéral (chiffres + fil en direct). */}

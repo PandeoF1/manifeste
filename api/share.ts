@@ -28,9 +28,9 @@ interface Meta {
 
 export type Page = 'home' | 'liste' | 'lycee' | 'donnees'
 
-const SITE_TITLE = 'Carte des blocus de lycées et de facs en direct - Manifeste'
+const SITE_TITLE = 'Map des blocus : lycées et facs bloqués en direct - Manifeste'
 const SITE_DESCRIPTION =
-  "La carte en direct des lycées et des facs bloqués en France : chaque établissement mobilisé, sa ville, l'heure et la source de l'information. Mise à jour en continu."
+  "Map et carte des blocus en direct : les lycées, facs et écoles bloqués ou en barrage filtrant en France, avec la ville, l'heure et la source de chaque information. Mise à jour en continu."
 
 /** Établissements en cours, groupés par département (le plus mobilisé d'abord). */
 function schoolsHtml(schools: ActiveSchool[]): string {
@@ -110,11 +110,14 @@ async function buildMeta(origin: string, page: Page, uai: string | null): Promis
   const url =
     page === 'liste' ? `${origin}/liste` : page === 'donnees' ? `${origin}/donnees` : `${origin}/`
   const fallback: Meta = {
-    title: page === 'liste' ? 'Liste des lycées et facs bloqués en direct - Manifeste' : SITE_TITLE,
+    title:
+      page === 'liste'
+        ? 'Liste des blocus : lycées et facs bloqués en direct - Manifeste'
+        : SITE_TITLE,
     description: SITE_DESCRIPTION,
     image: `${origin}/api/og`,
     url,
-    body: `<main><h1>Carte des blocus de lycées et de facs en direct</h1><p>${escapeHtml(SITE_DESCRIPTION)}</p>${NAV}</main>`,
+    body: `<main><h1>Map et carte des blocus de lycées et de facs en direct</h1><p>${escapeHtml(SITE_DESCRIPTION)}</p>${NAV}</main>`,
   }
   try {
     if (page === 'donnees') return await donneesMeta(origin, fallback)
@@ -136,20 +139,28 @@ async function buildMeta(origin: string, page: Page, uai: string | null): Promis
     const h1 =
       page === 'liste'
         ? 'Liste des lycées et facs bloqués en direct'
-        : 'Carte des blocus de lycées et de facs en direct'
+        : 'Map et carte des blocus de lycées et de facs en direct'
     return {
       ...fallback,
       title:
         page === 'liste'
           ? `Liste des lycées et facs bloqués : ${plural(n.bloque, 'établissement', 'établissements')} en ce moment - Manifeste`
-          : `Carte des blocus de lycées et de facs : ${plural(n.bloque, 'établissement bloqué', 'établissements bloqués')} en direct - Manifeste`,
+          : `Map des blocus : ${plural(n.bloque, 'établissement bloqué', 'établissements bloqués')} en direct (lycées et facs) - Manifeste`,
       description: `En ce moment, ${counts}. La carte en direct des blocus de lycées et de facs en France, avec la source de chaque information.`,
       body: `<main><h1>${h1}</h1><p>En ce moment : ${escapeHtml(counts)}. Manifeste recense en direct les lycées et les facs bloqués partout en France, à partir de la presse, des réseaux et des signalements, avec la source de chaque information.</p>${NAV}<h2>Établissements bloqués et barrages filtrants en ce moment</h2>${schoolsHtml(schools)}</main>`,
       jsonLd: {
         '@context': 'https://schema.org',
         '@type': 'WebSite',
         name: 'Manifeste',
-        alternateName: 'Carte des blocus de lycées et de facs',
+        alternateName: [
+          'Carte des blocus de lycées et de facs',
+          'Map des blocus',
+          'Carte du blocus',
+          'Carte des lycées bloqués',
+          'Carte des facs bloquées',
+          'Blocage de lycée en direct',
+          'Blocus lycée en direct',
+        ],
         url: `${origin}/`,
         inLanguage: 'fr-FR',
         description: SITE_DESCRIPTION,

@@ -72,7 +72,7 @@ function SchoolPage() {
     if (!school) return
     document.title = `${school.name} (${school.city}) - Manifeste`
     return () => {
-      document.title = 'Carte des blocus de lycées et de facs en direct - Manifeste'
+      document.title = 'Map des blocus : lycées et facs bloqués en direct - Manifeste'
     }
   }, [school])
 
