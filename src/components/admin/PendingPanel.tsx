@@ -6,33 +6,44 @@ import { PhotoRedactor } from '@/components/report/PhotoRedactor'
 import { loadImage, toJpeg } from '@/lib/photo'
 import { queryKeys } from '@/lib/queryKeys'
 import {
+  approveAsModerator,
   moderate,
   originalPhotoUrl,
-  pendingQuery,
+  pendingQueryFor,
   type Decision,
   type PendingReport,
+  type StaffRole,
 } from '@/queries/admin'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
-export function PendingPanel() {
+/**
+ * File de modération. L'admin valide ou rejette ; le modérateur ne peut que valider (la base
+ * refuse tout le reste, ce mode sert seulement à ne pas proposer de boutons inutiles).
+ */
+export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
   const queryClient = useQueryClient()
-  const pending = useQuery(pendingQuery)
+  const moderator = role === 'moderator'
+  const pending = useQuery(pendingQueryFor(moderator))
+  const pendingKey = moderator ? queryKeys.admin.moderatorPending() : queryKeys.admin.pending()
   const [cursor, setCursor] = useState(0)
   const items = pending.data ?? []
   const current = items[Math.min(cursor, items.length - 1)]
 
   const decide = useMutation({
-    mutationFn: ({ report, decision }: { report: PendingReport; decision: Decision }) =>
-      moderate(report, decision),
+    mutationFn: ({ report, decision }: { report: PendingReport; decision: Decision }) => {
+      if (!moderator) return moderate(report, decision)
+      if (decision.kind === 'reject') throw new Error('Le rejet est réservé aux administrateurs.')
+      return approveAsModerator(report, decision.photo)
+    },
     onMutate: async ({ report }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.admin.pending() })
-      queryClient.setQueryData(queryKeys.admin.pending(), (old: PendingReport[] | undefined) =>
+      await queryClient.cancelQueries({ queryKey: pendingKey })
+      queryClient.setQueryData(pendingKey, (old: PendingReport[] | undefined) =>
         old?.filter((r) => r.id !== report.id),
       )
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.pending() })
+      void queryClient.invalidateQueries({ queryKey: pendingKey })
       void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
     },
   })
@@ -48,13 +59,14 @@ export function PendingPanel() {
       else if (e.key === 'k') setCursor((c) => Math.max(c - 1, 0))
       else if (!current || current.report_submissions?.photo_path) return
       else if (e.key === 'v') decide.mutate({ report: current, decision: { kind: 'validate' } })
-      else if (e.key === 'r') decide.mutate({ report: current, decision: { kind: 'reject' } })
+      else if (e.key === 'r' && !moderator)
+        decide.mutate({ report: current, decision: { kind: 'reject' } })
       else if (e.key === 'o' && current.source_url)
         window.open(current.source_url, '_blank', 'noopener,noreferrer')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [current, items.length, decide])
+  }, [current, items.length, decide, moderator])
 
   if (pending.isPending) return <div className="h-24 animate-pulse rounded-lg bg-surface" />
   if (pending.isError) return <p className="text-bloque">Erreur de chargement.</p>
@@ -63,9 +75,19 @@ export function PendingPanel() {
   return (
     <div>
       <p className="text-sm text-muted">
-        Raccourcis : <kbd>j</kbd>/<kbd>k</kbd> naviguer · <kbd>v</kbd> valider · <kbd>r</kbd>{' '}
-        rejeter · <kbd>o</kbd> ouvrir la source. Les signalements avec photo se valident à la main,
-        après floutage.
+        Raccourcis : <kbd>j</kbd>/<kbd>k</kbd> naviguer · <kbd>v</kbd> valider
+        {moderator ? (
+          ''
+        ) : (
+          <>
+            {' '}
+            · <kbd>r</kbd> rejeter
+          </>
+        )}{' '}
+        · <kbd>o</kbd> ouvrir la source. Les signalements avec photo se valident à la main, après
+        floutage.
+        {moderator &&
+          ' Tu peux valider ; un signalement à rejeter, laisse-le : un administrateur s’en charge.'}
       </p>
       {decide.error && (
         <p role="alert" className="mt-2 text-sm text-bloque">
@@ -133,14 +155,16 @@ export function PendingPanel() {
                     >
                       <Check size={20} />
                     </button>
-                    <button
-                      type="button"
-                      className="icon-btn text-bloque"
-                      aria-label="Rejeter"
-                      onClick={() => decide.mutate({ report: r, decision: { kind: 'reject' } })}
-                    >
-                      <X size={20} />
-                    </button>
+                    {!moderator && (
+                      <button
+                        type="button"
+                        className="icon-btn text-bloque"
+                        aria-label="Rejeter"
+                        onClick={() => decide.mutate({ report: r, decision: { kind: 'reject' } })}
+                      >
+                        <X size={20} />
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -148,6 +172,7 @@ export function PendingPanel() {
                 <PhotoReview
                   path={sub.photo_path}
                   busy={decide.isPending}
+                  canReject={!moderator}
                   onDecide={(decision) => decide.mutate({ report: r, decision })}
                 />
               )}
@@ -162,10 +187,12 @@ export function PendingPanel() {
 function PhotoReview({
   path,
   busy,
+  canReject,
   onDecide,
 }: {
   path: string
   busy: boolean
+  canReject: boolean
   onDecide: (d: Decision) => void
 }) {
   const original = useQuery({
@@ -207,18 +234,20 @@ function PhotoReview({
         >
           Valider sans publier la photo
         </button>
-        <button
-          type="button"
-          className="btn-secondary text-bloque"
-          disabled={busy}
-          onClick={() => onDecide({ kind: 'reject' })}
-        >
-          <X size={18} /> Rejeter
-        </button>
+        {canReject && (
+          <button
+            type="button"
+            className="btn-secondary text-bloque"
+            disabled={busy}
+            onClick={() => onDecide({ kind: 'reject' })}
+          >
+            <X size={18} /> Rejeter
+          </button>
+        )}
       </div>
       <p className="text-xs text-muted">
         Vérifie qu'aucun visage, plaque ou signe distinctif n'est reconnaissable. Dans tous les cas,
-        l'original est supprimé définitivement.
+        l'original est supprimé définitivement{canReject ? '' : ' (dans l’heure)'}.
       </p>
     </div>
   )

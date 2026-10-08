@@ -1,9 +1,9 @@
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
 import type { Tables } from '@/lib/database.types'
+export { isAdminSession, staffRole, type StaffRole } from '@/lib/staffRole'
 
 export type ScrapeSource = Tables<'scrape_sources'>
 export type TrustedDomain = Tables<'trusted_domains'>
@@ -11,14 +11,7 @@ export type Unmatched = Tables<'unmatched_extractions'>
 export type PendingReport = Tables<'reports'> & {
   schools: { name: string; city: string } | null
   scrape_sources: { label: string } | null
-  report_submissions: Pick<
-    Tables<'report_submissions'>,
-    'photo_path' | 'distance_m' | 'lat' | 'lng'
-  > | null
-}
-
-export function isAdminSession(session: Session | null): boolean {
-  return session?.user.app_metadata?.role === 'admin'
+  report_submissions: Pick<Tables<'report_submissions'>, 'photo_path' | 'distance_m'> | null
 }
 
 export const sessionQuery = queryOptions({
@@ -57,7 +50,7 @@ export const pendingQuery = queryOptions({
     const { data, error } = await supabase
       .from('reports')
       .select(
-        '*, schools(name, city), scrape_sources(label), report_submissions(photo_path, distance_m, lat, lng)',
+        '*, schools(name, city), scrape_sources(label), report_submissions(photo_path, distance_m)',
       )
       .eq('moderation', 'pending')
       .order('observed_at', { ascending: false })
@@ -67,6 +60,55 @@ export const pendingQuery = queryOptions({
   },
   refetchInterval: 60_000,
 })
+
+/** Ligne renvoyée par moderator_pending_reports (aucune position, aucune source interne). */
+interface ModeratorRow {
+  id: string
+  school_uai: string
+  school_name: string | null
+  school_city: string | null
+  status: PendingReport['status']
+  observed_at: string
+  source_type: PendingReport['source_type']
+  source_domain: string | null
+  source_url: string | null
+  source_label: string | null
+  certainty: PendingReport['certainty']
+  distance_m: number | null
+  photo_path: string | null
+}
+
+/** File d'attente du modérateur : mêmes champs que l'admin, sans position ni détail des sources. */
+export const moderatorPendingQuery = queryOptions({
+  queryKey: queryKeys.admin.moderatorPending(),
+  queryFn: async (): Promise<PendingReport[]> => {
+    const { data, error } = await supabase.rpc('moderator_pending_reports')
+    if (error) throw new Error(error.message)
+    const rows = (Array.isArray(data) ? data : []) as unknown as ModeratorRow[]
+    return rows.map(
+      (r) =>
+        ({
+          id: r.id,
+          school_uai: r.school_uai,
+          status: r.status,
+          observed_at: r.observed_at,
+          source_type: r.source_type,
+          source_domain: r.source_domain,
+          source_url: r.source_url,
+          certainty: r.certainty,
+          schools: r.school_name ? { name: r.school_name, city: r.school_city ?? '' } : null,
+          scrape_sources: r.source_label ? { label: r.source_label } : null,
+          report_submissions:
+            r.distance_m == null ? null : { photo_path: r.photo_path, distance_m: r.distance_m },
+        }) as PendingReport,
+    )
+  },
+  refetchInterval: 60_000,
+})
+
+/** File d'attente selon le rôle (même forme de données ; le type de clé diffère seulement). */
+export const pendingQueryFor = (moderator: boolean) =>
+  (moderator ? moderatorPendingQuery : pendingQuery) as unknown as typeof pendingQuery
 
 export const unmatchedQuery = queryOptions({
   queryKey: queryKeys.admin.unmatched(),
@@ -162,6 +204,28 @@ export async function moderate(report: PendingReport, decision: Decision): Promi
       .update({ photo_path: null })
       .eq('report_id', report.id)
   }
+}
+
+/**
+ * Validation par un modérateur : seule action permise. La photo floutée, si elle est publiée, est
+ * déposée sous le nom <id>.jpg (pas de remplacement ni de suppression : la base le refuse), puis le
+ * signalement est validé par une fonction qui n'accepte que ce passage de « en attente » à « validé ».
+ * L'original est retiré par la purge horaire.
+ */
+export async function approveAsModerator(report: PendingReport, photo?: Blob): Promise<void> {
+  let photoPublicPath: string | null = null
+  if (photo) {
+    photoPublicPath = `${report.id}.jpg`
+    const { error } = await supabase.storage
+      .from('photos')
+      .upload(photoPublicPath, photo, { contentType: 'image/jpeg' })
+    if (error) throw new Error(`Photo : ${error.message}`)
+  }
+  const { error } = await supabase.rpc('moderator_approve_report', {
+    p_id: report.id,
+    p_photo_public_path: photoPublicPath,
+  })
+  if (error) throw new Error(error.message)
 }
 
 export interface ReanalyzeResult {

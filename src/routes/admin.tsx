@@ -12,7 +12,7 @@ import { StatsPanel } from '@/components/admin/StatsPanel'
 import { TrustedDomainsPanel } from '@/components/admin/TrustedDomainsPanel'
 import { UnmatchedPanel } from '@/components/admin/UnmatchedPanel'
 import { supabase } from '@/lib/supabase'
-import { isAdminSession, pendingQuery, useSession } from '@/queries/admin'
+import { pendingQueryFor, staffRole, useSession } from '@/queries/admin'
 
 const TABS = [
   'sources',
@@ -45,16 +45,20 @@ export const Route = createFileRoute('/admin')({
   head: () => ({ meta: [{ name: 'robots', content: 'noindex' }] }),
 })
 
+/** Onglets d'un modérateur : la validation des signalements, rien d'autre. */
+const MODERATOR_TABS: readonly Tab[] = ['moderation']
+
 function AdminPage() {
   const session = useSession()
-  const { tab } = Route.useSearch()
+  const search = Route.useSearch()
 
   if (session.isPending) return <div className="flex-1 animate-pulse bg-surface" />
   if (!session.data) return <LoginForm />
-  if (!isAdminSession(session.data)) {
+  const role = staffRole(session.data)
+  if (!role) {
     return (
       <main className="p-6">
-        <p>Ce compte n'a pas le rôle administrateur.</p>
+        <p>Ce compte n'a pas accès à l'administration.</p>
         <button
           type="button"
           className="btn-secondary mt-3"
@@ -66,10 +70,14 @@ function AdminPage() {
     )
   }
 
+  const moderator = role === 'moderator'
+  const tabs = moderator ? MODERATOR_TABS : TABS
+  const tab: Tab = moderator ? 'moderation' : search.tab
+
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto p-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Administration</h1>
+        <h1 className="text-xl font-bold">{moderator ? 'Modération' : 'Administration'}</h1>
         <button
           type="button"
           className="btn-secondary"
@@ -79,7 +87,7 @@ function AdminPage() {
         </button>
       </div>
       <nav aria-label="Sections" className="mt-4 flex gap-1 overflow-x-auto border-b border-border">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <Link
             key={t}
             to="/admin"
@@ -92,14 +100,14 @@ function AdminPage() {
             }}
           >
             {TAB_LABELS[t]}
-            {t === 'moderation' && <PendingCount />}
-            {t === 'lycees' && <ProposalCount />}
+            {t === 'moderation' && <PendingCount moderator={moderator} />}
+            {t === 'lycees' && !moderator && <ProposalCount />}
           </Link>
         ))}
       </nav>
       <div className="mt-4">
         {tab === 'sources' && <SourcesPanel />}
-        {tab === 'moderation' && <PendingPanel />}
+        {tab === 'moderation' && <PendingPanel role={role} />}
         {tab === 'lycees' && <ProposalsPanel />}
         {tab === 'signaux' && <ReportsPanel />}
         {tab === 'non-rattaches' && <UnmatchedPanel />}
@@ -112,8 +120,8 @@ function AdminPage() {
   )
 }
 
-function PendingCount() {
-  const { data } = useQuery(pendingQuery)
+function PendingCount({ moderator }: { moderator: boolean }) {
+  const { data } = useQuery(pendingQueryFor(moderator))
   if (!data?.length) return null
   return <span className="ml-1 rounded-full bg-bloque px-2 text-xs text-white">{data.length}</span>
 }

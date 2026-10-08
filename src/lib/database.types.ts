@@ -426,6 +426,11 @@ export type Database = {
         Returns: undefined
       }
       admin_delete_report: { Args: { p_id: string }; Returns: undefined }
+      moderator_pending_reports: { Args: Record<PropertyKey, never>; Returns: Json }
+      moderator_approve_report: {
+        Args: { p_id: string; p_photo_public_path?: string | null }
+        Returns: undefined
+      }
       admin_report_to_unmatched: { Args: { p_id: string }; Returns: string }
       retry_unmatched: { Args: Record<PropertyKey, never>; Returns: number }
       link_unmatched: {
