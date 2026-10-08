@@ -73,8 +73,8 @@ export const METRIC_INFO: Record<
   API: {
     label: 'Latence de la base',
     help: 'Temps jusqu’au premier octet des lectures Supabase vues par les visiteurs.',
-    good: 300,
-    poor: 1000,
+    good: 800,
+    poor: 2000,
     unit: 'ms',
   },
 }
