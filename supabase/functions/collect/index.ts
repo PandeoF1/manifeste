@@ -23,6 +23,7 @@ import {
   type SourceRunResult,
 } from '../_shared/collector.ts'
 import { planGroups } from '../_shared/collect-plan.ts'
+import { recordAiUsage, usageRows } from '../_shared/ai-usage.ts'
 import { canonicalUrl } from '../_shared/domain.ts'
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
 import {
@@ -392,6 +393,10 @@ Deno.serve(async (req) => {
           by_model: byModel,
         }),
       )
+    await recordAiUsage(admin, [
+      ...usageRows('extraction', usage.extraction),
+      ...usageRows('media', usage.media),
+    ])
     const sum = (k: 'reports' | 'unmatched' | 'relevant') =>
       results.reduce((acc, r) => acc + r[k], 0)
     ctx.tracer.emit({

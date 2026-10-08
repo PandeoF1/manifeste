@@ -50,6 +50,7 @@ import {
 } from '../supabase/functions/_shared/media.ts'
 import { canonicalUrl, extractDomain } from '../supabase/functions/_shared/domain.ts'
 import { isGoogleNewsUrl } from '../supabase/functions/_shared/fetchers/googlenews.ts'
+import { recordAiUsage, usageRows } from '../supabase/functions/_shared/ai-usage.ts'
 import { createServiceDb } from '../supabase/functions/_shared/service-db.ts'
 import {
   BACKFILL_SOURCE_IDENTIFIER,
@@ -296,6 +297,7 @@ async function processCommand() {
     const wait = 60_000 / rpm - (Date.now() - startedAt)
     if (wait > 0) await sleep(wait)
   }
+  await recordAiUsage(admin, usageRows('backfill', extractor.usage))
   console.log(
     `\nModèles utilisés : ${[...extractor.served].join(', ') || 'aucun'} · ${calls} appels Gemini · ${formatUsage(totalUsage(extractor.usage))}.`,
   )
@@ -447,6 +449,7 @@ async function mediaCommand() {
     const wait = 60_000 / rpm - (Date.now() - startedAt)
     if (wait > 0) await sleep(wait)
   }
+  await recordAiUsage(admin, usageRows('backfill', client.usage))
   console.log(
     `\nModèles : ${[...client.served].join(', ') || 'aucun'} · ${client.calls} appels · ${formatUsage(totalUsage(client.usage))}.`,
   )
@@ -537,6 +540,7 @@ async function mediaRedoCommand() {
     const wait = 60_000 / rpm - (Date.now() - startedAt)
     if (wait > 0) await sleep(wait)
   }
+  await recordAiUsage(admin, usageRows('backfill', client.usage))
   console.log(
     `\nModèles : ${[...client.served].join(', ') || 'aucun'} · ${client.calls} appels · ${formatUsage(totalUsage(client.usage))}.`,
   )

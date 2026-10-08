@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { LoginForm } from '@/components/admin/LoginForm'
+import { AiUsagePanel } from '@/components/admin/AiUsagePanel'
 import { MediaPanel } from '@/components/admin/MediaPanel'
 import { PendingPanel } from '@/components/admin/PendingPanel'
 import { ProposalsPanel, proposalsQuery } from '@/components/admin/ProposalsPanel'
@@ -22,6 +23,7 @@ const TABS = [
   'non-rattaches',
   'domaines',
   'stats',
+  'ia',
   'medias',
   'reglages',
 ] as const
@@ -35,6 +37,7 @@ const TAB_LABELS: Record<Tab, string> = {
   'non-rattaches': 'Non rattachés',
   domaines: 'Domaines de confiance',
   stats: 'Stats',
+  ia: 'Coût IA',
   medias: 'Médias',
   reglages: 'Réglages',
 }
@@ -113,6 +116,7 @@ function AdminPage() {
         {tab === 'non-rattaches' && <UnmatchedPanel canManage={!moderator} />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
         {tab === 'stats' && <StatsPanel />}
+        {tab === 'ia' && <AiUsagePanel />}
         {tab === 'medias' && <MediaPanel />}
         {tab === 'reglages' && <SettingsPanel />}
       </div>

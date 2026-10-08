@@ -5,6 +5,7 @@
 // 3. Lycées candidats (commune + noms proches), puis l'IA choisit le bon ou aucun.
 // Deux appels Gemini au plus pour toute la liste. Les choix sûrs deviennent des signaux,
 // soumis à la règle de validation habituelle.
+import { recordAiUsage, usageRows } from '../_shared/ai-usage.ts'
 import { mapLimit } from '../_shared/collector-utils.ts'
 import { extractDomain } from '../_shared/domain.ts'
 import { parseExtraction } from '../_shared/extraction.ts'
@@ -246,8 +247,10 @@ Deno.serve(async (req) => {
       })
     }
   } catch (e) {
+    await recordAiUsage(admin, usageRows('reanalyse', client.usage))
     return json(502, { error: e instanceof Error ? e.message : 'Gemini indisponible' })
   }
+  await recordAiUsage(admin, usageRows('reanalyse', client.usage))
 
   return json(200, {
     model: [...client.served].join(', ') || null,
