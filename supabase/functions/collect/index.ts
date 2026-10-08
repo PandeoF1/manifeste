@@ -43,6 +43,10 @@ const MEDIA_MODELS = modelsFromEnv(
   Deno.env.get('MEDIA_MODEL') || Deno.env.get('GEMINI_MODEL'),
   Deno.env.get('GEMINI_FALLBACK_MODELS'),
 )
+/** Réflexion de Gemini coupée par défaut (facturée comme de la sortie) ; GEMINI_THINKING_BUDGET=-1 : défaut du modèle. */
+const THINKING_RAW = Number(Deno.env.get('GEMINI_THINKING_BUDGET') ?? 0)
+const THINKING_BUDGET =
+  Number.isFinite(THINKING_RAW) && THINKING_RAW >= 0 ? THINKING_RAW : undefined
 const MIN_CERTAINTY_RAW = Deno.env.get('COLLECT_MIN_CERTAINTY') ?? 'moyenne'
 const MIN_CERTAINTY: Certainty = (CERTAINTIES as readonly string[]).includes(MIN_CERTAINTY_RAW)
   ? (MIN_CERTAINTY_RAW as Certainty)
@@ -118,6 +122,7 @@ async function analyze(
   const extractor = createExtractor({
     apiKey: GEMINI_API_KEY,
     models: GEMINI_MODELS,
+    thinkingBudget: THINKING_BUDGET,
     fetchFn: ctx.fetchFor('collecteur'),
   })
   await analyzePending(pending, results, {

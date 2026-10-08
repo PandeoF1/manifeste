@@ -124,4 +124,29 @@ describe('createExtractor : modèle « collant »', () => {
       'Gemini indisponible, repris au prochain passage. m1 : saturé (503) ; m2 : indisponible pour ce compte (404)',
     )
   })
+
+  it('coupe la réflexion quand un budget est demandé, et réessaie sans si le modèle la refuse', async () => {
+    const bodies: string[] = []
+    const responses = [
+      Response.json(
+        { error: { code: 400, message: 'Thinking budget is not supported for this model.' } },
+        { status: 400 },
+      ),
+      ok(),
+    ]
+    const fetchFn = async (_url: string, init?: RequestInit) => {
+      bodies.push(String(init?.body))
+      const next = responses.shift()
+      if (!next) throw new Error('plus de réponse')
+      return next
+    }
+    const events = await extractEvents(
+      { apiKey: 'k', models: ['m1'], fetchFn, thinkingBudget: 0, sleep },
+      batch,
+    )
+    expect(events).toHaveLength(1)
+    expect(bodies).toHaveLength(2)
+    expect(bodies[0]).toContain('"thinkingConfig":{"thinkingBudget":0}')
+    expect(bodies[1]).not.toContain('thinkingConfig')
+  })
 })

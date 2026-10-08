@@ -33,6 +33,12 @@ export interface GeminiConfig {
   /** Modèle principal puis modèles de secours, dans l'ordre. */
   models: string[]
   fetchFn: FetchLike
+  /**
+   * Budget de réflexion (tokens) : 0 la coupe. Les modèles Flash réfléchissent par défaut et la
+   * réflexion est facturée comme de la sortie ; l'extraction n'en a pas besoin. Absent : réglage
+   * par défaut du modèle.
+   */
+  thinkingBudget?: number
   /** Nouvelles tentatives par modèle sur erreur temporaire (défaut 1). */
   retriesPerModel?: number
   /** Attente avant nouvelle tentative (injectable pour les tests). */
@@ -87,6 +93,9 @@ async function callModel(
         temperature: 0,
         responseMimeType: 'application/json',
         responseSchema: request.schema,
+        ...(config.thinkingBudget !== undefined && {
+          thinkingConfig: { thinkingBudget: config.thinkingBudget },
+        }),
       },
     }),
   })
@@ -124,6 +133,12 @@ export async function generateJson(
         // Délai dépassé ou réseau : temporaire.
         const status = e instanceof GeminiError ? e.status : 0
         const message = e instanceof Error ? e.message : String(e)
+        // Ce modèle refuse le réglage de réflexion : on réessaie sans, une seule fois.
+        if (status === 400 && /thinking/i.test(message) && config.thinkingBudget !== undefined) {
+          config = { ...config, thinkingBudget: undefined }
+          attempt--
+          continue
+        }
         if (SKIP_MODEL.has(status)) {
           failures.push(
             status === 429
