@@ -1,4 +1,5 @@
 import { formatRelative, STATUS_LABELS } from '@shared/status.ts'
+import { SourceConfidenceInline } from '@/components/status/SourceConfidence'
 import { StatusIcon } from '@/components/status/StatusIcon'
 import type { SchoolStatus } from '@/queries/statuses'
 import { useNow } from '@/lib/useNow'
@@ -48,6 +49,7 @@ export function LiveFeed({
               <time dateTime={s.last_signal_at} className="text-muted">
                 {formatRelative(new Date(s.last_signal_at), now)}
               </time>
+              <SourceConfidenceInline count={s.source_count} />
             </span>
           </button>
         </li>
