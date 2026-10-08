@@ -66,7 +66,24 @@ export function parseArticle(html: string): ParsedArticle {
         .trim(),
     )
     .filter((t) => t.length > 25)
-  return { title, published, text: paragraphs.join('\n').slice(0, 20_000) }
+  // Certains sites (La Dépêche…) ne mettent la liste que dans le JSON-LD de la page.
+  const structured = jsonLdBody(html)
+  return {
+    title,
+    published,
+    text: [...paragraphs, ...(structured ? [structured] : [])].join('\n').slice(0, 20_000),
+  }
+}
+
+/** Corps d'article (`articleBody`) du JSON-LD, avec ses échappements JSON décodés. */
+function jsonLdBody(html: string): string | null {
+  const raw = /"articleBody"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(html)?.[1]
+  if (!raw) return null
+  try {
+    return (JSON.parse(`"${raw}"`) as string).replace(/\s+/g, ' ').trim()
+  } catch {
+    return null
+  }
 }
 
 export type Mention = 'nom' | 'ville' | 'non'

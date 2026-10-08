@@ -21,6 +21,17 @@ describe('parseArticle', () => {
   })
 })
 
+describe('parseArticle (JSON-LD)', () => {
+  it('lit la liste cachée dans articleBody', () => {
+    const html = `<html><head><title>Lycées fermés</title>
+      <script type="application/ld+json">{"@type":"NewsArticle","articleBody":"Voici la liste\\n\\nÀ Colomiers\\n\\tLycée Eugène Montel\\n\\tLycée Victor Hugo"}</script>
+      </head><body><p>Un paragraphe suffisamment long pour être retenu par l'extraction.</p></body></html>`
+    const a = parseArticle(html)
+    expect(a.text).toContain('Lycée Eugène Montel')
+    expect(a.text).toContain('Un paragraphe suffisamment long')
+  })
+})
+
 describe('schoolMention', () => {
   const school = { name: 'Lycée polyvalent Emmanuel Mounier', city: 'Grenoble' }
   it('reconnaît le nom', () => {
