@@ -158,6 +158,15 @@ function parisDay(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d)
 }
 
+/** Samedi ou dimanche à Paris : les lycées sont fermés, aucun blocage n'a lieu ces jours-là. */
+export function isParisWeekend(d: Date): boolean {
+  const day = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    weekday: 'short',
+  }).format(d)
+  return day === 'Sat' || day === 'Sun'
+}
+
 /** Décalage de Paris par rapport à UTC à cette date (« +02:00 » l'été, « +01:00 » l'hiver). */
 function parisOffset(at: Date): string {
   const label =

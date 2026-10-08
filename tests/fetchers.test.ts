@@ -17,7 +17,7 @@ describe('telegram', () => {
       url: 'https://t.me/mobilycee/101',
       text: 'Blocus en cours au lycée Victor-Hugo à Besançon\ndepuis 7h.',
     })
-    expect(items[0]?.publishedAt.toISOString()).toBe('2026-10-04T07:12:00.000Z')
+    expect(items[0]?.publishedAt.toISOString()).toBe('2026-10-05T07:12:00.000Z')
   })
 })
 

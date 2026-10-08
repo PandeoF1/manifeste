@@ -4,6 +4,7 @@ import { enrichItems } from './enrich.ts'
 import {
   isRelevant,
   meetsCertainty,
+  isParisWeekend,
   resolveObservation,
   type Certainty,
   type DateBasis,
@@ -66,6 +67,8 @@ export interface CollectorDb {
   nearbySchools(lat: number, lng: number): Promise<NearbyCandidate[]>
   /** Établissements du même niveau dans la commune (au plus 2 suffisent pour savoir s'il n'y en a qu'un). */
   schoolsInCity(city: string, level: 'lycee' | 'superieur'): Promise<Array<{ uai: string }>>
+  /** Niveau de l'établissement (null si inconnu). */
+  schoolLevel(uai: string): Promise<'lycee' | 'superieur' | null>
   insertReport(report: NewReport): Promise<'inserted' | 'duplicate'>
   insertUnmatched(row: NewUnmatched): Promise<void>
   /** Fin de passage : met à jour la source et enregistre le journal (s'il y a du nouveau). */
@@ -457,6 +460,13 @@ async function handleEvent(
   }
   const domain = item.publisherDomain ?? extractDomain(item.url)
   if (!domain) return { outcome: 'erreur', school_uai: uai, detail: 'lien source invalide' }
+  // Un lycée est fermé le week-end : un « bloqué » daté du samedi ou du dimanche est un récit
+  // ou un bilan publié ce jour-là, pas un blocage. Les facs restent exemptées (occupations).
+  if (event.status === 'bloque' && isParisWeekend(observation.at)) {
+    if ((await db.schoolLevel(uai)) === 'lycee') {
+      return { outcome: 'aucun_fait', school_uai: uai, detail: 'lycée fermé le week-end' }
+    }
+  }
   const outcome = await db.insertReport({
     school_uai: uai,
     status: event.status,
