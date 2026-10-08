@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   GeolocateControl,
   Map as MapLibreMap,
@@ -16,7 +16,7 @@ import type { SchoolStatus } from '@/queries/statuses'
 import { addMarkerImages } from './markerImages'
 import { styleBase } from './baseStyle'
 import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
-import { inMetropole, NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
+import { NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
 import type { Theme } from '@/lib/theme'
 import { OverseasInsets } from './OverseasInsets'
 
@@ -130,8 +130,6 @@ export default function MapView({
   const mapRef = useRef<MapLibreMap | null>(null)
   const readyRef = useRef(false)
   const hasRecentRef = useRef(false)
-  // Carte centrée hors métropole : les médaillons proposent d'y revenir.
-  const [inMetro, setInMetro] = useState(inMetropole(initialView.lat, initialView.lng))
   const latest = useRef({ statuses, onViewChange, onSelect, theme })
   useEffect(() => {
     latest.current = { statuses, onViewChange, onSelect, theme }
@@ -313,7 +311,6 @@ export default function MapView({
     map.on('moveend', () => {
       // Carte sans fin d'est en ouest : on ramène la longitude dans [-180, 180] pour l'adresse.
       const c = map.getCenter().wrap()
-      setInMetro(inMetropole(c.lat, c.lng))
       latest.current.onViewChange({
         lat: Math.round(c.lat * 1e4) / 1e4,
         lng: Math.round(c.lng * 1e4) / 1e4,
@@ -385,7 +382,6 @@ export default function MapView({
       />
       <OverseasInsets
         statuses={statuses}
-        showMetropole={!inMetro}
         selectedUai={selected?.uai}
         onSelect={onSelect}
         onGoto={(bounds) =>

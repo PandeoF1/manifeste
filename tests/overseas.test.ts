@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeTerritories, inMetropole, territoryOf } from '@/lib/overseas'
+import { activeTerritories, territoryOf } from '@/lib/overseas'
 
 const pt = (department: string | null, lat: number, lng: number) => ({ department, lat, lng })
 
@@ -53,20 +53,5 @@ describe('activeTerritories', () => {
     activeTerritories([pt('987', -9.8, -139.0)])
     const [again] = activeTerritories([pt('987', -17.55, -149.6)])
     expect(again?.bounds[2]).toBeLessThan(-148)
-  })
-})
-
-describe('inMetropole', () => {
-  it('reconnaît la métropole, la Corse et ses abords', () => {
-    expect(inMetropole(46.6, 2.4)).toBe(true)
-    expect(inMetropole(42.15, 9.1)).toBe(true)
-    expect(inMetropole(48.4, -4.5)).toBe(true)
-  })
-
-  it('refuse l’outre-mer et le reste du monde', () => {
-    expect(inMetropole(-21.1, 55.5)).toBe(false)
-    expect(inMetropole(14.6, -61)).toBe(false)
-    expect(inMetropole(-20, 170)).toBe(false)
-    expect(inMetropole(35, 2)).toBe(false)
   })
 })
