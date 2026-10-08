@@ -1,5 +1,5 @@
 # Configuration minimale pour la CLI Supabase (supabase start / functions deploy).
-project_id = "manifest"
+project_id = "manifeste"
 
 [api]
 schemas = ["public"]
