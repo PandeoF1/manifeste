@@ -1,11 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  analyzePending,
   chunk,
   collectSource,
   collectSources,
   mapLimit,
+  mergeSameArticle,
   type CollectorDb,
+  type Pending,
   type NewReport,
   type NewUnmatched,
 } from '@shared/collector.ts'
@@ -160,7 +163,7 @@ describe('collectSource', () => {
 })
 
 describe('collectSources : plusieurs sources, lots communs', () => {
-  it("regroupe les éléments de toutes les sources dans un seul appel à l'IA", async () => {
+  it("regroupe les éléments de toutes les sources dans un seul appel à l'IA, sans doublon d'analyse", async () => {
     const { db, reports } = fakeDb({ 'Lycée Victor-Hugo': [besancon] })
     const sourceB = { ...source, id: 'src-2', identifier: 'autre', label: 'Autre' }
     const extract = vi.fn(async (batch: ReadonlyArray<{ id: string }>): Promise<ExtractedEvent[]> =>
@@ -175,11 +178,12 @@ describe('collectSources : plusieurs sources, lots communs', () => {
     )
     const results = await collectSources([source, sourceB], { db, fetchFn, extract, now })
     expect(extract).toHaveBeenCalledTimes(1)
-    expect(extract.mock.calls[0]?.[0]).toHaveLength(2)
-    // Les deux sources de test lisent la même page : le 2e signal est un doublon (même lien).
+    // Les deux sources de test lisent la même page : même article, analysé une seule fois,
+    // et la 2e source l'enregistre comme doublon.
+    expect(extract.mock.calls[0]?.[0]).toHaveLength(1)
     expect(results.map((r) => [r.source_id, r.events, r.reports, r.duplicates, r.error])).toEqual([
       ['src-1', 1, 1, 0, null],
-      ['src-2', 1, 0, 1, null],
+      ['src-2', 0, 0, 1, null],
     ])
     expect(reports.map((r) => r.source_id)).toEqual(['src-1'])
   })
@@ -359,5 +363,76 @@ describe('adresse canonique', () => {
     )
     expect(canonicalUrl('https://exemple.fr/a?fbclid=z&id=12')).toBe('https://exemple.fr/a?id=12')
     expect(canonicalUrl('pas une url')).toBe('pas une url')
+  })
+})
+
+describe('même article reçu par plusieurs sources', () => {
+  const sourceB = { ...source, id: 'src-2', label: 'Autre flux' }
+  const article = (id: string, url: string, text: string, src = source): Pending => ({
+    source: src,
+    item: { externalId: id, url, text, publishedAt: now },
+  })
+
+  it('fusionne les textes d’une même adresse (suivi retiré) et garde le reste', () => {
+    const a = article(
+      'a',
+      'https://j.example/article-1?utm_source=x',
+      'Blocus au lycée Hugo\nBesançon',
+    )
+    const b = article(
+      'b',
+      'https://j.example/article-1',
+      'Blocus au lycée Hugo\nAussi au lycée Pasteur',
+      sourceB,
+    )
+    const c = article('c', 'https://j.example/autre', 'Autre article lycée')
+    const geo: Pending = {
+      source,
+      item: {
+        externalId: 'g',
+        url: 'https://j.example/article-1',
+        text: 'point',
+        publishedAt: now,
+        geo: { lat: 1, lng: 1 },
+      },
+    }
+    const { kept, absorbed } = mergeSameArticle([a, b, c, geo])
+    expect(kept).toHaveLength(3)
+    expect(absorbed).toHaveLength(1)
+    expect(kept[0]?.item.text).toBe('Blocus au lycée Hugo\nBesançon\nAussi au lycée Pasteur')
+    expect(absorbed[0]?.into).toBe(kept[0])
+  })
+
+  it('n’appelle l’IA qu’une fois, journalise l’autre source en doublon et la marque traitée', async () => {
+    const { db, seen, reports } = fakeDb({ 'Lycée Victor-Hugo': [besancon] })
+    const extract = vi.fn(
+      async (batch: ReadonlyArray<{ id: string }>): Promise<ExtractedEvent[]> => [
+        {
+          item_id: batch[0]?.id ?? '',
+          school_name: 'Lycée Victor-Hugo',
+          city: 'Besançon',
+          status: 'bloque',
+          observed_at: null,
+          certainty: 'haute',
+        },
+      ],
+    )
+    const pending = [
+      article('a', 'https://j.example/article-1', 'Blocus au lycée Victor-Hugo à Besançon'),
+      article(
+        'b',
+        'https://j.example/article-1?utm_medium=y',
+        'Même blocus, autre extrait',
+        sourceB,
+      ),
+    ]
+    const results = await analyzePending(pending, [], { db, fetchFn, extract, now })
+    expect(extract).toHaveBeenCalledTimes(1)
+    expect(extract.mock.calls[0]?.[0]).toHaveLength(1)
+    expect(reports).toHaveLength(1)
+    expect(seen.has('a') && seen.has('b')).toBe(true)
+    const second = results.find((r) => r.source_id === 'src-2')
+    expect(second?.items[0]?.outcome).toBe('doublon')
+    expect(second?.duplicates).toBe(1)
   })
 })

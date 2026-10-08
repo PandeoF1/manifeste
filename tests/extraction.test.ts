@@ -16,6 +16,41 @@ describe('filtre lexical', () => {
     expect(isRelevant('Blocus de la fac de Tolbiac par les étudiants')).toBe(true)
     expect(isRelevant('La mobilisation étudiante gagne Nanterre')).toBe(true)
   })
+
+  it('rattrape des titres que l’ancien filtre laissait passer', () => {
+    // Titres réels écartés comme hors sujet avant l'élargissement.
+    expect(
+      isRelevant('Pays de la Loire : le blocage de la cité scolaire de Saint-Nazaire tendu'),
+    ).toBe(true)
+    expect(
+      isRelevant(
+        'Blocage de Sciences Po : des gaz lacrymogènes utilisés pour disperser les étudiants',
+      ),
+    ).toBe(true)
+    expect(
+      isRelevant('Colère des lycéens à Montpellier : la préfète interdit les rassemblements'),
+    ).toBe(true)
+    expect(isRelevant('Blocage de la fac de droit de Strasbourg')).toBe(true)
+  })
+
+  it('ne retient toujours pas le hors-sujet', () => {
+    expect(isRelevant('Résultats du baccalauréat : la liste des admis')).toBe(false)
+    expect(isRelevant('Grève des contrôleurs aériens ce week-end')).toBe(false)
+    expect(isRelevant('Une école de Rennes fête ses 100 ans')).toBe(false)
+  })
+
+  it('garde tout ce que l’ancien filtre gardait', () => {
+    for (const text of [
+      'Lycée Victor-Hugo',
+      'Le LGT est fermé',
+      'Piquet de grève devant le lycée',
+      'Barrage filtrant à la porte',
+      'Mobilisation lycéenne : point sur la situation',
+      'Il est bloqué ce matin',
+    ]) {
+      expect(isRelevant(text), text).toBe(true)
+    }
+  })
 })
 
 describe('parseExtraction (schéma zod strict)', () => {
