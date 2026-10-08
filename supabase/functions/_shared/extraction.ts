@@ -165,21 +165,32 @@ function announcedAt(extracted: string, parsed: Date): Date {
 /** Un fait annoncé reste daté du jour annoncé jusqu'à 3 jours après la publication. */
 const ANNOUNCED_MAX_MS = 3 * 86_400_000
 
+/** D'où vient la date retenue pour un fait. */
+export type DateBasis = 'extracted' | 'announced' | 'published'
+
 /**
  * Date du fait retenue : celle extraite si plausible, sinon la date de publication.
  * Plausible = pas après la publication (+1 h de marge) et au plus 7 jours avant. Exception : un
  * fait annoncé pour un jour à venir (« fermés ce lundi », article publié le dimanche) garde le
  * jour annoncé, dans les 3 jours. Il n'apparaît sur la carte que ce jour-là.
  */
-export function resolveObservedAt(extracted: string | null, publishedAt: Date): Date {
-  if (!extracted) return publishedAt
+export function resolveObservation(
+  extracted: string | null,
+  publishedAt: Date,
+): { at: Date; basis: DateBasis } {
+  const fallback = { at: publishedAt, basis: 'published' as const }
+  if (!extracted) return fallback
   const d = new Date(extracted)
-  if (Number.isNaN(d.getTime())) return publishedAt
+  if (Number.isNaN(d.getTime())) return fallback
   const delta = d.getTime() - publishedAt.getTime()
-  if (delta < -7 * 86_400_000) return publishedAt
-  if (delta <= 3_600_000) return d
+  if (delta < -7 * 86_400_000) return fallback
+  if (delta <= 3_600_000) return { at: d, basis: 'extracted' }
   const announced = delta <= ANNOUNCED_MAX_MS && parisDay(d) > parisDay(publishedAt)
-  return announced ? announcedAt(extracted, d) : publishedAt
+  return announced ? { at: announcedAt(extracted, d), basis: 'announced' } : fallback
+}
+
+export function resolveObservedAt(extracted: string | null, publishedAt: Date): Date {
+  return resolveObservation(extracted, publishedAt).at
 }
 
 export type { ReportStatus }

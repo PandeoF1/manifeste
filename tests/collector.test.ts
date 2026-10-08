@@ -99,6 +99,9 @@ describe('collectSource', () => {
       source_id: 'src-1',
       certainty: 'haute',
       observed_at: '2026-10-04T05:00:00.000Z',
+      published_at: expect.any(String),
+      extracted_observed_at: '2026-10-04T05:00:00Z',
+      date_basis: 'extracted',
     })
     expect(seen.size).toBe(2)
     expect(extract).toHaveBeenCalledTimes(1)
