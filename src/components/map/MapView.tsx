@@ -33,6 +33,27 @@ const PULSE_MS = 2000
 const BURST_MS = 2 * PULSE_MS
 const CYCLE_MS = 8000
 
+/** Apparition d'un point (avec un léger rebond) et disparition : durées en ms. */
+const POP_MS = 600
+const DEPOP_MS = 320
+/** Au-delà, un saut dans le temps : les points changent d'un coup, sans animation. */
+const MAX_ANIMATED = 150
+
+/** Échelle d'un point animé (feature-state « pop ») : 1 au repos, 0 invisible, un peu plus de 1 au rebond. */
+const POP: ExpressionSpecification = ['coalesce', ['feature-state', 'pop'], 1]
+const POP_ALPHA: ExpressionSpecification = ['min', 1, POP]
+const RING: ExpressionSpecification = ['coalesce', ['feature-state', 'ring'], 1]
+const scaled = (value: number): ExpressionSpecification => ['*', value, POP]
+
+const easeOutBack = (p: number) => 1 + 2.70158 * (p - 1) ** 3 + 1.70158 * (p - 1) ** 2
+const easeInCubic = (p: number) => p ** 3
+const easeOutCubic = (p: number) => 1 - (1 - p) ** 3
+
+interface Anim {
+  start: number
+  out: boolean
+}
+
 export interface MapViewState {
   lat: number
   lng: number
@@ -46,6 +67,10 @@ interface Props {
   onViewChange: (view: MapViewState) => void
   onSelect: (uai: string | undefined) => void
   theme: Theme
+  /** Change quand les données changent de nature (autre période, mode Historique) : pas d'animation à ce moment-là. */
+  datasetKey?: string
+  /** Médaillons d'outre-mer (désactivés en mode Historique : chacun est une carte de plus à redessiner). */
+  overseas?: boolean
 }
 
 function heatColor(theme: Theme): ExpressionSpecification {
@@ -69,18 +94,15 @@ function heatColor(theme: Theme): ExpressionSpecification {
   ]
 }
 
+function glowOpacity(theme: Theme): ExpressionSpecification {
+  return ['*', POP_ALPHA, ['match', ['get', 'status'], 'leve', 0.2, MAP_BASES[theme].glowOpacity]]
+}
+
 /** Thème du fond et des calques dépendants, appliqué au chargement puis à chaque bascule. */
 function applyTheme(map: MapLibreMap, theme: Theme) {
   styleBase(map, MAP_BASES[theme])
   if (map.getLayer('heat')) map.setPaintProperty('heat', 'heatmap-color', heatColor(theme))
-  if (map.getLayer('glow'))
-    map.setPaintProperty('glow', 'circle-opacity', [
-      'match',
-      ['get', 'status'],
-      'leve',
-      0.2,
-      MAP_BASES[theme].glowOpacity,
-    ])
+  if (map.getLayer('glow')) map.setPaintProperty('glow', 'circle-opacity', glowOpacity(theme))
   if (map.getLayer('selected'))
     map.setPaintProperty('selected', 'circle-stroke-color', MAP_BASES[theme].selection)
 }
@@ -95,7 +117,11 @@ const STATUS_COLOR: ExpressionSpecification = [
   MAP_STATUS_COLORS.leve,
 ]
 
-function toGeoJSON(rows: ReadonlyArray<SchoolStatus>, now: number): FeatureCollection<Point> {
+function toGeoJSON(
+  rows: ReadonlyArray<SchoolStatus>,
+  now: number,
+  dying: ReadonlyMap<string, unknown> = new Map(),
+): FeatureCollection<Point> {
   return {
     type: 'FeatureCollection',
     features: rows.map((r) => ({
@@ -108,7 +134,10 @@ function toGeoJSON(rows: ReadonlyArray<SchoolStatus>, now: number): FeatureColle
         rank: r.status === 'bloque' ? 2 : r.status === 'filtrant' ? 1 : 0,
         // Poids dans la carte de chaleur : un lycée levé ne compte pas.
         weight: r.status === 'bloque' ? 1 : r.status === 'filtrant' ? 0.6 : 0,
-        recent: r.status !== 'leve' && now - new Date(r.last_signal_at).getTime() < RECENT_MS,
+        recent:
+          r.status !== 'leve' &&
+          !dying.has(r.uai) &&
+          now - new Date(r.last_signal_at).getTime() < RECENT_MS,
       },
     })),
   }
@@ -125,11 +154,25 @@ export default function MapView({
   onViewChange,
   onSelect,
   theme,
+  overseas = true,
+  datasetKey = '',
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const readyRef = useRef(false)
   const hasRecentRef = useRef(false)
+  // Points qui apparaissent ou disparaissent : ce qui est affiché, ce qui s'efface encore, les animations.
+  const pops = useRef({
+    shown: new Map<string, SchoolStatus>(),
+    dying: new Map<string, SchoolStatus>(),
+    anims: new Map<string, Anim>(),
+    /** Points qui ont eu un état d'animation : à remettre à 1 s'ils reviennent sans animation. */
+    touched: new Set<string>(),
+    key: datasetKey,
+    data: undefined as FeatureCollection<Point> | undefined,
+    raf: 0,
+    first: true,
+  })
   const latest = useRef({ statuses, onViewChange, onSelect, theme })
   useEffect(() => {
     latest.current = { statuses, onViewChange, onSelect, theme }
@@ -162,12 +205,15 @@ export default function MapView({
       'top-right',
     )
 
+    const anim = pops.current
     let frame = 0
     map.on('load', () => {
       addMarkerImages(map)
       map.addSource(SOURCE_ID, {
         type: 'geojson',
-        data: toGeoJSON(latest.current.statuses, Date.now()),
+        // L'identifiant du point (feature-state) est l'UAI : on y accroche l'animation.
+        promoteId: 'uai',
+        data: pops.current.data ?? toGeoJSON(latest.current.statuses, Date.now()),
       })
 
       // 1. Carte de chaleur à l'échelle nationale : rend visible l'ampleur.
@@ -177,7 +223,7 @@ export default function MapView({
         source: SOURCE_ID,
         maxzoom: 10,
         paint: {
-          'heatmap-weight': ['get', 'weight'],
+          'heatmap-weight': ['*', ['get', 'weight'], POP_ALPHA],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 9, 2],
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 3, 14, 6, 26, 9, 40],
           'heatmap-color': heatColor(latest.current.theme),
@@ -192,9 +238,19 @@ export default function MapView({
         source: SOURCE_ID,
         paint: {
           'circle-color': STATUS_COLOR,
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 6, 8, 14, 13, 24],
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            3,
+            scaled(6),
+            8,
+            scaled(14),
+            13,
+            scaled(24),
+          ],
           'circle-blur': 1,
-          'circle-opacity': ['match', ['get', 'status'], 'leve', 0.2, 0.55],
+          'circle-opacity': glowOpacity(latest.current.theme),
         },
       })
       map.addLayer({
@@ -212,8 +268,8 @@ export default function MapView({
             '#ffe2b0',
             '#c9ced8',
           ],
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.4, 8, 2.6],
-          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 7.5, 1, 9, 0],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(1.4), 8, scaled(2.6)],
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 7.5, POP_ALPHA, 9, 0],
         },
       })
 
@@ -231,6 +287,32 @@ export default function MapView({
           'circle-stroke-opacity': 0,
           // Animé image par image : sans ça, MapLibre lisse chaque changement sur 300 ms et
           // l'onde, toujours en retard, se rétracte visiblement en repartant de zéro.
+          'circle-radius-transition': { duration: 0, delay: 0 },
+          'circle-stroke-opacity-transition': { duration: 0, delay: 0 },
+        },
+      })
+
+      // 3b. Onde d'apparition : un anneau qui part du point quand il arrive (invisible au repos).
+      map.addLayer({
+        id: 'spawn',
+        type: 'circle',
+        source: SOURCE_ID,
+        paint: {
+          'circle-color': 'rgba(0,0,0,0)',
+          'circle-stroke-color': STATUS_COLOR,
+          'circle-stroke-width': 2,
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            3,
+            ['+', 4, ['*', RING, 14]],
+            8,
+            ['+', 6, ['*', RING, 26]],
+            13,
+            ['+', 8, ['*', RING, 40]],
+          ],
+          'circle-stroke-opacity': ['*', 0.9, ['-', 1, RING]],
           'circle-radius-transition': { duration: 0, delay: 0 },
           'circle-stroke-opacity-transition': { duration: 0, delay: 0 },
         },
@@ -258,7 +340,7 @@ export default function MapView({
         // Vue nationale : seulement les foyers lumineux ; les formes apparaissent en zoomant
         // (et restent toujours disponibles dans la liste et la légende).
         minzoom: 7,
-        paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0, 8, 1] },
+        paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0, 8, POP_ALPHA] },
         layout: {
           'icon-image': ['concat', 'status-', ['get', 'status']],
           'icon-size': ['interpolate', ['linear'], ['zoom'], 7, 0.5, 11, 0.85],
@@ -320,6 +402,8 @@ export default function MapView({
 
     return () => {
       cancelAnimationFrame(frame)
+      cancelAnimationFrame(anim.raf)
+      anim.raf = 0
       readyRef.current = false
       map.remove()
       mapRef.current = null
@@ -334,17 +418,98 @@ export default function MapView({
     if (map && readyRef.current) applyTheme(map, theme)
   }, [theme])
 
-  // Mise à jour des données (et du caractère « récent » des signaux).
+  // Mise à jour des données : les points qui arrivent apparaissent avec un rebond, ceux qui partent
+  // s'effacent (ils restent dans la source le temps de l'animation).
   useEffect(() => {
-    const update = () => {
-      const data = toGeoJSON(statuses, Date.now())
+    const a = pops.current
+    const source = () => mapRef.current?.getSource<GeoJSONSource>(SOURCE_ID)
+    const render = () => {
+      const data = toGeoJSON([...a.shown.values(), ...a.dying.values()], Date.now(), a.dying)
+      a.data = data
       hasRecentRef.current = data.features.some((f) => f.properties?.recent === true)
-      mapRef.current?.getSource<GeoJSONSource>(SOURCE_ID)?.setData(data)
+      source()?.setData(data)
     }
-    update()
-    const id = window.setInterval(update, 60_000)
+    // `pop` : taille du point ; `ring` : avancement de l'onde d'apparition (1 = terminée, invisible).
+    const setPop = (uai: string, pop: number, ring = 1) => {
+      a.touched.add(uai)
+      mapRef.current?.setFeatureState({ source: SOURCE_ID, id: uai }, { pop, ring })
+    }
+    // Fin ou annulation d'une animation : le point retrouve sa taille normale.
+    const settle = (uai: string) => {
+      a.anims.delete(uai)
+      if (a.touched.has(uai) && source()) setPop(uai, 1)
+    }
+    const reduced = prefersReducedMotion()
+    const tick = () => {
+      const map = mapRef.current
+      if (!map || !source()) {
+        a.raf = 0
+        return
+      }
+      const now = performance.now()
+      let gone = false
+      for (const [uai, anim] of a.anims) {
+        const p = (now - anim.start) / (anim.out ? DEPOP_MS : POP_MS)
+        if (p >= 1) {
+          if (anim.out) {
+            // Le point est déjà invisible : on le laisse à 0 jusqu'à ce qu'il ait quitté la source
+            // (le retrait part dans un worker), sinon il réapparaîtrait en grand une image.
+            a.anims.delete(uai)
+            setPop(uai, 0)
+            a.dying.delete(uai)
+            gone = true
+          } else settle(uai)
+          continue
+        }
+        // « Réduire les animations » : le point grossit ou rétrécit en douceur, sans rebond ni onde.
+        if (anim.out) setPop(uai, 1 - easeInCubic(p))
+        else if (reduced) setPop(uai, easeOutCubic(p))
+        else setPop(uai, easeOutBack(p), easeOutCubic(p))
+      }
+      if (gone) render()
+      a.raf = a.anims.size > 0 ? requestAnimationFrame(tick) : 0
+    }
+
+    const next = new Map(statuses.map((s) => [s.uai, s]))
+    const added = [...next.keys()].filter((uai) => !a.shown.has(uai))
+    const removed = [...a.shown.values()].filter((s) => !next.has(s.uai))
+    // Le premier jeu de données (le défaut est vide tant que ça charge) et un changement de nature
+    // des données (autre période, Historique) s'affichent d'un coup : rien ne « naît » ni ne « meurt ».
+    const switched = a.key !== datasetKey
+    a.key = datasetKey
+    const initial = a.first
+    if (next.size > 0) a.first = false
+    if (switched) {
+      for (const uai of [...a.anims.keys()]) settle(uai)
+      a.dying.clear()
+    }
+    const animate =
+      !initial && !switched && readyRef.current && added.length + removed.length <= MAX_ANIMATED
+    const now = performance.now()
+    for (const uai of added) {
+      a.dying.delete(uai)
+      settle(uai)
+      if (animate) {
+        // Départ à zéro avant que le point n'entre dans la source : pas d'image à pleine taille.
+        setPop(uai, 0, reduced ? 1 : 0)
+        a.anims.set(uai, { start: now, out: false })
+      }
+    }
+    for (const row of removed) {
+      settle(row.uai)
+      if (animate) {
+        a.dying.set(row.uai, row)
+        a.anims.set(row.uai, { start: now, out: true })
+      } else a.dying.delete(row.uai)
+    }
+    a.shown = next
+    render()
+    if (a.anims.size > 0 && !a.raf) a.raf = requestAnimationFrame(tick)
+
+    // Le caractère « récent » d'un signal change avec le temps : on redessine chaque minute.
+    const id = window.setInterval(render, 60_000)
     return () => window.clearInterval(id)
-  }, [statuses])
+  }, [statuses, datasetKey])
 
   // Sélection : repère + recentrage si le lycée est hors champ ou la vue trop large.
   useEffect(() => {
@@ -380,20 +545,22 @@ export default function MapView({
         role="region"
         aria-label="Carte des lycées et des facs concernés. Une liste textuelle est disponible à côté de la carte."
       />
-      <OverseasInsets
-        statuses={statuses}
-        selectedUai={selected?.uai}
-        onSelect={onSelect}
-        onGoto={(bounds) =>
-          mapRef.current?.fitBounds(bounds, {
-            padding: 40,
-            maxZoom: 10,
-            duration: prefersReducedMotion() ? 0 : 1200,
-          })
-        }
-        theme={theme}
-        styleUrl={STYLE_URL}
-      />
+      {overseas && (
+        <OverseasInsets
+          statuses={statuses}
+          selectedUai={selected?.uai}
+          onSelect={onSelect}
+          onGoto={(bounds) =>
+            mapRef.current?.fitBounds(bounds, {
+              padding: 40,
+              maxZoom: 10,
+              duration: prefersReducedMotion() ? 0 : 1200,
+            })
+          }
+          theme={theme}
+          styleUrl={STYLE_URL}
+        />
+      )}
     </div>
   )
 }
