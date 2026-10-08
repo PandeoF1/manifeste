@@ -36,6 +36,7 @@ function fakeDb(candidates: Record<string, SchoolCandidate[]>) {
           ]
         : [],
     schoolsInCity: async (city) => (city === 'Hanches' ? [{ uai: '0280000A' }] : []),
+    schoolLevel: async (uai) => (uai === '0590099Z' ? 'superieur' : 'lycee'),
     insertReport: async (r) => {
       if (reports.some((x) => x.source_url === r.source_url && x.school_uai === r.school_uai))
         return 'duplicate'
@@ -55,7 +56,7 @@ const source = {
   label: 'Mobilycée',
   source_type: 'collecteur' as const,
 }
-const now = new Date('2026-10-04T09:00:00Z')
+const now = new Date('2026-10-05T09:00:00Z')
 const besancon: SchoolCandidate = {
   uai: '0000002B',
   name: 'Lycée Victor Hugo',
@@ -75,7 +76,7 @@ describe('collectSource', () => {
           school_name: 'Lycée Victor-Hugo',
           city: 'Besançon',
           status: 'bloque',
-          observed_at: '2026-10-04T05:00:00Z',
+          observed_at: '2026-10-05T05:00:00Z',
           certainty: 'haute',
         },
       ],
@@ -98,9 +99,9 @@ describe('collectSource', () => {
       source_domain: 't.me',
       source_id: 'src-1',
       certainty: 'haute',
-      observed_at: '2026-10-04T05:00:00.000Z',
+      observed_at: '2026-10-05T05:00:00.000Z',
       published_at: expect.any(String),
-      extracted_observed_at: '2026-10-04T05:00:00Z',
+      extracted_observed_at: '2026-10-05T05:00:00Z',
       date_basis: 'extracted',
     })
     expect(seen.size).toBe(2)
@@ -137,7 +138,7 @@ describe('collectSource', () => {
     expect(reports).toHaveLength(0)
     expect(unmatched[0]).toMatchObject({
       school_name: 'Lycée Inconnu',
-      observed_at: '2026-10-04T07:12:00.000Z',
+      observed_at: '2026-10-05T07:12:00.000Z',
     })
   })
 
@@ -483,5 +484,51 @@ describe('même article reçu par plusieurs sources', () => {
     const second = results.find((r) => r.source_id === 'src-2')
     expect(second?.items[0]?.outcome).toBe('doublon')
     expect(second?.duplicates).toBe(1)
+  })
+})
+
+describe('week-end : un lycée est fermé', () => {
+  const run = async (
+    uai: string,
+    observed_at: string,
+    status: 'bloque' | 'filtrant' = 'bloque',
+  ) => {
+    const { db, reports } = fakeDb({
+      'Lycée Test': [
+        { uai, name: 'Lycée Test', city: 'Lille', name_score: 1, city_score: 1, score: 1 },
+      ],
+    })
+    const extract = async (batch: ReadonlyArray<{ id: string }>): Promise<ExtractedEvent[]> =>
+      batch.slice(0, 1).map((b) => ({
+        item_id: b.id,
+        school_name: 'Lycée Test',
+        city: 'Lille',
+        status,
+        observed_at,
+        certainty: 'haute' as const,
+      }))
+    // Publié le samedi 3 octobre 2026 à 10 h (Paris) : le fait retenu tombe un week-end.
+    const sat = new Date('2026-10-03T08:00:00Z')
+    const fetchSat = vi.fn(
+      async () => new Response(html.replaceAll('2026-10-05', '2026-10-03'), { status: 200 }),
+    )
+    const r = await collectSource(source, { db, fetchFn: fetchSat, extract, now: sat })
+    return { r, reports }
+  }
+
+  it('ne crée pas de « bloqué » un samedi pour un lycée', async () => {
+    const { r, reports } = await run('0590010A', '2026-10-03T07:00:00Z')
+    expect(reports).toHaveLength(0)
+    expect(r.items.some((i) => i.detail === 'lycée fermé le week-end')).toBe(true)
+  })
+
+  it('garde une fac (occupation possible le week-end)', async () => {
+    const { reports } = await run('0590099Z', '2026-10-03T07:00:00Z')
+    expect(reports).toHaveLength(1)
+  })
+
+  it('garde un statut autre que « bloqué »', async () => {
+    const { reports } = await run('0590010A', '2026-10-03T07:00:00Z', 'filtrant')
+    expect(reports).toHaveLength(1)
   })
 })
