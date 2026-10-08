@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react'
 import { Pause, Play } from 'lucide-react'
 import {
   PLAY_SPEEDS,
@@ -10,6 +18,7 @@ import {
   fmtAgo,
   fmtMoment,
   fmtTick,
+  type Bucket,
   type TimelineData,
   type TimelineRange,
 } from '@/lib/timeline'
@@ -37,6 +46,51 @@ interface Props {
   onExit: () => void
 }
 
+/** Barres de l'histogramme : ne se redessinent que si les données changent (pas à chaque image de la lecture). */
+const Bars = memo(function Bars({ buckets, max }: { buckets: Bucket[]; max: number }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox={`0 0 ${buckets.length || 1} 100`}
+      preserveAspectRatio="none"
+      className="absolute inset-0 h-full w-full"
+    >
+      {buckets.map((b, i) => {
+        if (b.total === 0) return null
+        const scale = Math.max(100 / max, 5 / b.total)
+        const hBloque = b.bloque * scale
+        const hFiltrant = b.filtrant * scale
+        const hLeve = b.leve * scale
+        return (
+          <g key={b.start}>
+            <rect
+              x={i + 0.08}
+              y={100 - hBloque}
+              width={0.84}
+              height={hBloque}
+              className="fill-bloque"
+            />
+            <rect
+              x={i + 0.08}
+              y={100 - hBloque - hFiltrant}
+              width={0.84}
+              height={hFiltrant}
+              className="fill-filtrant"
+            />
+            <rect
+              x={i + 0.08}
+              y={100 - hBloque - hFiltrant - hLeve}
+              width={0.84}
+              height={hLeve}
+              className="fill-leve opacity-60"
+            />
+          </g>
+        )
+      })}
+    </svg>
+  )
+})
+
 /**
  * Frise du mode « Historique » : histogramme des signalements dans le temps, curseur pour
  * remonter la carte à n'importe quel instant, et lecture automatique.
@@ -58,45 +112,79 @@ export function Timeline({
 }: Props) {
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<number>(PLAY_SPEEDS[0])
+  // Pendant la lecture, la tête avance à chaque image (fluide) ; la carte, elle, n'est mise à jour
+  // que ~10 fois par seconde.
+  const [pos, setPos] = useState(at)
+  const shownAt = playing ? pos : at
   const trackRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const span = Math.max(1, to - from)
   const size = bucketSize(span)
 
   // Valeurs courantes pour la boucle de lecture (qui ne doit pas redémarrer à chaque image).
-  const live = useRef({ at, from, to, speed, onAtChange })
+  const live = useRef({ at, pos, from, to, speed, onAtChange })
   useEffect(() => {
-    live.current = { at, from, to, speed, onAtChange }
+    live.current = { at, pos, from, to, speed, onAtChange }
   })
 
   useEffect(() => {
     if (!playing) return
-    const start = live.current
-    // Lecture lancée au bout de la frise : on repart du début.
-    let pos = start.at >= start.to - 60_000 ? start.from : start.at
+    let current = live.current.pos
     let last = performance.now()
     let lastEmit = 0
     let raf = 0
-    start.onAtChange(pos, false)
     const tick = (now: number) => {
       const cur = live.current
-      pos = advance(pos, now - last, cur.from, cur.to, cur.speed)
+      current = advance(current, now - last, cur.from, cur.to, cur.speed)
       last = now
-      if (pos >= cur.to) {
+      if (current >= cur.to) {
+        setPos(cur.to)
         cur.onAtChange(cur.to, true)
         setPlaying(false)
         return
       }
-      // La carte se redessine ~7 fois par seconde : assez fluide, sans saturer MapLibre.
-      if (now - lastEmit >= 140) {
+      setPos(current)
+      if (now - lastEmit >= 100) {
         lastEmit = now
-        cur.onAtChange(pos, false)
+        cur.onAtChange(current, false)
       }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [playing])
+
+  // Glisser le curseur : au plus un changement par image, même si la souris en envoie davantage.
+  const queued = useRef<{ ms: number; raf: number }>({ ms: 0, raf: 0 })
+  const queueAt = (ms: number) => {
+    const q = queued.current
+    q.ms = ms
+    if (q.raf) return
+    q.raf = requestAnimationFrame(() => {
+      q.raf = 0
+      live.current.onAtChange(q.ms, false)
+    })
+  }
+  const cancelQueued = () => {
+    cancelAnimationFrame(queued.current.raf)
+    queued.current.raf = 0
+  }
+  // Pas de sélection de texte (ni d'image traînée) pendant le glissé, même hors de la frise.
+  const lockSelection = (on: boolean) => document.body.classList.toggle('select-none', on)
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(queued.current.raf)
+      document.body.classList.remove('select-none')
+    },
+    [],
+  )
+
+  const startPlay = () => {
+    const begin = at >= to - 60_000 ? from : at
+    setPos(begin)
+    onAtChange(begin, false)
+    setPlaying(true)
+  }
 
   const buckets = useMemo(
     () => (data ? bucketize(data.events, from, to, size) : []),
@@ -105,12 +193,12 @@ export function Timeline({
   const max = useMemo(() => Math.max(1, ...buckets.map((b) => b.total)), [buckets])
 
   const pct = (ms: number) => Math.min(100, Math.max(0, ((ms - from) / span) * 100))
-  const atPct = pct(at)
-  const windowStart = pct(at - hours * HOUR)
+  const atPct = pct(shownAt)
+  const windowStart = pct(shownAt - hours * HOUR)
 
   const pause = () => {
     setPlaying(false)
-    onAtChange(at, true)
+    onAtChange(pos, true)
   }
 
   const fromPointer = (e: PointerEvent<HTMLDivElement>) => {
@@ -120,21 +208,27 @@ export function Timeline({
     return from + f * span
   }
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.focus()
     e.currentTarget.setPointerCapture(e.pointerId)
     dragging.current = true
+    lockSelection(true)
     setPlaying(false)
-    onAtChange(fromPointer(e), false)
+    queueAt(fromPointer(e))
   }
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (dragging.current) onAtChange(fromPointer(e), false)
+    if (dragging.current) queueAt(fromPointer(e))
   }
   const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
     if (!dragging.current) return
     dragging.current = false
+    lockSelection(false)
+    cancelQueued()
     onAtChange(fromPointer(e), true)
   }
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = size
+    const at = shownAt
     const moves: Record<string, number | undefined> = {
       ArrowLeft: at - step,
       ArrowDown: at - step,
@@ -152,7 +246,7 @@ export function Timeline({
     onAtChange(Math.min(to, Math.max(from, next)), true)
   }
 
-  const atEnd = at >= to - 60_000
+  const atEnd = shownAt >= to - 60_000
   const nextSpeed = () =>
     setSpeed(
       (s) =>
@@ -164,12 +258,13 @@ export function Timeline({
   return (
     <section
       aria-label="Historique : remonter le temps sur la carte"
-      className="glass rounded-2xl border border-border p-3 shadow-2xl"
+      onDragStart={(e) => e.preventDefault()}
+      className="glass rounded-2xl border border-border p-3 shadow-2xl select-none"
     >
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => (playing ? pause() : setPlaying(true))}
+          onClick={() => (playing ? pause() : startPlay())}
           aria-label={playing ? 'Pause' : 'Lecture'}
           className="grid size-11 shrink-0 place-items-center rounded-full bg-fg text-bg"
         >
@@ -180,9 +275,9 @@ export function Timeline({
           )}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold tabular-nums">{fmtMoment(at)}</p>
+          <p className="truncate text-sm font-bold tabular-nums">{fmtMoment(shownAt)}</p>
           <p className="truncate text-xs text-muted">
-            {atEnd ? 'maintenant' : fmtAgo(at, to)} · {hours} h de signaux
+            {atEnd ? 'maintenant' : fmtAgo(shownAt, to)} · {hours} h de signaux
           </p>
         </div>
         <button
@@ -201,8 +296,8 @@ export function Timeline({
         aria-label="Instant affiché sur la carte"
         aria-valuemin={Math.round(from)}
         aria-valuemax={Math.round(to)}
-        aria-valuenow={Math.round(at)}
-        aria-valuetext={fmtMoment(at)}
+        aria-valuenow={Math.round(shownAt)}
+        aria-valuetext={fmtMoment(shownAt)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -216,45 +311,7 @@ export function Timeline({
           className="absolute inset-y-0 bg-accent/15"
           style={{ left: `${windowStart}%`, width: `${Math.max(0, atPct - windowStart)}%` }}
         />
-        <svg
-          aria-hidden="true"
-          viewBox={`0 0 ${buckets.length || 1} 100`}
-          preserveAspectRatio="none"
-          className="absolute inset-0 h-full w-full"
-        >
-          {buckets.map((b, i) => {
-            if (b.total === 0) return null
-            const scale = Math.max(100 / max, 5 / b.total)
-            const hBloque = b.bloque * scale
-            const hFiltrant = b.filtrant * scale
-            const hLeve = b.leve * scale
-            return (
-              <g key={b.start}>
-                <rect
-                  x={i + 0.08}
-                  y={100 - hBloque}
-                  width={0.84}
-                  height={hBloque}
-                  className="fill-bloque"
-                />
-                <rect
-                  x={i + 0.08}
-                  y={100 - hBloque - hFiltrant}
-                  width={0.84}
-                  height={hFiltrant}
-                  className="fill-filtrant"
-                />
-                <rect
-                  x={i + 0.08}
-                  y={100 - hBloque - hFiltrant - hLeve}
-                  width={0.84}
-                  height={hLeve}
-                  className="fill-leve opacity-60"
-                />
-              </g>
-            )
-          })}
-        </svg>
+        <Bars buckets={buckets} max={max} />
         {/* Le futur par rapport à l'instant affiché est estompé. */}
         <div
           aria-hidden="true"

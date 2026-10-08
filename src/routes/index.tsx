@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
@@ -114,6 +114,9 @@ function MapPage() {
   )
   const shown = historyMode ? (replayed ?? NONE) : statuses
   const loading = historyMode ? timeline.isPending : isPending
+  // Liste et chiffres passent après la carte : en glissant vite sur la frise, la carte et le curseur
+  // restent fluides, le reste rattrape dès que la main se calme.
+  const deferredShown = useDeferredValue(shown)
 
   const history = historyMode
     ? `dans les ${hours} h avant le ${fmtMomentShort(at)}`
@@ -162,8 +165,8 @@ function MapPage() {
   )
 
   const stats = useMemo(
-    () => computeStats(shown, historyMode ? at : to),
-    [shown, historyMode, at, to],
+    () => computeStats(deferredShown, historyMode ? at : to),
+    [deferredShown, historyMode, at, to],
   )
   const historyParams = [
     search.t !== undefined && `t=${search.t}`,
@@ -238,7 +241,7 @@ function MapPage() {
           {loading ? (
             <FeedSkeleton />
           ) : (
-            <LiveFeed statuses={shown} selectedUai={search.uai} onSelect={onSelect} />
+            <LiveFeed statuses={deferredShown} selectedUai={search.uai} onSelect={onSelect} />
           )}
         </div>
       </aside>
