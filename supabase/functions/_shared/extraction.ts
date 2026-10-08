@@ -82,7 +82,7 @@ Pour chaque établissement explicitement cité comme bloqué, sous barrage filtr
 - status "bloque" : entrée de l'établissement bloquée (blocus), ou établissement fermé / « porte close » à cause de la mobilisation.
 - status "filtrant" : barrage filtrant, entrée partiellement bloquée.
 - status "leve" : blocus levé, fin du blocage, établissement rouvert.
-- observed_at : moment du fait. Déduis-le du texte et de la date de publication fournie ("ce matin", "hier"). null si impossible.
+- observed_at : moment du fait. Déduis-le du texte et de la date de publication fournie ("ce matin", "hier"). Si le fait est annoncé pour un jour à venir ("fermés ce lundi", "demain"), donne ce jour à venir. null si impossible.
 - certainty : "haute" si le fait est affirmé clairement et au présent ; "moyenne" si probable ; "faible" si appel à bloquer, rumeur, conditionnel, futur ou fait ancien.
 
 Règles strictes :
@@ -136,17 +136,50 @@ export function meetsCertainty(value: Certainty, min: Certainty): boolean {
   return CERTAINTY_RANK[value] >= CERTAINTY_RANK[min]
 }
 
+/** Jour civil à Paris (AAAA-MM-JJ) : sert à reconnaître un fait annoncé pour un autre jour. */
+function parisDay(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d)
+}
+
+/** Décalage de Paris par rapport à UTC à cette date (« +02:00 » l'été, « +01:00 » l'hiver). */
+function parisOffset(at: Date): string {
+  const label =
+    new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', timeZoneName: 'longOffset' })
+      .formatToParts(at)
+      .find((p) => p.type === 'timeZoneName')?.value ?? 'GMT+01:00'
+  return label === 'GMT' ? '+00:00' : label.replace('GMT', '')
+}
+
+/**
+ * Jour annoncé sans heure précise (date seule ou minuit) : on retient 8 h à Paris, heure de
+ * début des cours. Un fait daté de minuit sortirait de la carte à 5 h, avant les blocages réels.
+ */
+function announcedAt(extracted: string, parsed: Date): Date {
+  const m = /^(\d{4}-\d{2}-\d{2})(?:T00:00(?::00(?:\.0+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/.exec(
+    extracted.trim(),
+  )
+  if (!m?.[1]) return parsed
+  return new Date(`${m[1]}T08:00:00${parisOffset(new Date(`${m[1]}T12:00:00Z`))}`)
+}
+
+/** Un fait annoncé reste daté du jour annoncé jusqu'à 3 jours après la publication. */
+const ANNOUNCED_MAX_MS = 3 * 86_400_000
+
 /**
  * Date du fait retenue : celle extraite si plausible, sinon la date de publication.
- * Plausible = pas après la publication (+1 h de marge) et au plus 7 jours avant.
+ * Plausible = pas après la publication (+1 h de marge) et au plus 7 jours avant. Exception : un
+ * fait annoncé pour un jour à venir (« fermés ce lundi », article publié le dimanche) garde le
+ * jour annoncé, dans les 3 jours. Il n'apparaît sur la carte que ce jour-là.
  */
 export function resolveObservedAt(extracted: string | null, publishedAt: Date): Date {
   if (!extracted) return publishedAt
   const d = new Date(extracted)
   if (Number.isNaN(d.getTime())) return publishedAt
   const delta = d.getTime() - publishedAt.getTime()
-  if (delta > 3_600_000 || delta < -7 * 86_400_000) return publishedAt
-  return d
+  if (delta < -7 * 86_400_000) return publishedAt
+  if (delta <= 3_600_000) return d
+  const announced = delta <= ANNOUNCED_MAX_MS && parisDay(d) > parisDay(publishedAt)
+  return announced ? announcedAt(extracted, d) : publishedAt
 }
 
 export type { ReportStatus }
