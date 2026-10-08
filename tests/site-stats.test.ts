@@ -19,6 +19,7 @@ describe('statistiques du site', () => {
     expect(pageGroup('/lycee/0750001A')).toBe('lycee')
     expect(pageGroup('/liste')).toBe('liste')
     expect(pageGroup('/admin')).toBeNull()
+    expect(pageGroup('/donnees')).toBe('donnees')
     expect(pageGroup('/xyz')).toBe('autre')
   })
 

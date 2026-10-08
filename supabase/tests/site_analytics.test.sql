@@ -13,6 +13,12 @@ insert into t select 'IP jamais stockée en clair',
 insert into t select 'trois pages vues', (select sum(views) from public.analytics_pageviews) = 3;
 insert into t select 'page inconnue rangée dans autre',
   exists (select 1 from public.analytics_pageviews where page = 'autre');
+select public.record_beacon('203.0.113.7', 'donnees', true, '[]');
+insert into t select 'la page données a son propre nom',
+  exists (select 1 from public.analytics_pageviews where page = 'donnees')
+  and exists (select 1 from pg_constraint where conrelid = 'public.analytics_live'::regclass
+              and pg_get_constraintdef(oid) like '%donnees%')
+  and pg_get_functiondef('public.ping_live(uuid,text)'::regprocedure) like '%donnees%';
 insert into t select 'mesures valides seulement', (select count(*) from public.analytics_vitals) = 3;
 
 select public.ping_live('00000000-0000-0000-0000-000000000001', 'carte');
@@ -77,7 +83,7 @@ reset role;
 insert into t select 'série : p75 absent sous 3 mesures, présent au-dessus',
   exists (select 1 from series_out, jsonb_array_elements(j->'points') p where p->>'api' is not null)
   and not exists (select 1 from series_out, jsonb_array_elements(j->'points') p where p->>'lcp' is not null);
-insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 18;
+insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 19;
 
 select name, ok from t;
 do $$ declare f text; begin
