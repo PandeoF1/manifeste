@@ -2,6 +2,12 @@
   "name": "manifeste",
   "private": true,
   "version": "0.1.0",
+  "description": "Live map of blocked high schools and universities in France, with a source for every report.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PandeoF1/manifest.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +20,6 @@
     "test:db": "bash supabase/tests/run-local.sh",
     "import:schools": "tsx scripts/import-schools.ts",
     "import:higher-ed": "tsx scripts/import-higher-ed.ts",
-    "diagnose:gnews": "tsx scripts/diagnose-gnews.ts",
     "gen:types": "supabase gen types typescript --linked --schema public > src/lib/database.types.ts",
     "check": "tsc -b && eslint . && vitest run",
     "brand": "tsx scripts/generate-brand.ts",
