@@ -1,4 +1,7 @@
 begin;
+-- Les statistiques comptent en jours de Paris alors que la base tourne en UTC : sans ceci, le test
+-- échoue entre 22 h et 24 h UTC (la date UTC et la date de Paris diffèrent).
+set local timezone to 'Europe/Paris';
 create temp table t (name text, ok boolean);
 grant all on t to anon, authenticated;
 
