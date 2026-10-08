@@ -143,6 +143,43 @@ export interface Pending {
   item: ScrapedItem
 }
 
+/**
+ * Un même article reçu par plusieurs sources dans un passage (flux de presse, requêtes Google
+ * Actualités, comptes Bluesky…) n'est envoyé qu'une fois à l'IA, sur l'union des textes reçus : on
+ * ne perd aucun fait (chaque source en apporte parfois un morceau différent) et on ne paie qu'un
+ * appel. Les éléments d'une carte (position) ne sont jamais fusionnés.
+ */
+export function mergeSameArticle(pending: ReadonlyArray<Pending>): {
+  kept: Pending[]
+  /** Éléments absorbés, avec l'élément qui les représente. */
+  absorbed: Array<{ item: Pending; into: Pending }>
+} {
+  const kept: Pending[] = []
+  const absorbed: Array<{ item: Pending; into: Pending }> = []
+  const byUrl = new Map<string, number>()
+  for (const p of pending) {
+    if (p.item.geo || p.item.alwaysRelevant) {
+      kept.push(p)
+      continue
+    }
+    const key = canonicalUrl(p.item.url)
+    const at = byUrl.get(key)
+    if (at === undefined) {
+      byUrl.set(key, kept.length)
+      kept.push(p)
+      continue
+    }
+    const head = kept[at] as Pending
+    const known = new Set(head.item.text.split('\n').map((l) => l.trim().toLowerCase()))
+    const extra = p.item.text
+      .split('\n')
+      .filter((l) => l.trim() && !known.has(l.trim().toLowerCase()))
+    if (extra.length) head.item = { ...head.item, text: `${head.item.text}\n${extra.join('\n')}` }
+    absorbed.push({ item: p, into: head })
+  }
+  return { kept, absorbed }
+}
+
 /** Forme JSON d'un élément en attente (échange entre sous-appels et répartiteur). */
 export interface PendingJson {
   source: CollectorSource
@@ -248,7 +285,10 @@ export async function analyzePending(
     return r
   }
 
-  const groups = chunk(pending, batchSize)
+  const merged = mergeSameArticle(pending)
+  const followers = new Map<Pending, Pending[]>()
+  for (const a of merged.absorbed) followers.set(a.into, [...(followers.get(a.into) ?? []), a.item])
+  const groups = chunk(merged.kept, batchSize)
   for (const [groupIndex, group] of groups.entries()) {
     if (Date.now() - startedAt > budgetMs) {
       // Budget de temps dépassé : repris au prochain passage.
@@ -319,6 +359,20 @@ export async function analyzePending(
     const bySource = new Map<string, string[]>()
     for (const p of group)
       bySource.set(p.source.id, [...(bySource.get(p.source.id) ?? []), p.item.externalId])
+    // Éléments fusionnés avec un autre : analysés avec lui, donc marqués traités avec lui.
+    for (const p of group) {
+      for (const f of followers.get(p) ?? []) {
+        const r = res(f.source)
+        r.duplicates++
+        r.items.push({
+          external_id: f.item.externalId,
+          url: f.item.url,
+          outcome: 'doublon',
+          detail: 'même article reçu par une autre source, analysé une seule fois',
+        })
+        bySource.set(f.source.id, [...(bySource.get(f.source.id) ?? []), f.item.externalId])
+      }
+    }
     for (const [sourceId, ids] of bySource) await opts.db.markSeen(sourceId, ids)
     opts.onBatch?.(groupLogs, group.length)
   }

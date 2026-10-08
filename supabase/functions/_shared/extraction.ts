@@ -100,7 +100,7 @@ export function buildUserPrompt(items: ReadonlyArray<{ id: string; item: Scraped
   const payload = items.map(({ id, item }) => ({
     id,
     publie_le: item.publishedAt.toISOString(),
-    texte: item.text.slice(0, 4500),
+    texte: item.text.slice(0, 6000),
   }))
   return `Messages à analyser (JSON) :\n${JSON.stringify(payload)}`
 }
