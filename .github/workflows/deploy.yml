@@ -1,6 +1,7 @@
 name: Deploy
 
 # develop -> the "Preview" environment (dev project), main -> the "Production" environment.
+# The Supabase CLI version is pinned: resolving "latest" hits the GitHub API rate limit.
 # Each GitHub environment holds its own SUPABASE_PROJECT_REF (secret or variable); see docs/ci-cd.md.
 on:
   push:
@@ -33,7 +34,7 @@ jobs:
       - uses: supabase/setup-cli@v1
         if: ${{ env.SUPABASE_PROJECT_REF != '' }}
         with:
-          version: latest
+          version: 2.120.0
       - name: Link the project
         if: ${{ env.SUPABASE_PROJECT_REF != '' }}
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
