@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   GeolocateControl,
   Map as MapLibreMap,
@@ -16,13 +16,19 @@ import type { SchoolStatus } from '@/queries/statuses'
 import { addMarkerImages } from './markerImages'
 import { styleBase } from './baseStyle'
 import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
+import { NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
 import type { Theme } from '@/lib/theme'
+import { OverseasInsets } from './OverseasInsets'
 
 setWorkerUrl(workerUrl)
 
 const STYLE_URL =
   import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/positron'
 const SOURCE_ID = 'schools'
+const MAX_BOUNDS: [[number, number], [number, number]] = [
+  [-70, -25],
+  [60, 55],
+]
 /** Un signal de moins de 30 min « pulse » sur la carte. */
 const RECENT_MS = 30 * 60_000
 /** Durée d'une onde. */
@@ -128,6 +134,8 @@ export default function MapView({
   const mapRef = useRef<MapLibreMap | null>(null)
   const readyRef = useRef(false)
   const hasRecentRef = useRef(false)
+  // Vue nationale : les médaillons d'outre-mer ne s'affichent que dans ce cas.
+  const [national, setNational] = useState(initialView.z < NATIONAL_MAX_ZOOM)
   const latest = useRef({ statuses, onViewChange, onSelect, theme })
   useEffect(() => {
     latest.current = { statuses, onViewChange, onSelect, theme }
@@ -145,10 +153,7 @@ export default function MapView({
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
-      maxBounds: [
-        [-70, -25],
-        [60, 55],
-      ],
+      maxBounds: MAX_BOUNDS,
     })
     mapRef.current = map
     map.touchZoomRotate.disableRotation()
@@ -311,6 +316,7 @@ export default function MapView({
     })
 
     map.on('moveend', () => {
+      setNational(map.getZoom() < NATIONAL_MAX_ZOOM)
       const c = map.getCenter()
       latest.current.onViewChange({
         lat: Math.round(c.lat * 1e4) / 1e4,
@@ -354,6 +360,12 @@ export default function MapView({
     const apply = () => {
       map.setFilter('selected', ['==', ['get', 'uai'], selected?.uai ?? ''])
       if (!selected) return
+      // Outre-mer : en vue nationale, le médaillon montre le point (le panneau s'ouvre) ; les
+      // territoires hors de la carte (Pacifique) ne sont de toute façon pas atteignables.
+      const overseas = territoryOf(selected.department)
+      const [[west], [east]] = MAX_BOUNDS
+      if (overseas && map.getZoom() < NATIONAL_MAX_ZOOM) return
+      if (selected.lng < west || selected.lng > east) return
       const inView = map.getBounds().contains([selected.lng, selected.lat])
       if (!inView || map.getZoom() < 8) {
         map.flyTo({
@@ -378,6 +390,15 @@ export default function MapView({
         role="region"
         aria-label="Carte des lycées et des facs concernés. Une liste textuelle est disponible à côté de la carte."
       />
+      {national && (
+        <OverseasInsets
+          statuses={statuses}
+          selectedUai={selected?.uai}
+          onSelect={onSelect}
+          theme={theme}
+          styleUrl={STYLE_URL}
+        />
+      )}
     </div>
   )
 }
