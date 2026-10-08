@@ -435,6 +435,7 @@ export default function MapView({
       a.anims.delete(uai)
       if (a.touched.has(uai) && source()) setPop(uai, 1)
     }
+    const reduced = prefersReducedMotion()
     const tick = () => {
       const map = mapRef.current
       if (!map || !source()) {
@@ -453,7 +454,9 @@ export default function MapView({
           }
           continue
         }
+        // « Réduire les animations » : le point grossit ou rétrécit en douceur, sans rebond ni onde.
         if (anim.out) setPop(uai, 1 - easeInCubic(p))
+        else if (reduced) setPop(uai, easeOutCubic(p))
         else setPop(uai, easeOutBack(p), easeOutCubic(p))
       }
       if (gone) render()
@@ -463,11 +466,7 @@ export default function MapView({
     const next = new Map(statuses.map((s) => [s.uai, s]))
     const added = [...next.keys()].filter((uai) => !a.shown.has(uai))
     const removed = [...a.shown.values()].filter((s) => !next.has(s.uai))
-    const animate =
-      !a.first &&
-      readyRef.current &&
-      !prefersReducedMotion() &&
-      added.length + removed.length <= MAX_ANIMATED
+    const animate = !a.first && readyRef.current && added.length + removed.length <= MAX_ANIMATED
     a.first = false
     const now = performance.now()
     for (const uai of added) {
@@ -475,7 +474,7 @@ export default function MapView({
       settle(uai)
       if (animate) {
         // Départ à zéro avant que le point n'entre dans la source : pas d'image à pleine taille.
-        setPop(uai, 0, 0)
+        setPop(uai, 0, reduced ? 1 : 0)
         a.anims.set(uai, { start: now, out: false })
       }
     }
