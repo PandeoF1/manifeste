@@ -105,7 +105,8 @@ export const PAGE_LABEL: Record<string, string> = {
   lycee: 'Fiche établissement',
   signaler: 'Signaler',
   'a-propos': 'À propos',
-  autre: 'Autre',
+  donnees: 'Données',
+  autre: 'Autre (adresse inconnue)',
 }
 
 const num = (v: unknown) => (typeof v === 'number' ? v : Number(v ?? 0) || 0)
