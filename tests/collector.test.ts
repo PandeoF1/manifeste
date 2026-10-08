@@ -13,6 +13,7 @@ import {
   type NewUnmatched,
 } from '@shared/collector.ts'
 import type { ExtractedEvent } from '@shared/extraction.ts'
+import { GeminiError } from '@shared/gemini.ts'
 import type { SchoolCandidate } from '@shared/matching.ts'
 
 const html = readFileSync(new URL('./fixtures/telegram.html', import.meta.url), 'utf8')
@@ -288,6 +289,51 @@ describe('journal du collecteur', () => {
       outcome: 'erreur',
       detail: 'IA : Gemini indisponible',
     })
+  })
+})
+
+describe('crédit Gemini épuisé (402)', () => {
+  it("s'arrête au premier lot refusé et reporte les suivants, sans rien marquer traité", async () => {
+    const { db, seen } = fakeDb({})
+    const mk = (i: number): Pending => ({
+      source,
+      item: {
+        externalId: `p${i}`,
+        url: `https://exemple.fr/${i}`,
+        text: 'Blocus au lycée',
+        publishedAt: now,
+      },
+    })
+    const extract = vi.fn(async () => {
+      throw new GeminiError(402, 'Gemini : crédit épuisé ou plafond de dépense atteint (402).')
+    })
+    const results = await analyzePending([mk(1), mk(2), mk(3)], [], {
+      db,
+      fetchFn,
+      extract,
+      batchSize: 1,
+    })
+    // Un seul appel : les lots 2 et 3 ne sont même pas tentés.
+    expect(extract).toHaveBeenCalledTimes(1)
+    expect(results[0]?.items.map((i) => [i.external_id, i.outcome])).toEqual([
+      ['p1', 'erreur'],
+      ['p2', 'reporte'],
+      ['p3', 'reporte'],
+    ])
+    expect(seen.size).toBe(0)
+  })
+
+  it('continue après une autre erreur (503) : seul le 402 coupe le passage', async () => {
+    const { db } = fakeDb({})
+    const mk = (i: number): Pending => ({
+      source,
+      item: { externalId: `p${i}`, url: `https://exemple.fr/${i}`, text: 'x', publishedAt: now },
+    })
+    const extract = vi.fn(async () => {
+      throw new GeminiError(503, 'saturé')
+    })
+    await analyzePending([mk(1), mk(2)], [], { db, fetchFn, extract, batchSize: 1 })
+    expect(extract).toHaveBeenCalledTimes(2)
   })
 })
 

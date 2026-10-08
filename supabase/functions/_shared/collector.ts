@@ -9,6 +9,7 @@ import {
   type ExtractedEvent,
 } from './extraction.ts'
 import { fetchSource, type FetchLike, type ScrapedItem } from './fetchers/index.ts'
+import { isBillingBlocked } from './gemini.ts'
 import {
   isGenericSchoolName,
   levelOfName,
@@ -308,6 +309,9 @@ export async function analyzePending(
       events = await opts.extract(batch)
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
+      // Crédit épuisé (402) : les lots suivants échoueraient pareil. On s'arrête là, tout est
+      // repris au passage suivant (rien n'est marqué traité).
+      const blocked = isBillingBlocked(e)
       for (const p of group) {
         res(p.source).error = message
         res(p.source).items.push({
@@ -316,6 +320,16 @@ export async function analyzePending(
           outcome: 'erreur',
           detail: `IA : ${message}`.slice(0, 300),
         })
+      }
+      if (blocked) {
+        for (const p of groups.slice(groupIndex + 1).flat()) {
+          res(p.source).items.push({
+            external_id: p.item.externalId,
+            url: p.item.url,
+            outcome: 'reporte',
+          })
+        }
+        break
       }
       continue
     }

@@ -23,7 +23,8 @@
     "gen:types": "supabase gen types typescript --linked --schema public > src/lib/database.types.ts",
     "check": "tsc -b && eslint . && vitest run",
     "brand": "tsx scripts/generate-brand.ts",
-    "backfill": "tsx scripts/backfill.ts"
+    "backfill": "tsx scripts/backfill.ts",
+    "eval:truncation": "tsx scripts/eval-truncation.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

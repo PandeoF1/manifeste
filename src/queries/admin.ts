@@ -135,6 +135,8 @@ export const trustedDomainsQuery = queryOptions({
 export interface CollectRunResult {
   model: string
   gemini_calls?: number
+  /** Tokens du passage ; la réflexion est facturée comme de la sortie. */
+  tokens?: { prompt: number; output: number; thoughts: number }
   duration_ms: number
   results: Array<{
     source_id: string

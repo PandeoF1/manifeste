@@ -339,6 +339,8 @@ function RunSummary({ run }: { run: CollectRunResult }) {
       <p className="text-muted">
         Modèle {run.model} · {run.gemini_calls ?? '?'} appel{(run.gemini_calls ?? 0) > 1 ? 's' : ''}{' '}
         Gemini · {(run.duration_ms / 1000).toFixed(1)} s
+        {run.tokens &&
+          ` · ${run.tokens.prompt.toLocaleString('fr-FR')} tokens en entrée, ${(run.tokens.output + run.tokens.thoughts).toLocaleString('fr-FR')} en sortie`}
       </p>
       <table className="mt-2 w-full text-left tabular-nums">
         <thead className="text-muted">

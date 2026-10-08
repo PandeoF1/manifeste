@@ -8,6 +8,8 @@ supabase/.temp
 supabase/.branches
 .DS_Store
 .env.backfill
+.eval-truncation-cache.json
+eval-truncation-report.json
 .env.outreach
 # local-only tooling
 outreach/

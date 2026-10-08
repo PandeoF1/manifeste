@@ -25,7 +25,17 @@ import {
 import { planGroups } from '../_shared/collect-plan.ts'
 import { canonicalUrl } from '../_shared/domain.ts'
 import { CERTAINTIES, type Certainty } from '../_shared/extraction.ts'
-import { createExtractor, createGeminiClient, modelsFromEnv } from '../_shared/gemini.ts'
+import {
+  createExtractor,
+  createGeminiClient,
+  formatUsage,
+  mergeUsage,
+  modelsFromEnv,
+  textCharsFromEnv,
+  thinkingBudgetFromEnv,
+  totalUsage,
+  type TokenUsage,
+} from '../_shared/gemini.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
 import { SUPABASE_URL, admin, db, getCollectSecret, isAuthorized } from '../_shared/service.ts'
 import { batchByLength, traceSink } from '../_shared/service-db.ts'
@@ -43,12 +53,15 @@ const MEDIA_MODELS = modelsFromEnv(
   Deno.env.get('MEDIA_MODEL') || Deno.env.get('GEMINI_MODEL'),
   Deno.env.get('GEMINI_FALLBACK_MODELS'),
 )
-/** Budget de réflexion de Gemini (facturée comme de la sortie) : seulement si GEMINI_THINKING_BUDGET est défini (0 la coupe). Absent : réglage du modèle. */
-const THINKING_RAW = Deno.env.get('GEMINI_THINKING_BUDGET')
-const THINKING_BUDGET =
-  THINKING_RAW !== undefined && Number.isFinite(Number(THINKING_RAW)) && Number(THINKING_RAW) >= 0
-    ? Number(THINKING_RAW)
-    : undefined
+/**
+ * Budget de réflexion de Gemini (facturée comme de la sortie). Extraction : seulement si
+ * GEMINI_THINKING_BUDGET est défini (0 la coupe ; -1 ou absent : réglage du modèle). Médias :
+ * MEDIA_THINKING_BUDGET, coupée par défaut. Un modèle qui refuse le réglage est rappelé sans.
+ */
+const THINKING_BUDGET = thinkingBudgetFromEnv(Deno.env.get('GEMINI_THINKING_BUDGET'))
+const MEDIA_THINKING_BUDGET = thinkingBudgetFromEnv(Deno.env.get('MEDIA_THINKING_BUDGET'), 0)
+/** Longueur maximale du texte envoyé par élément à l'extraction (défaut : 6000). */
+const TEXT_CHARS = textCharsFromEnv(Deno.env.get('EXTRACTION_TEXT_CHARS'))
 const MIN_CERTAINTY_RAW = Deno.env.get('COLLECT_MIN_CERTAINTY') ?? 'moyenne'
 const MIN_CERTAINTY: Certainty = (CERTAINTIES as readonly string[]).includes(MIN_CERTAINTY_RAW)
   ? (MIN_CERTAINTY_RAW as Certainty)
@@ -125,6 +138,7 @@ async function analyze(
     apiKey: GEMINI_API_KEY,
     models: GEMINI_MODELS,
     thinkingBudget: THINKING_BUDGET,
+    textChars: TEXT_CHARS,
     fetchFn: ctx.fetchFor('collecteur'),
   })
   await analyzePending(pending, results, {
@@ -157,6 +171,7 @@ async function analyze(
     served: [...extractor.served],
     geminiCalls: extractor.calls + media.calls,
     mediaAnalyzed: media.analyzed,
+    usage: { extraction: extractor.usage, media: media.usage },
   }
 }
 
@@ -165,7 +180,7 @@ async function analyze(
  * dans le temps restant. Ne fait jamais échouer la collecte.
  */
 async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
-  if (!MEDIA_ENABLED) return { analyzed: 0, calls: 0 }
+  if (!MEDIA_ENABLED) return { analyzed: 0, calls: 0, usage: {} as Record<string, TokenUsage> }
   try {
     const seen = new Set<string>()
     const press = pending.filter((p) => {
@@ -174,7 +189,8 @@ async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
       seen.add(key)
       return true
     })
-    if (press.length === 0) return { analyzed: 0, calls: 0 }
+    if (press.length === 0)
+      return { analyzed: 0, calls: 0, usage: {} as Record<string, TokenUsage> }
     const done = new Set<string>()
     for (const urls of batchByLength(
       press.map((p) => canonicalUrl(p.item.url)),
@@ -188,6 +204,7 @@ async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
     const client = createGeminiClient({
       apiKey: GEMINI_API_KEY,
       models: MEDIA_MODELS,
+      thinkingBudget: MEDIA_THINKING_BUDGET,
       fetchFn: ctx.fetchFor('collecteur'),
     })
     let analyzed = 0
@@ -205,10 +222,10 @@ async function analyzeMedia(pending: Pending[], startedAt: number, ctx: Ctx) {
         else analyzed += rows.length
       }
     }
-    return { analyzed, calls: client.calls }
+    return { analyzed, calls: client.calls, usage: client.usage }
   } catch (e) {
     console.error('analyse des médias', e instanceof Error ? e.message : e)
-    return { analyzed: 0, calls: 0 }
+    return { analyzed: 0, calls: 0, usage: {} as Record<string, TokenUsage> }
   }
 }
 
@@ -344,7 +361,7 @@ Deno.serve(async (req) => {
       return json(200, out)
     }
 
-    const { results, served, geminiCalls, mediaAnalyzed } =
+    const { results, served, geminiCalls, mediaAnalyzed, usage } =
       typeof body.source_id === 'string'
         ? await (async () => {
             const sources = await loadSources([body.source_id as string])
@@ -363,6 +380,18 @@ Deno.serve(async (req) => {
           })()
         : await dispatch(startedAt, ctx)
 
+    const byModel = mergeUsage(usage.extraction, usage.media)
+    const tokens = totalUsage(byModel)
+    // Une ligne par passage dans les logs de la fonction : consommation par tâche et par modèle.
+    if (tokens.calls > 0)
+      console.log(
+        JSON.stringify({
+          event: 'gemini_usage',
+          extraction: totalUsage(usage.extraction),
+          media: totalUsage(usage.media),
+          by_model: byModel,
+        }),
+      )
     const sum = (k: 'reports' | 'unmatched' | 'relevant') =>
       results.reduce((acc, r) => acc + r[k], 0)
     ctx.tracer.emit({
@@ -372,7 +401,7 @@ Deno.serve(async (req) => {
       label: `${sum('reports')} signaux`,
       n: sum('reports'),
       ms: Date.now() - startedAt,
-      detail: `${sum('relevant')} pertinents · ${sum('unmatched')} non rattachés · ${mediaAnalyzed} articles analysés (médias) · ${geminiCalls} appels Gemini`,
+      detail: `${sum('relevant')} pertinents · ${sum('unmatched')} non rattachés · ${mediaAnalyzed} articles analysés (médias) · ${geminiCalls} appels Gemini · ${formatUsage(tokens)}`,
     })
     await ctx.tracer.flush()
 
@@ -380,6 +409,12 @@ Deno.serve(async (req) => {
       // Modèles réellement utilisés pendant ce passage (ou la liste configurée si aucun appel).
       model: served.length ? served.join(', ') : GEMINI_MODELS.join(' > '),
       gemini_calls: geminiCalls,
+      tokens: {
+        prompt: tokens.promptTokens,
+        output: tokens.outputTokens,
+        thoughts: tokens.thoughtsTokens,
+        by_model: byModel,
+      },
       media_analyzed: mediaAnalyzed,
       duration_ms: Date.now() - startedAt,
       results,

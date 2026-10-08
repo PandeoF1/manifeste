@@ -101,6 +101,9 @@ describe('settle', () => {
 describe('isQuotaExhausted', () => {
   it('reconnaît un quota épuisé', () => {
     expect(isQuotaExhausted('gemini-3.5-flash HTTP 429 : Resource has been exhausted')).toBe(true)
+    expect(isQuotaExhausted('Gemini : crédit épuisé ou plafond de dépense atteint (402).')).toBe(
+      true,
+    )
     expect(isQuotaExhausted('gemini HTTP 503 : overloaded')).toBe(false)
   })
 })

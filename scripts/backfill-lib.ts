@@ -139,7 +139,7 @@ export function settle(
 
 /** Erreur de quota épuisé sur tous les modèles : inutile d'insister avant le lendemain. */
 export function isQuotaExhausted(message: string): boolean {
-  return /\b429\b|RESOURCE_EXHAUSTED|quota/i.test(message)
+  return /\b429\b|\b402\b|RESOURCE_EXHAUSTED|quota|crédit épuisé/i.test(message)
 }
 
 // ---------------------------------------------------------------------------------------------

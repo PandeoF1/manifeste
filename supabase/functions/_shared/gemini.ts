@@ -39,6 +39,11 @@ export interface GeminiConfig {
    * par défaut du modèle.
    */
   thinkingBudget?: number
+  /**
+   * Longueur maximale (caractères) du texte de chaque élément envoyé à l'extraction. Absent :
+   * DEFAULT_TEXT_CHARS. À baisser seulement après `npm run eval:truncation`.
+   */
+  textChars?: number
   /** Nouvelles tentatives par modèle sur erreur temporaire (défaut 1). */
   retriesPerModel?: number
   /** Attente avant nouvelle tentative (injectable pour les tests). */
@@ -52,6 +57,55 @@ export interface JsonRequest {
   schema: unknown
 }
 
+/** Tokens consommés (la réflexion est facturée comme de la sortie). */
+export interface TokenUsage {
+  calls: number
+  promptTokens: number
+  /** Texte généré, hors réflexion. */
+  outputTokens: number
+  /** Tokens de réflexion (thoughtsTokenCount), facturés au tarif de la sortie. */
+  thoughtsTokens: number
+}
+
+export const emptyUsage = (): TokenUsage => ({
+  calls: 0,
+  promptTokens: 0,
+  outputTokens: 0,
+  thoughtsTokens: 0,
+})
+
+export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
+  return {
+    calls: a.calls + b.calls,
+    promptTokens: a.promptTokens + b.promptTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    thoughtsTokens: a.thoughtsTokens + b.thoughtsTokens,
+  }
+}
+
+/** Somme d'une consommation par modèle. */
+export function totalUsage(byModel: Readonly<Record<string, TokenUsage>>): TokenUsage {
+  return Object.values(byModel).reduce(addUsage, emptyUsage())
+}
+
+/** Fusionne plusieurs consommations par modèle (extraction + médias, par exemple). */
+export function mergeUsage(
+  ...parts: ReadonlyArray<Readonly<Record<string, TokenUsage>>>
+): Record<string, TokenUsage> {
+  const out: Record<string, TokenUsage> = {}
+  for (const part of parts)
+    for (const [model, u] of Object.entries(part))
+      out[model] = addUsage(out[model] ?? emptyUsage(), u)
+  return out
+}
+
+/** « 12 345 entrée · 2 400 sortie (dont 0 réflexion) », pour les journaux. */
+export function formatUsage(u: TokenUsage): string {
+  const n = (v: number) => v.toLocaleString('fr-FR')
+  const out = u.outputTokens + u.thoughtsTokens
+  return `${n(u.promptTokens)} tokens en entrée · ${n(out)} en sortie (dont ${n(u.thoughtsTokens)} de réflexion)`
+}
+
 export class GeminiError extends Error {
   constructor(
     public status: number,
@@ -60,6 +114,17 @@ export class GeminiError extends Error {
     super(message)
   }
 }
+
+/**
+ * 402 : crédit épuisé ou plafond de dépense atteint sur le compte Google. Ça vaut pour tous les
+ * modèles et ça dure : inutile d'essayer un modèle de secours ou les lots suivants du passage.
+ */
+export function isBillingBlocked(e: unknown): boolean {
+  return e instanceof GeminiError && e.status === 402
+}
+
+const BILLING_MESSAGE =
+  'Gemini : crédit épuisé ou plafond de dépense atteint (402). Vérifier la facturation dans Google AI Studio ; repris au prochain passage.'
 
 const UNAVAILABLE_PREFIX = 'Gemini indisponible, repris au prochain passage. '
 
@@ -75,12 +140,12 @@ async function errorMessage(res: Response): Promise<string> {
   return raw.slice(0, 200)
 }
 
-/** Appel d'un modèle ; renvoie le JSON produit (null si la sortie n'est pas du JSON). */
+/** Appel d'un modèle ; renvoie le JSON produit (null si la sortie n'est pas du JSON) et la consommation. */
 async function callModel(
   config: GeminiConfig,
   model: string,
   request: JsonRequest,
-): Promise<unknown> {
+): Promise<{ json: unknown; usage: TokenUsage }> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`
   const res = await config.fetchFn(url, {
     method: 'POST',
@@ -99,36 +164,58 @@ async function callModel(
       },
     }),
   })
-  if (!res.ok)
-    throw new GeminiError(res.status, `${model} HTTP ${res.status} : ${await errorMessage(res)}`)
+  if (!res.ok) {
+    const detail = await errorMessage(res)
+    throw new GeminiError(
+      res.status,
+      res.status === 402
+        ? `${BILLING_MESSAGE} (${model} : ${detail})`
+        : `${model} HTTP ${res.status} : ${detail}`,
+    )
+  }
   const body = (await res.json()) as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    usageMetadata?: {
+      promptTokenCount?: number
+      candidatesTokenCount?: number
+      thoughtsTokenCount?: number
+    }
   }
   const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
+  const meta = body.usageMetadata
+  const usage: TokenUsage = {
+    calls: 1,
+    promptTokens: meta?.promptTokenCount ?? 0,
+    outputTokens: meta?.candidatesTokenCount ?? 0,
+    thoughtsTokens: meta?.thoughtsTokenCount ?? 0,
+  }
   try {
-    return JSON.parse(text)
+    return { json: JSON.parse(text), usage }
   } catch {
-    return null
+    return { json: null, usage }
   }
 }
 
 /**
  * Requête JSON avec reprise : sur erreur temporaire (503, réseau) nouvelle tentative, sur quota
  * (429) ou modèle fermé (404) modèle suivant. Une erreur définitive (clé invalide, requête
- * refusée) est remontée immédiatement. Renvoie le JSON et le modèle qui a répondu.
+ * refusée, crédit épuisé 402) est remontée immédiatement. Renvoie le JSON, le modèle qui a
+ * répondu, sa consommation et si le réglage de réflexion a dû être abandonné (400).
  */
 export async function generateJson(
   config: GeminiConfig,
   request: JsonRequest,
-): Promise<{ json: unknown; model: string }> {
+): Promise<{ json: unknown; model: string; usage: TokenUsage; thinkingDropped: boolean }> {
   const sleep = config.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
   const retries = config.retriesPerModel ?? 1
   const failures: string[] = []
+  let thinkingDropped = false
 
   for (const model of config.models) {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        return { json: await callModel(config, model, request), model }
+        const { json, usage } = await callModel(config, model, request)
+        return { json, model, usage, thinkingDropped }
       } catch (e) {
         // Délai dépassé ou réseau : temporaire.
         const status = e instanceof GeminiError ? e.status : 0
@@ -136,6 +223,7 @@ export async function generateJson(
         // Ce modèle refuse le réglage de réflexion : on réessaie sans, une seule fois.
         if (status === 400 && config.thinkingBudget !== undefined) {
           config = { ...config, thinkingBudget: undefined }
+          thinkingDropped = true
           attempt--
           continue
         }
@@ -164,20 +252,28 @@ export async function generateJson(
 export function createGeminiClient(config: GeminiConfig) {
   let preferred: string | null = null
   const served = new Set<string>()
+  const usage: Record<string, TokenUsage> = {}
   let calls = 0
+  // Un modèle qui a refusé le réglage de réflexion le refusera toujours : on ne le renvoie plus
+  // (sinon chaque appel coûterait une requête en erreur 400 de plus).
+  let thinkingBudget = config.thinkingBudget
   const generate = async (request: JsonRequest): Promise<unknown> => {
     const models = preferred
       ? [preferred, ...config.models.filter((m) => m !== preferred)]
       : config.models
-    const { json, model } = await generateJson({ ...config, models }, request)
-    preferred = model
-    served.add(model)
+    const result = await generateJson({ ...config, thinkingBudget, models }, request)
+    if (result.thinkingDropped) thinkingBudget = undefined
+    preferred = result.model
+    served.add(result.model)
+    usage[result.model] = addUsage(usage[result.model] ?? emptyUsage(), result.usage)
     calls++
-    return json
+    return result.json
   }
   return {
     generate,
     served,
+    /** Consommation de tokens par modèle, requêtes abouties seulement. */
+    usage,
     get calls() {
       return calls
     },
@@ -186,8 +282,13 @@ export function createGeminiClient(config: GeminiConfig) {
 
 export function extractionRequest(
   batch: ReadonlyArray<{ id: string; item: ScrapedItem }>,
+  textChars?: number,
 ): JsonRequest {
-  return { system: SYSTEM_PROMPT, user: buildUserPrompt(batch), schema: GEMINI_RESPONSE_SCHEMA }
+  return {
+    system: SYSTEM_PROMPT,
+    user: buildUserPrompt(batch, textChars),
+    schema: GEMINI_RESPONSE_SCHEMA,
+  }
 }
 
 /** Extraction d'un lot d'éléments (faits sur les blocages), sortie validée par zod. */
@@ -196,7 +297,7 @@ export async function extractEvents(
   batch: ReadonlyArray<{ id: string; item: ScrapedItem }>,
 ): Promise<ExtractedEvent[]> {
   if (batch.length === 0) return []
-  const { json } = await generateJson(config, extractionRequest(batch))
+  const { json } = await generateJson(config, extractionRequest(batch, config.textChars))
   return parseExtraction(json, new Set(batch.map((b) => b.id)))
 }
 
@@ -207,16 +308,37 @@ export function createExtractor(config: GeminiConfig) {
     batch: ReadonlyArray<{ id: string; item: ScrapedItem }>,
   ): Promise<ExtractedEvent[]> => {
     if (batch.length === 0) return []
-    const json = await client.generate(extractionRequest(batch))
+    const json = await client.generate(extractionRequest(batch, config.textChars))
     return parseExtraction(json, new Set(batch.map((b) => b.id)))
   }
   return {
     extract,
     served: client.served,
+    usage: client.usage,
     get calls() {
       return client.calls
     },
   }
+}
+
+/**
+ * Budget de réflexion depuis une variable d'environnement : un entier ≥ 0 est transmis tel quel
+ * (0 coupe la réflexion), une valeur absente donne `fallback`, et -1 (ou toute valeur
+ * invalide) laisse le réglage par défaut du modèle (`undefined`).
+ */
+export function thinkingBudgetFromEnv(
+  raw: string | undefined,
+  fallback?: number,
+): number | undefined {
+  if (raw === undefined || raw.trim() === '') return fallback
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 0 ? n : undefined
+}
+
+/** Longueur de texte depuis une variable d'environnement (entier ≥ 200), sinon `undefined`. */
+export function textCharsFromEnv(raw: string | undefined): number | undefined {
+  const n = Number(raw)
+  return raw !== undefined && Number.isInteger(n) && n >= 200 ? n : undefined
 }
 
 /** Liste des modèles depuis l'environnement : principal puis secours, sans doublon. */
