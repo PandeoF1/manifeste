@@ -3,6 +3,7 @@ import {
   isRelevant,
   meetsCertainty,
   parseExtraction,
+  resolveObservation,
   resolveObservedAt,
 } from '@shared/extraction.ts'
 import { pickMatch, type SchoolCandidate } from '@shared/matching.ts'
@@ -143,6 +144,28 @@ describe('resolveObservedAt', () => {
   it('tient compte de l’heure d’hiver', () => {
     const saturday = new Date('2026-12-05T12:00:00Z')
     expect(resolveObservedAt('2026-12-07', saturday).toISOString()).toBe('2026-12-07T07:00:00.000Z')
+  })
+  it('jour seul le jour même : 8 h, ou la publication si elle est plus tôt', () => {
+    const afternoon = new Date('2026-10-05T12:00:00Z') // lundi 14 h à Paris
+    expect(resolveObservedAt('2026-10-05', afternoon).toISOString()).toBe(
+      '2026-10-05T06:00:00.000Z',
+    )
+    const early = new Date('2026-10-05T05:00:00Z') // lundi 7 h à Paris
+    expect(resolveObservedAt('2026-10-05', early)).toEqual(early)
+  })
+  it('jour seul passé : 8 h ce jour-là, sauf au-delà de 7 jours', () => {
+    const published = new Date('2026-10-06T12:00:00Z')
+    expect(resolveObservedAt('2026-10-02', published).toISOString()).toBe(
+      '2026-10-02T06:00:00.000Z',
+    )
+    expect(resolveObservedAt('2026-09-20', published)).toEqual(published)
+  })
+  it('indique l’origine de la date', () => {
+    const sunday = new Date('2026-10-04T17:06:00Z')
+    expect(resolveObservation('2026-10-04T09:00:00+02:00', sunday).basis).toBe('extracted')
+    expect(resolveObservation('2026-10-05', sunday).basis).toBe('announced')
+    expect(resolveObservation('demain', sunday).basis).toBe('published')
+    expect(resolveObservation(null, sunday).basis).toBe('published')
   })
 })
 

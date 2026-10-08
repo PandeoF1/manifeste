@@ -82,7 +82,7 @@ Pour chaque établissement explicitement cité comme bloqué, sous barrage filtr
 - status "bloque" : entrée de l'établissement bloquée (blocus), ou établissement fermé / « porte close » à cause de la mobilisation.
 - status "filtrant" : barrage filtrant, entrée partiellement bloquée.
 - status "leve" : blocus levé, fin du blocage, établissement rouvert.
-- observed_at : moment du fait. Déduis-le du texte et de la date de publication fournie ("ce matin", "hier"). Si le fait est annoncé pour un jour à venir ("fermés ce lundi", "demain"), donne ce jour à venir. null si impossible.
+- observed_at : moment du fait. Déduis-le du texte et de la date de publication fournie ("ce matin", "hier"). Si le fait est annoncé pour un jour à venir ("fermés ce lundi", "demain"), donne ce jour à venir. Donne l'heure si le texte la dit ; sinon donne seulement le jour (AAAA-MM-JJ). null si impossible.
 - certainty : "haute" si le fait est affirmé clairement et au présent ; "moyenne" si probable ; "faible" si appel à bloquer, rumeur, conditionnel, futur ou fait ancien.
 
 Règles strictes :
@@ -150,16 +150,20 @@ function parisOffset(at: Date): string {
   return label === 'GMT' ? '+00:00' : label.replace('GMT', '')
 }
 
-/**
- * Jour annoncé sans heure précise (date seule ou minuit) : on retient 8 h à Paris, heure de
- * début des cours. Un fait daté de minuit sortirait de la carte à 5 h, avant les blocages réels.
- */
-function announcedAt(extracted: string, parsed: Date): Date {
+/** Heure retenue quand l'IA ne donne que le jour : début des cours, à Paris. */
+const MORNING = '08:00:00'
+
+/** Le jour (AAAA-MM-JJ) si l'IA n'a donné qu'une date ou minuit, sinon null. */
+function dayOnly(extracted: string): string | null {
   const m = /^(\d{4}-\d{2}-\d{2})(?:T00:00(?::00(?:\.0+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/.exec(
     extracted.trim(),
   )
-  if (!m?.[1]) return parsed
-  return new Date(`${m[1]}T08:00:00${parisOffset(new Date(`${m[1]}T12:00:00Z`))}`)
+  return m?.[1] ?? null
+}
+
+/** 8 h à Paris ce jour-là. */
+function morningOf(day: string): Date {
+  return new Date(`${day}T${MORNING}${parisOffset(new Date(`${day}T12:00:00Z`))}`)
 }
 
 /** Un fait annoncé reste daté du jour annoncé jusqu'à 3 jours après la publication. */
@@ -182,11 +186,29 @@ export function resolveObservation(
   if (!extracted) return fallback
   const d = new Date(extracted)
   if (Number.isNaN(d.getTime())) return fallback
+
+  // Jour seul (« 2026-10-05 ») ou minuit : sans heure, un fait daté de minuit UTC tombe à 2 h à
+  // Paris et sort de la carte (cinq heures de validité) avant le début des cours.
+  const day = dayOnly(extracted)
+  if (day) {
+    const morning = morningOf(day)
+    const pubDay = parisDay(publishedAt)
+    if (day > pubDay) {
+      const ahead = morning.getTime() - publishedAt.getTime() <= ANNOUNCED_MAX_MS
+      return ahead ? { at: morning, basis: 'announced' } : fallback
+    }
+    if (day === pubDay)
+      return { at: morning < publishedAt ? morning : publishedAt, basis: 'extracted' }
+    return morning.getTime() - publishedAt.getTime() < -7 * 86_400_000
+      ? fallback
+      : { at: morning, basis: 'extracted' }
+  }
+
   const delta = d.getTime() - publishedAt.getTime()
   if (delta < -7 * 86_400_000) return fallback
   if (delta <= 3_600_000) return { at: d, basis: 'extracted' }
   const announced = delta <= ANNOUNCED_MAX_MS && parisDay(d) > parisDay(publishedAt)
-  return announced ? { at: announcedAt(extracted, d), basis: 'announced' } : fallback
+  return announced ? { at: d, basis: 'announced' } : fallback
 }
 
 export function resolveObservedAt(extracted: string | null, publishedAt: Date): Date {
