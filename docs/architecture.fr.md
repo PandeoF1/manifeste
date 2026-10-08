@@ -54,6 +54,23 @@ Edge Function submit-report
 
 Aucun compte, aucun nom, aucune IP en clair, aucune métadonnée de photo n'est conservé.
 
+## Historique de la carte (`/?periode=historique`)
+
+Le bouton « Historique » de la carte ouvre une frise en bas : histogramme des signalements dans
+le temps, curseur pour remonter la carte à n'importe quel instant, bouton lecture (×1, ×2, ×4).
+
+- **Données** : la fonction SQL `timeline_events(p_since)` renvoie en une fois les établissements
+  concernés et tous les signalements validés non masqués (identifiant, statut, heure, clé de
+  source), du plus ancien au plus récent. Même règles d'accès que la carte (`security invoker`) :
+  aucun lien, photo ou position d'utilisateur. Chargée seulement dans ce mode, rafraîchie toutes les 2 minutes.
+- **Calcul** : tout se fait dans le navigateur (`src/lib/timeline.ts`). À l'instant T, la carte
+  affiche, pour chaque établissement, le dernier signalement des `h` heures précédentes (même règle
+  que le direct, décalée à T). Pas d'appel réseau pendant qu'on avance dans le temps.
+- **Adresse** : `t` (instant en millisecondes, absent = maintenant), `h` (durée d'un signalement
+  en heures, absente = réglage du site), `r` (période de la frise : `24h`, `3j`, `7j`, `tout`).
+  Pendant la lecture l'adresse n'est mise à jour qu'à la pause.
+- **Test** : `supabase/tests/timeline.test.sql` (base) et `tests/timeline.test.ts` (calculs).
+
 ## Prérequis
 
 - Node 22+

@@ -28,6 +28,8 @@ interface Props {
   onGoto: (bounds: Bbox) => void
   theme: Theme
   styleUrl: string
+  /** Remonte les médaillons au-dessus de la frise du mode Historique. */
+  raised?: boolean
 }
 
 function toGeoJSON(rows: ReadonlyArray<SchoolStatus>): FeatureCollection<Point> {
@@ -60,6 +62,7 @@ export function OverseasInsets({
   onGoto,
   theme,
   styleUrl,
+  raised = false,
 }: Props) {
   const items = useMemo<InsetItem[]>(
     () =>
@@ -74,7 +77,13 @@ export function OverseasInsets({
   const [hidden, toggle] = usePanelHidden('overseas')
   if (items.length === 0) return null
   return (
-    <div className="pointer-events-none absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-2 z-[5] flex max-w-[calc(100%-1rem)] flex-col items-start gap-1.5 md:bottom-8 md:left-4">
+    <div
+      className={`pointer-events-none absolute left-2 z-[5] flex max-w-[calc(100%-1rem)] flex-col items-start gap-1.5 md:left-4 ${
+        raised
+          ? 'bottom-[calc(18rem+env(safe-area-inset-bottom))] md:bottom-[13.5rem]'
+          : 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-8'
+      }`}
+    >
       <button
         type="button"
         onClick={toggle}

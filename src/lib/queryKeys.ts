@@ -8,6 +8,8 @@ export const queryKeys = {
       [...queryKeys.statuses.all, 'period', period, start] as const,
   },
   settings: ['settings'] as const,
+  // Hors de `statuses` : l'historique est lourd, il ne se recharge pas à chaque signalement.
+  timeline: (start: string) => ['timeline', start] as const,
   donnees: (vue: string) => ['donnees', vue] as const,
   school: (uai: string) => ['school', uai] as const,
   schoolReports: (uai: string) => ['school', uai, 'reports'] as const,

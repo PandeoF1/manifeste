@@ -46,6 +46,8 @@ interface Props {
   onViewChange: (view: MapViewState) => void
   onSelect: (uai: string | undefined) => void
   theme: Theme
+  /** Frise du mode Historique affichée en bas : les médaillons d'outre-mer se placent au-dessus. */
+  raised?: boolean
 }
 
 function heatColor(theme: Theme): ExpressionSpecification {
@@ -125,6 +127,7 @@ export default function MapView({
   onViewChange,
   onSelect,
   theme,
+  raised = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -393,6 +396,7 @@ export default function MapView({
         }
         theme={theme}
         styleUrl={STYLE_URL}
+        raised={raised}
       />
     </div>
   )
