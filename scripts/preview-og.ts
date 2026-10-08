@@ -56,11 +56,11 @@ for (const [name, q] of [
   ['og-national', ''],
   ['og-lycee', '?uai=0000002B'],
 ] as const) {
-  const res = await og(new Request(`https://manifest.example/api/og${q}`))
+  const res = await og(new Request(`https://manifeste.example/api/og${q}`))
   writeFileSync(`${out}/${name}.png`, Buffer.from(await res.arrayBuffer()))
 }
 const html = await (
-  await share(new Request('https://manifest.example/api/share?uai=0000002B'))
+  await share(new Request('https://manifeste.example/api/share?uai=0000002B'))
 ).text()
 console.log(html.match(/<meta property="og:(title|image|url)"[^>]*>/g)?.join('\n'))
 console.log(

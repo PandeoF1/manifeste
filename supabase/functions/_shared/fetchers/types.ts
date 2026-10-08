@@ -18,7 +18,7 @@ export interface ScrapedItem {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
-export const USER_AGENT = 'ManifesteBot/0.1 (+https://github.com/pandeof1/manifest)'
+export const USER_AGENT = 'ManifesteBot/0.1 (+https://github.com/PandeoF1/manifeste)'
 
 /** Pauses avant de réessayer après un 429 / 503 (Google Actualités refuse les rafales). */
 export const RETRY_DELAYS_MS = [2_500, 6_000]

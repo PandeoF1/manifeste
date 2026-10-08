@@ -183,7 +183,7 @@ export default async function handler(req: Request): Promise<Response> {
         ? frame(school(s), 'Aucun établissement mobilisé n’est seul.')
         : frame(
             h('div', { fontSize: 64, fontWeight: 900 }, 'Établissement introuvable'),
-            'manifest',
+            'manifeste',
           )
     } else {
       body = frame(
