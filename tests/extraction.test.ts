@@ -153,6 +153,15 @@ describe('resolveObservedAt', () => {
     const early = new Date('2026-10-05T05:00:00Z') // lundi 7 h à Paris
     expect(resolveObservedAt('2026-10-05', early)).toEqual(early)
   })
+  it('jour seul le jour même, article de nuit : annoncé pour 8 h', () => {
+    const night = new Date('2026-10-08T22:12:00Z') // vendredi 9 octobre 0 h 12 à Paris
+    expect(resolveObservation('2026-10-09', night)).toEqual({
+      at: new Date('2026-10-09T06:00:00.000Z'),
+      basis: 'announced',
+    })
+    const dawn = new Date('2026-10-09T05:30:00Z') // 7 h 30 : déjà la journée, date de publication
+    expect(resolveObservation('2026-10-09', dawn)).toEqual({ at: dawn, basis: 'extracted' })
+  })
   it('jour seul passé : 8 h ce jour-là, sauf au-delà de 7 jours', () => {
     const published = new Date('2026-10-06T12:00:00Z')
     expect(resolveObservedAt('2026-10-02', published).toISOString()).toBe(

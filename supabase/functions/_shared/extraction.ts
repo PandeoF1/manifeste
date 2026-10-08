@@ -187,6 +187,18 @@ function dayOnly(extracted: string): string | null {
   return m?.[1] ?? null
 }
 
+/** Avant cette heure (Paris), un article du jour annonce la journée qui commence. */
+const NIGHT_END_HOUR = 5
+
+function parisHour(d: Date): number {
+  const h = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Paris',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(d)
+  return Number(h)
+}
+
 /** 8 h à Paris ce jour-là. */
 function morningOf(day: string): Date {
   return new Date(`${day}T${MORNING}${parisOffset(new Date(`${day}T12:00:00Z`))}`)
@@ -223,8 +235,13 @@ export function resolveObservation(
       const ahead = morning.getTime() - publishedAt.getTime() <= ANNOUNCED_MAX_MS
       return ahead ? { at: morning, basis: 'announced' } : fallback
     }
-    if (day === pubDay)
+    if (day === pubDay) {
+      // Publié en pleine nuit pour le jour qui commence (« cours à distance ce vendredi », article
+      // de 0 h 12) : le fait est annoncé pour le matin, il ne doit pas apparaître (puis disparaître
+      // après cinq heures) avant l'ouverture des établissements.
+      if (parisHour(publishedAt) < NIGHT_END_HOUR) return { at: morning, basis: 'announced' }
       return { at: morning < publishedAt ? morning : publishedAt, basis: 'extracted' }
+    }
     return morning.getTime() - publishedAt.getTime() < -7 * 86_400_000
       ? fallback
       : { at: morning, basis: 'extracted' }
