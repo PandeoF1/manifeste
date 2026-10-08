@@ -389,6 +389,10 @@ export type Database = {
         Args: { p_days?: number }
         Returns: Json
       }
+      admin_ai_usage: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       national_counts: {
         Args: Record<PropertyKey, never>
         Returns: { bloque: number; filtrant: number; leve: number; last_signal_at: string | null }[]

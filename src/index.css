@@ -35,6 +35,11 @@
   --status-leve: #5f6673;
   --chart-1: #0a6cd6;
   --chart-2: #6d28d9;
+  /* Séries d'un graphique à plus de deux séries (validées, CVD et contraste) : modèles IA, etc. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
   --good: #1a7f37;
   --warn: #b45309;
   --poor: #c0261f;
@@ -54,7 +59,10 @@
     --status-leve: #98a2b3;
     --chart-1: #64d2ff;
     --chart-2: #c4b5fd;
-    --chart-2: #c4b5fd;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
     --good: #30d158;
     --warn: #ff9f0a;
     --poor: #ff453a;
@@ -76,6 +84,10 @@
   --status-leve: #5f6673;
   --chart-1: #0a6cd6;
   --chart-2: #6d28d9;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
   --good: #1a7f37;
   --warn: #b45309;
   --poor: #c0261f;
@@ -98,6 +110,10 @@
   --status-leve: #98a2b3;
   --chart-1: #64d2ff;
   --chart-2: #c4b5fd;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
   --good: #30d158;
   --warn: #ff9f0a;
   --poor: #ff453a;

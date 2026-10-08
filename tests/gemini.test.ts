@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { createExtractor, extractEvents, modelsFromEnv } from '@shared/gemini.ts'
+import {
+  GeminiError,
+  createExtractor,
+  createGeminiClient,
+  extractEvents,
+  extractionRequest,
+  isBillingBlocked,
+  mergeUsage,
+  modelsFromEnv,
+  textCharsFromEnv,
+  thinkingBudgetFromEnv,
+  totalUsage,
+} from '@shared/gemini.ts'
 import type { ScrapedItem } from '@shared/fetchers/types.ts'
 
 const item: ScrapedItem = {
@@ -148,5 +160,118 @@ describe('createExtractor : modèle « collant »', () => {
     expect(bodies).toHaveLength(2)
     expect(bodies[0]).toContain('"thinkingConfig":{"thinkingBudget":0}')
     expect(bodies[1]).not.toContain('thinkingConfig')
+  })
+})
+
+const withUsage = (prompt: number, out: number, thoughts = 0) => {
+  const r = JSON.parse(
+    JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"events":[]}' }] } }] }),
+  )
+  r.usageMetadata = {
+    promptTokenCount: prompt,
+    candidatesTokenCount: out,
+    thoughtsTokenCount: thoughts,
+  }
+  return Response.json(r)
+}
+
+describe('consommation de tokens', () => {
+  it('cumule entrée, sortie et réflexion par modèle', async () => {
+    const { fetchFn } = fakeFetch([
+      withUsage(1000, 100, 50),
+      err(503),
+      err(503),
+      withUsage(2000, 300),
+    ])
+    const client = createGeminiClient({ apiKey: 'k', models: ['m1', 'm2'], fetchFn, sleep })
+    const request = { system: 's', user: 'u', schema: {} }
+    await client.generate(request)
+    await client.generate(request)
+    expect(client.usage).toEqual({
+      m1: { calls: 1, promptTokens: 1000, outputTokens: 100, thoughtsTokens: 50 },
+      m2: { calls: 1, promptTokens: 2000, outputTokens: 300, thoughtsTokens: 0 },
+    })
+    expect(totalUsage(client.usage)).toEqual({
+      calls: 2,
+      promptTokens: 3000,
+      outputTokens: 400,
+      thoughtsTokens: 50,
+    })
+    expect(totalUsage(mergeUsage(client.usage, client.usage)).promptTokens).toBe(6000)
+  })
+
+  it('tolère une réponse sans usageMetadata', async () => {
+    const { fetchFn } = fakeFetch([ok()])
+    const client = createGeminiClient({ apiKey: 'k', models: ['m1'], fetchFn, sleep })
+    await client.generate({ system: 's', user: 'u', schema: {} })
+    expect(client.usage.m1).toEqual({
+      calls: 1,
+      promptTokens: 0,
+      outputTokens: 0,
+      thoughtsTokens: 0,
+    })
+  })
+})
+
+describe('crédit épuisé (402)', () => {
+  it("s'arrête net : ni nouvelle tentative ni modèle de secours", async () => {
+    const { fetchFn, calls } = fakeFetch([err(402), ok()])
+    const error = await run(fetchFn).catch((e: unknown) => e)
+    expect(calls).toEqual(['m1'])
+    expect(isBillingBlocked(error)).toBe(true)
+    expect((error as Error).message).toMatch(/crédit épuisé ou plafond de dépense/)
+    expect(isBillingBlocked(new GeminiError(503, 'x'))).toBe(false)
+  })
+})
+
+describe('budget de réflexion', () => {
+  it("n'est plus renvoyé à un modèle qui l'a refusé (une seule requête en erreur)", async () => {
+    const bodies: string[] = []
+    const responses = [err(400), ok(), ok(), ok()]
+    const fetchFn = async (_url: string, init?: RequestInit) => {
+      bodies.push(String(init?.body))
+      return responses.shift() as Response
+    }
+    const client = createGeminiClient({
+      apiKey: 'k',
+      models: ['m1'],
+      fetchFn,
+      thinkingBudget: 0,
+      sleep,
+    })
+    const request = { system: 's', user: 'u', schema: {} }
+    for (let i = 0; i < 3; i++) await client.generate(request)
+    // 1 refus, 1 reprise sans réglage, puis 2 appels directement sans réglage.
+    expect(bodies).toHaveLength(4)
+    expect(bodies.map((b) => b.includes('thinkingConfig'))).toEqual([true, false, false, false])
+  })
+
+  it("lit la variable d'environnement : 0 coupe, -1 ou invalide = réglage du modèle", () => {
+    expect(thinkingBudgetFromEnv('0')).toBe(0)
+    expect(thinkingBudgetFromEnv('1024')).toBe(1024)
+    expect(thinkingBudgetFromEnv('-1')).toBeUndefined()
+    expect(thinkingBudgetFromEnv('abc')).toBeUndefined()
+    expect(thinkingBudgetFromEnv(undefined)).toBeUndefined()
+    expect(thinkingBudgetFromEnv(undefined, 0)).toBe(0)
+    expect(thinkingBudgetFromEnv('', 0)).toBe(0)
+    expect(thinkingBudgetFromEnv('-1', 0)).toBeUndefined()
+  })
+})
+
+describe('longueur du texte envoyé', () => {
+  const long = { ...item, text: 'x'.repeat(5000) }
+  const textOf = (textChars?: number) => {
+    const user = extractionRequest([{ id: '0', item: long }], textChars).user
+    const payload = JSON.parse(user.slice(user.indexOf('['))) as Array<{ texte: string }>
+    return payload[0]?.texte.length
+  }
+  it('garde 6000 caractères par défaut, ou la limite demandée', () => {
+    expect(textOf()).toBe(5000)
+    expect(textOf(2000)).toBe(2000)
+  })
+  it("lit la variable d'environnement (≥ 200)", () => {
+    expect(textCharsFromEnv('2000')).toBe(2000)
+    expect(textCharsFromEnv('50')).toBeUndefined()
+    expect(textCharsFromEnv(undefined)).toBeUndefined()
   })
 })

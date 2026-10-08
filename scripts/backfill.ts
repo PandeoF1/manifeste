@@ -36,7 +36,11 @@ import { fetchRss } from '../supabase/functions/_shared/fetchers/rss.ts'
 import {
   createExtractor,
   createGeminiClient,
+  formatUsage,
   modelsFromEnv,
+  textCharsFromEnv,
+  thinkingBudgetFromEnv,
+  totalUsage,
 } from '../supabase/functions/_shared/gemini.ts'
 import {
   isPressItem,
@@ -46,6 +50,7 @@ import {
 } from '../supabase/functions/_shared/media.ts'
 import { canonicalUrl, extractDomain } from '../supabase/functions/_shared/domain.ts'
 import { isGoogleNewsUrl } from '../supabase/functions/_shared/fetchers/googlenews.ts'
+import { recordAiUsage, usageRows } from '../supabase/functions/_shared/ai-usage.ts'
 import { createServiceDb } from '../supabase/functions/_shared/service-db.ts'
 import {
   BACKFILL_SOURCE_IDENTIFIER,
@@ -190,6 +195,8 @@ async function processCommand() {
   const extractor = createExtractor({
     apiKey: env('GEMINI_API_KEY'),
     models: modelsFromEnv(process.env.GEMINI_MODEL, process.env.GEMINI_FALLBACK_MODELS),
+    thinkingBudget: thinkingBudgetFromEnv(process.env.GEMINI_THINKING_BUDGET),
+    textChars: textCharsFromEnv(process.env.EXTRACTION_TEXT_CHARS),
     fetchFn: fetch,
   })
   const extract: typeof extractor.extract = async (batch) => {
@@ -290,8 +297,9 @@ async function processCommand() {
     const wait = 60_000 / rpm - (Date.now() - startedAt)
     if (wait > 0) await sleep(wait)
   }
+  await recordAiUsage(admin, usageRows('backfill', extractor.usage))
   console.log(
-    `\nModèles utilisés : ${[...extractor.served].join(', ') || 'aucun'} · ${calls} appels Gemini.`,
+    `\nModèles utilisés : ${[...extractor.served].join(', ') || 'aucun'} · ${calls} appels Gemini · ${formatUsage(totalUsage(extractor.usage))}.`,
   )
   await statusCommand()
 }
@@ -319,6 +327,7 @@ async function mediaCommand() {
   const client = createGeminiClient({
     apiKey: env('GEMINI_API_KEY'),
     models: modelsFromEnv(process.env.GEMINI_MODEL, process.env.GEMINI_FALLBACK_MODELS),
+    thinkingBudget: thinkingBudgetFromEnv(process.env.MEDIA_THINKING_BUDGET, 0),
     fetchFn: fetch,
   })
   const totals = { read: 0, analyzed: 0, skipped: 0, unreadable: 0 }
@@ -440,7 +449,10 @@ async function mediaCommand() {
     const wait = 60_000 / rpm - (Date.now() - startedAt)
     if (wait > 0) await sleep(wait)
   }
-  console.log(`\nModèles : ${[...client.served].join(', ') || 'aucun'} · ${client.calls} appels.`)
+  await recordAiUsage(admin, usageRows('backfill', client.usage))
+  console.log(
+    `\nModèles : ${[...client.served].join(', ') || 'aucun'} · ${client.calls} appels · ${formatUsage(totalUsage(client.usage))}.`,
+  )
 }
 
 // media --redo : refait les analyses déjà en base (nouvelle consigne, meilleur modèle). Les pages
@@ -454,6 +466,7 @@ async function mediaRedoCommand() {
   const client = createGeminiClient({
     apiKey: env('GEMINI_API_KEY'),
     models: modelsFromEnv(model, process.env.GEMINI_FALLBACK_MODELS),
+    thinkingBudget: thinkingBudgetFromEnv(process.env.MEDIA_THINKING_BUDGET, 0),
     fetchFn: fetch,
   })
   const totals = { read: 0, redone: 0, skipped: 0 }
@@ -527,7 +540,10 @@ async function mediaRedoCommand() {
     const wait = 60_000 / rpm - (Date.now() - startedAt)
     if (wait > 0) await sleep(wait)
   }
-  console.log(`\nModèles : ${[...client.served].join(', ') || 'aucun'} · ${client.calls} appels.`)
+  await recordAiUsage(admin, usageRows('backfill', client.usage))
+  console.log(
+    `\nModèles : ${[...client.served].join(', ') || 'aucun'} · ${client.calls} appels · ${formatUsage(totalUsage(client.usage))}.`,
+  )
 }
 
 async function statusCommand() {

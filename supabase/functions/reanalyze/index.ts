@@ -5,11 +5,18 @@
 // 3. Lycées candidats (commune + noms proches), puis l'IA choisit le bon ou aucun.
 // Deux appels Gemini au plus pour toute la liste. Les choix sûrs deviennent des signaux,
 // soumis à la règle de validation habituelle.
+import { recordAiUsage, usageRows } from '../_shared/ai-usage.ts'
 import { mapLimit } from '../_shared/collector-utils.ts'
 import { extractDomain } from '../_shared/domain.ts'
 import { parseExtraction } from '../_shared/extraction.ts'
 import { isGoogleNewsUrl, resolveGoogleNewsUrls } from '../_shared/fetchers/googlenews.ts'
-import { createGeminiClient, extractionRequest, modelsFromEnv } from '../_shared/gemini.ts'
+import {
+  createGeminiClient,
+  extractionRequest,
+  modelsFromEnv,
+  thinkingBudgetFromEnv,
+  totalUsage,
+} from '../_shared/gemini.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
 import { isGenericSchoolName } from '../_shared/matching.ts'
 import { fetchPageContext } from '../_shared/page.ts'
@@ -30,6 +37,8 @@ const MODELS = modelsFromEnv(
   Deno.env.get('REANALYZE_FALLBACK_MODELS') ?? 'gemini-3.5-flash,gemini-3.5-flash-lite',
 )
 const MAX_ITEMS = 40
+/** Réflexion coupée par défaut (REANALYZE_THINKING_BUDGET ; -1 : réglage du modèle). */
+const THINKING_BUDGET = thinkingBudgetFromEnv(Deno.env.get('REANALYZE_THINKING_BUDGET'), 0)
 
 interface UnmatchedRow {
   id: string
@@ -81,7 +90,12 @@ Deno.serve(async (req) => {
   const { data, error } = await query
   if (error) return json(500, { error: error.message })
   const rows = (data ?? []) as UnmatchedRow[]
-  const client = createGeminiClient({ apiKey: GEMINI_API_KEY, models: MODELS, fetchFn: fetch })
+  const client = createGeminiClient({
+    apiKey: GEMINI_API_KEY,
+    models: MODELS,
+    thinkingBudget: THINKING_BUDGET,
+    fetchFn: fetch,
+  })
   const outcomes: Outcome[] = []
 
   try {
@@ -233,12 +247,15 @@ Deno.serve(async (req) => {
       })
     }
   } catch (e) {
+    await recordAiUsage(admin, usageRows('reanalyse', client.usage))
     return json(502, { error: e instanceof Error ? e.message : 'Gemini indisponible' })
   }
+  await recordAiUsage(admin, usageRows('reanalyse', client.usage))
 
   return json(200, {
     model: [...client.served].join(', ') || null,
     gemini_calls: client.calls,
+    tokens: totalUsage(client.usage),
     linked: outcomes.filter((o) => o.uai).length,
     total: rows.length,
     outcomes,

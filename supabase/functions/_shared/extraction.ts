@@ -96,11 +96,17 @@ Règles strictes :
 - Si aucun fait exploitable, ne produis rien pour ce message.
 Réponds uniquement avec le JSON demandé.`
 
-export function buildUserPrompt(items: ReadonlyArray<{ id: string; item: ScrapedItem }>): string {
+/** Longueur maximale du texte envoyé par élément (jamais atteinte en pratique : max observé ≈ 4 500). */
+export const DEFAULT_TEXT_CHARS = 6000
+
+export function buildUserPrompt(
+  items: ReadonlyArray<{ id: string; item: ScrapedItem }>,
+  textChars: number = DEFAULT_TEXT_CHARS,
+): string {
   const payload = items.map(({ id, item }) => ({
     id,
     publie_le: item.publishedAt.toISOString(),
-    texte: item.text.slice(0, 6000),
+    texte: item.text.slice(0, textChars),
   }))
   return `Messages à analyser (JSON) :\n${JSON.stringify(payload)}`
 }

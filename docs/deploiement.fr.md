@@ -76,6 +76,16 @@ analyse, séparément de l'extraction ; sans lui, `GEMINI_MODEL` s'applique. Pou
 déjà en base avec un autre modèle ou une consigne mise à jour :
 `GEMINI_API_KEY=… npm run backfill -- media --redo --model gemini-3.8-flash` (reprise automatique).
 
+**Coût et consommation** : chaque passage écrit dans les logs de la fonction `collect` une ligne
+`gemini_usage` (tokens en entrée, en sortie et de réflexion, par tâche et par modèle), et la page
+admin des sources affiche les tokens du dernier passage. Un 402 (crédit épuisé ou plafond de
+dépense atteint chez Google) arrête le passage sans insister : les éléments sont repris au suivant.
+`GEMINI_THINKING_BUDGET=0` coupe la réflexion de l'extraction (`-1` ou absent : réglage du modèle ;
+un modèle qui refuse le réglage est rappelé sans). Les analyses médias et la réanalyse la coupent par
+défaut (`MEDIA_THINKING_BUDGET`, `REANALYZE_THINKING_BUDGET`). `EXTRACTION_TEXT_CHARS` limite le
+texte envoyé par élément (6000 par défaut) : `npm run eval:truncation` mesure d'abord ce qu'une
+coupure ferait perdre sur les articles de la production.
+
 Si Gemini est saturé (erreur 503), la collecte réessaie puis bascule sur un modèle de secours
 (`GEMINI_FALLBACK_MODELS`, par défaut `gemini-3.5-flash,gemini-3.6-flash,gemini-3.8-flash`).
 
