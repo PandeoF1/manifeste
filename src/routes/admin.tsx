@@ -46,7 +46,7 @@ export const Route = createFileRoute('/admin')({
 })
 
 /** Onglets d'un modérateur : valider, traiter les établissements proposés, lire stats et médias. */
-const MODERATOR_TABS: readonly Tab[] = ['moderation', 'lycees', 'stats', 'medias']
+const MODERATOR_TABS: readonly Tab[] = ['moderation', 'lycees', 'non-rattaches', 'stats', 'medias']
 
 function AdminPage() {
   const session = useSession()
@@ -110,7 +110,7 @@ function AdminPage() {
         {tab === 'moderation' && <PendingPanel role={role} />}
         {tab === 'lycees' && <ProposalsPanel canReject={!moderator} />}
         {tab === 'signaux' && <ReportsPanel />}
-        {tab === 'non-rattaches' && <UnmatchedPanel />}
+        {tab === 'non-rattaches' && <UnmatchedPanel canManage={!moderator} />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
         {tab === 'stats' && <StatsPanel />}
         {tab === 'medias' && <MediaPanel />}

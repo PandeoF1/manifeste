@@ -154,7 +154,7 @@ end $$;
 insert into t select 'modérateur : ne lit ni ne modifie le journal', true;
 reset role;
 
-insert into t select 'journal : 3 actions (2 validations, 1 ajout)',
+insert into t select 'journal : 3 actions avant les non rattachés',
   (select count(*) = 3 from public.moderation_audit);
 insert into t select 'journal : auteur et courriel',
   (select bool_and(actor = '11111111-1111-1111-1111-111111111111' and actor_email = 'moderator@example.org')
@@ -179,6 +179,45 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"app_metadata":{"role":"admin"}}', true);
 insert into t select 'admin : lit le journal', (select count(*) = 3 from public.moderation_audit);
 reset role;
+
+
+-- Non rattachés : le modérateur lit et rattache, rien d'autre.
+insert into public.scrape_sources (id, kind, identifier, label, source_type)
+values ('00000000-0000-0000-0000-0000000000c1', 'rss', 'https://exemple.fr/feed', 'Flux', 'presse');
+insert into public.unmatched_extractions (id, source_id, school_name, city, status, source_url, observed_at)
+values
+  ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-0000000000c1', 'Lycée', 'Besançon', 'filtrant', 'https://exemple-journal.test/a', now() - interval '20 minutes'),
+  ('00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-0000000000c1', 'Lycée', 'Dijon', 'bloque', 'https://exemple-journal.test/b', now() - interval '10 minutes');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"11111111-1111-1111-1111-111111111111","email":"moderator@example.org","app_metadata":{"role":"moderator"}}', true);
+insert into t select 'non rattachés : modérateur lit la liste', (select count(*) = 2 from public.unmatched_extractions);
+select public.link_unmatched('00000000-0000-0000-0000-0000000000d1', '0000002B');
+do $$ begin
+  begin
+    delete from public.unmatched_extractions where id = '00000000-0000-0000-0000-0000000000d2';
+    if found then raise exception 'ignorer possible'; end if;
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.retry_unmatched();
+    raise exception 'réessai automatique accessible';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+insert into t select 'non rattachés : ni ignorer ni réessayer', true;
+reset role;
+
+insert into t select 'non rattachés : rattaché et validé',
+  exists (select 1 from public.reports where source_url = 'https://exemple-journal.test/a'
+          and school_uai = '0000002B' and moderation = 'validated')
+  and not exists (select 1 from public.unmatched_extractions where id = '00000000-0000-0000-0000-0000000000d1');
+insert into t select 'non rattachés : l''autre extraction reste', exists (select 1 from public.unmatched_extractions where id = '00000000-0000-0000-0000-0000000000d2');
+insert into t select 'journal : rattachement tracé avec l''extraction d''origine',
+  (select before->>'school_name' = 'Lycée' and before->>'source_url' = 'https://exemple-journal.test/a'
+      and after->>'school_uai' = '0000002B' and (after->>'report_id') is not null
+      and actor_email = 'moderator@example.org'
+   from public.moderation_audit where action = 'rattacher_non_rattache');
 
 select name, ok from t;
 do $$ declare f text; begin
