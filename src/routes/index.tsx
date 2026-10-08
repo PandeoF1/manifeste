@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
 import { z } from 'zod'
 import type { MapViewState } from '@/components/map/MapView'
 import { LiveFeed } from '@/components/map/LiveFeed'
@@ -14,6 +15,7 @@ import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib
 import { PeriodPicker } from '@/components/status/PeriodPicker'
 import { useReportsRealtime } from '@/lib/realtime'
 import { useTheme } from '@/lib/theme'
+import { usePanelHidden } from '@/lib/uiPrefs'
 
 // MapLibre (~800 ko) est chargé à part : les chiffres et la liste s'affichent avant la carte.
 const MapView = lazy(() => import('@/components/map/MapView'))
@@ -51,6 +53,8 @@ function MapPage() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: '/' })
   const theme = useTheme()
+  const [sideHidden, toggleSide] = usePanelHidden('side')
+  const [statsHidden, toggleStats] = usePanelHidden('stats')
   const period: Period = search.periode ?? 'direct'
   const { data: settings = DEFAULT_SETTINGS } = useQuery(settingsQuery)
   const {
@@ -109,7 +113,7 @@ function MapPage() {
       {/* Ordinateur : panneau latéral (chiffres + fil en direct). */}
       <aside
         aria-label="Situation et derniers signaux"
-        className="hidden w-[380px] shrink-0 flex-col border-r border-border md:flex"
+        className={`hidden w-[380px] shrink-0 flex-col border-r border-border ${sideHidden ? '' : 'md:flex'}`}
       >
         <div className="space-y-4 border-b border-border p-6">
           <HeroStats
@@ -140,6 +144,20 @@ function MapPage() {
       </aside>
 
       <div className="relative min-w-0 flex-1">
+        {/* Ordinateur : languette pour replier ou rouvrir le menu latéral. */}
+        <button
+          type="button"
+          onClick={toggleSide}
+          aria-expanded={!sideHidden}
+          aria-label={sideHidden ? 'Afficher le menu latéral' : 'Masquer le menu latéral'}
+          className="glass absolute top-1/2 left-0 z-20 hidden h-14 w-5 -translate-y-1/2 place-items-center rounded-r-lg border border-l-0 border-border text-muted hover:text-fg md:grid"
+        >
+          {sideHidden ? (
+            <ChevronRight size={14} aria-hidden="true" />
+          ) : (
+            <ChevronLeft size={14} aria-hidden="true" />
+          )}
+        </button>
         <Suspense fallback={<div className="absolute inset-0 bg-bg" aria-busy="true" />}>
           <MapView
             statuses={statuses}
@@ -151,22 +169,39 @@ function MapPage() {
           />
         </Suspense>
 
-        {/* Téléphone : chiffres en surimpression. */}
-        <div className="glass pointer-events-none absolute top-2 left-2 z-10 max-w-[calc(100%-4rem)] rounded-2xl border border-border px-3 py-2 shadow-2xl md:hidden">
-          <HeroStats
-            stats={stats}
-            updatedAt={dataUpdatedAt}
-            isError={isError}
-            history={history}
-            compact
-            picker={
-              <PeriodPicker
-                value={period}
-                onChange={setPeriod}
-                className="pointer-events-auto my-1"
+        {/* Téléphone : chiffres en surimpression, repliables par une languette. */}
+        <div className="absolute top-2 left-2 z-10 max-w-[calc(100%-4rem)] md:hidden">
+          {!statsHidden && (
+            <div className="glass pointer-events-none rounded-2xl border border-border px-3 py-2 shadow-2xl">
+              <HeroStats
+                stats={stats}
+                updatedAt={dataUpdatedAt}
+                isError={isError}
+                history={history}
+                compact
+                picker={
+                  <PeriodPicker
+                    value={period}
+                    onChange={setPeriod}
+                    className="pointer-events-auto my-1"
+                  />
+                }
               />
-            }
-          />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={toggleStats}
+            aria-expanded={!statsHidden}
+            aria-label={statsHidden ? 'Afficher les chiffres' : 'Masquer les chiffres'}
+            className={`glass grid h-5 w-12 place-items-center border border-border text-muted hover:text-fg ${statsHidden ? 'rounded-lg' : 'mx-auto -mt-px rounded-b-lg border-t-0'}`}
+          >
+            {statsHidden ? (
+              <ChevronDown size={14} aria-hidden="true" />
+            ) : (
+              <ChevronUp size={14} aria-hidden="true" />
+            )}
+          </button>
         </div>
 
         <NewSignalToasts statuses={live} onSelect={onSelect} />

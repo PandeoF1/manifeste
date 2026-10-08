@@ -16,7 +16,9 @@ import type { SchoolStatus } from '@/queries/statuses'
 import { addMarkerImages } from './markerImages'
 import { styleBase } from './baseStyle'
 import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
+import { NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
 import type { Theme } from '@/lib/theme'
+import { OverseasInsets } from './OverseasInsets'
 
 setWorkerUrl(workerUrl)
 
@@ -145,10 +147,6 @@ export default function MapView({
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
-      maxBounds: [
-        [-70, -25],
-        [60, 55],
-      ],
     })
     mapRef.current = map
     map.touchZoomRotate.disableRotation()
@@ -311,7 +309,8 @@ export default function MapView({
     })
 
     map.on('moveend', () => {
-      const c = map.getCenter()
+      // Carte sans fin d'est en ouest : on ramène la longitude dans [-180, 180] pour l'adresse.
+      const c = map.getCenter().wrap()
       latest.current.onViewChange({
         lat: Math.round(c.lat * 1e4) / 1e4,
         lng: Math.round(c.lng * 1e4) / 1e4,
@@ -354,6 +353,9 @@ export default function MapView({
     const apply = () => {
       map.setFilter('selected', ['==', ['get', 'uai'], selected?.uai ?? ''])
       if (!selected) return
+      // Outre-mer : en vue nationale, le médaillon montre le point (le panneau s'ouvre) sans
+      // déplacer la carte.
+      if (territoryOf(selected.department) && map.getZoom() < NATIONAL_MAX_ZOOM) return
       const inView = map.getBounds().contains([selected.lng, selected.lat])
       if (!inView || map.getZoom() < 8) {
         map.flyTo({
@@ -377,6 +379,20 @@ export default function MapView({
         className="h-full w-full"
         role="region"
         aria-label="Carte des lycées et des facs concernés. Une liste textuelle est disponible à côté de la carte."
+      />
+      <OverseasInsets
+        statuses={statuses}
+        selectedUai={selected?.uai}
+        onSelect={onSelect}
+        onGoto={(bounds) =>
+          mapRef.current?.fitBounds(bounds, {
+            padding: 40,
+            maxZoom: 10,
+            duration: prefersReducedMotion() ? 0 : 1200,
+          })
+        }
+        theme={theme}
+        styleUrl={STYLE_URL}
       />
     </div>
   )
