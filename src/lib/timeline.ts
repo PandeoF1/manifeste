@@ -141,9 +141,9 @@ export function rangeStart(range: TimelineRange, settings: PublicSettings, now: 
   return Math.max(start, now - RANGE_HOURS[range] * HOUR)
 }
 
-/** Durées proposées pour « un signalement reste affiché » : le réglage du site, plus quelques choix. */
-export function hourChoices(ttl: number): number[] {
-  return [...new Set([1, 3, 6, 12, 24, 48, ttl])].sort((a, b) => a - b)
+/** Durées proposées pour « un signalement reste affiché » : le réglage du site, la valeur courante (lien partagé), plus quelques choix. */
+export function hourChoices(ttl: number, ...also: number[]): number[] {
+  return [...new Set([1, 3, 6, 12, 24, 48, ttl, ...also])].sort((a, b) => a - b)
 }
 
 // --- Lecture (play) ------------------------------------------------------------------------

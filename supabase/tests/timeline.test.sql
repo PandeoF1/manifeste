@@ -14,6 +14,9 @@ insert into public.reports (school_uai, status, source_type, source_url, source_
   ('0920002B', 'filtrant', 'utilisateur', 'https://secret.example/prive', 'secret.example', 'validated', now() - interval '4 hours'),
   ('0920002B', 'bloque', 'presse', 'https://presse.example/c', 'presse.example', 'pending', now() - interval '1 hour'),
   ('0920002B', 'bloque', 'presse', 'https://presse.example/ancien', 'presse.example', 'validated', now() - interval '3 days');
+-- Signalement sur place : ni lien ni domaine.
+insert into public.reports (school_uai, status, source_type, source_url, source_domain, moderation, observed_at)
+values ('0920003C', 'bloque', 'utilisateur', null, null, 'validated', now() - interval '30 minutes');
 insert into public.reports (school_uai, status, source_type, source_url, source_domain, moderation, hidden, observed_at)
 values ('0920002B', 'bloque', 'presse', 'https://presse.example/masque', 'presse.example', 'validated', true, now() - interval '1 hour');
 
@@ -23,15 +26,16 @@ create temp table tl as select public.timeline_events(now() - interval '1 day') 
 create temp table tl_all as select public.timeline_events(now() - interval '10 days') j;
 
 insert into t select 'événements : 3 validés et visibles sur 24 h (attente, masqué et ancien écartés)',
-  (select jsonb_array_length(j->'events') = 3 from tl);
-insert into t select 'événements : 4 sur 10 jours (l''ancien validé revient)',
-  (select jsonb_array_length(j->'events') = 4 from tl_all);
+  (select jsonb_array_length(j->'events') = 4 from tl);
+insert into t select 'événements : 5 sur 10 jours (l''ancien validé revient)',
+  (select jsonb_array_length(j->'events') = 5 from tl_all);
 insert into t select 'événements : du plus ancien au plus récent',
   (select (j->'events'->0->>'t')::bigint < (j->'events'->1->>'t')::bigint
-      and (j->'events'->1->>'t')::bigint < (j->'events'->2->>'t')::bigint from tl);
+      and (j->'events'->1->>'t')::bigint < (j->'events'->2->>'t')::bigint
+      and (j->'events'->2->>'t')::bigint < (j->'events'->3->>'t')::bigint from tl);
 insert into t select 'établissements : seulement ceux qui ont un signalement',
-  (select jsonb_array_length(j->'schools') = 2 from tl)
-  and (select position('0920003C' in j::text) = 0 from tl);
+  (select jsonb_array_length(j->'schools') = 3 from tl)
+  and (select position('0920001A' in j::text) > 0 and position('0920002B' in j::text) > 0 from tl);
 insert into t select 'établissements : coordonnées présentes',
   (select bool_and((p->>'lat') is not null and (p->>'lng') is not null)
    from tl, jsonb_array_elements(j->'schools') p);
@@ -39,11 +43,14 @@ insert into t select 'rien d''intime : aucun lien de source dans la réponse',
   (select position('secret.example/prive' in j::text) = 0 and position('presse.example/a' in j::text) = 0 from tl);
 insert into t select 'statuts : bloqué, filtrant et levé conservés',
   (select count(distinct e->>'s') = 3 from tl, jsonb_array_elements(j->'events') e);
+insert into t select 'signalement sur place : une source à lui seul (usr:), jamais vide',
+  (select bool_and(e->>'k' is not null) from tl, jsonb_array_elements(j->'events') e)
+  and (select count(*) = 1 from tl, jsonb_array_elements(j->'events') e where e->>'k' like 'usr:%');
 insert into t select 'heure en millisecondes',
   (select (j->'events'->0->>'t')::bigint > 1000000000000 from tl);
 
 reset role;
-insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 8;
+insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 9;
 
 select name, ok from t;
 do $$ declare f text; begin

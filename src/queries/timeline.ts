@@ -6,7 +6,7 @@ import { parseTimeline, type TimelineData } from '@/lib/timeline'
 
 /**
  * Tous les signalements validés depuis le début du mouvement, pour rejouer la carte.
- * Chargé seulement en mode « Historique » ; rafraîchi toutes les 2 minutes (pas à chaque
+ * Chargé seulement en mode « Historique » ; rafraîchi toutes les 5 minutes (pas à chaque
  * signalement : la réponse est lourde).
  */
 export const timelineQuery = (settings: PublicSettings) =>
@@ -20,5 +20,5 @@ export const timelineQuery = (settings: PublicSettings) =>
       return parseTimeline(data)
     },
     staleTime: 60_000,
-    refetchInterval: 120_000,
+    refetchInterval: 300_000,
   })

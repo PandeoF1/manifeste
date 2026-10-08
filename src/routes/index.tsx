@@ -62,7 +62,7 @@ const searchSchema = z.object({
     .optional()
     .catch(undefined),
   t: z.number().int().optional().catch(undefined),
-  h: z.number().int().min(1).max(168).optional().catch(undefined),
+  h: z.number().int().min(1).max(8784).optional().catch(undefined),
   r: z.enum(TIMELINE_RANGES).optional().catch(undefined),
 })
 
@@ -123,25 +123,6 @@ function MapPage() {
     : period === 'direct'
       ? undefined
       : periodDescription(period, settings)
-  const setPeriod = useCallback(
-    (p: Period) => {
-      setAtState(null)
-      void navigate({
-        search: (prev) => ({
-          ...prev,
-          periode: p === 'direct' ? undefined : p,
-          t: undefined,
-          h: undefined,
-          r: undefined,
-        }),
-        replace: true,
-      })
-    },
-    [navigate],
-  )
-  const openHistory = useCallback(() => {
-    void navigate({ search: (prev) => ({ ...prev, periode: 'historique' }), replace: true })
-  }, [navigate])
   const patchHistory = useCallback(
     (patch: { t?: number | undefined; h?: number | undefined; r?: TimelineRange | undefined }) => {
       void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
@@ -155,6 +136,32 @@ function MapPage() {
     [patchHistory],
   )
   useEffect(() => () => commitAt.cancel(), [commitAt])
+  const setPeriod = useCallback(
+    (p: Period) => {
+      // Un enregistrement de l'instant encore en attente ne doit pas réécrire l'adresse après la sortie.
+      commitAt.cancel()
+      setAtState(null)
+      void navigate({
+        search: (prev) => ({
+          ...prev,
+          periode: p === 'direct' ? undefined : p,
+          t: undefined,
+          h: undefined,
+          r: undefined,
+        }),
+        replace: true,
+      })
+    },
+    [navigate, commitAt],
+  )
+  const openHistory = useCallback(() => {
+    // On entre toujours au présent : l'instant d'une visite précédente est oublié.
+    setAtState(null)
+    void navigate({
+      search: (prev) => ({ ...prev, periode: 'historique', t: undefined }),
+      replace: true,
+    })
+  }, [navigate])
   const onAtChange = useCallback(
     (ms: number, commit: boolean) => {
       const atEnd = ms >= to - 60_000
@@ -270,6 +277,7 @@ function MapPage() {
             onSelect={onSelect}
             theme={theme}
             raised={showTimeline}
+            datasetKey={historyMode ? 'historique' : period}
           />
         </Suspense>
 
@@ -338,7 +346,7 @@ function MapPage() {
                 patchHistory({ r: r === DEFAULT_TIMELINE_RANGE ? undefined : r })
               }
               hours={hours}
-              hourOptions={hourChoices(settings.statusTtlHours)}
+              hourOptions={hourChoices(settings.statusTtlHours, hours)}
               onHoursChange={(h) =>
                 patchHistory({ h: h === settings.statusTtlHours ? undefined : h })
               }
@@ -347,7 +355,7 @@ function MapPage() {
           </div>
         )}
 
-        {!loading && shown.length === 0 && (
+        {!loading && !(historyMode && timeline.isError) && shown.length === 0 && (
           <p
             className={`glass pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm whitespace-nowrap shadow md:top-4 md:bottom-auto ${historyMode ? 'max-md:hidden' : 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]'}`}
           >

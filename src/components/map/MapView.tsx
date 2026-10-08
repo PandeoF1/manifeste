@@ -67,6 +67,8 @@ interface Props {
   onViewChange: (view: MapViewState) => void
   onSelect: (uai: string | undefined) => void
   theme: Theme
+  /** Change quand les données changent de nature (autre période, mode Historique) : pas d'animation à ce moment-là. */
+  datasetKey?: string
   /** Frise du mode Historique affichée en bas : les médaillons d'outre-mer se placent au-dessus. */
   raised?: boolean
 }
@@ -153,6 +155,7 @@ export default function MapView({
   onSelect,
   theme,
   raised = false,
+  datasetKey = '',
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -165,6 +168,7 @@ export default function MapView({
     anims: new Map<string, Anim>(),
     /** Points qui ont eu un état d'animation : à remettre à 1 s'ils reviennent sans animation. */
     touched: new Set<string>(),
+    key: datasetKey,
     data: undefined as FeatureCollection<Point> | undefined,
     raf: 0,
     first: true,
@@ -447,11 +451,14 @@ export default function MapView({
       for (const [uai, anim] of a.anims) {
         const p = (now - anim.start) / (anim.out ? DEPOP_MS : POP_MS)
         if (p >= 1) {
-          settle(uai)
           if (anim.out) {
+            // Le point est déjà invisible : on le laisse à 0 jusqu'à ce qu'il ait quitté la source
+            // (le retrait part dans un worker), sinon il réapparaîtrait en grand une image.
+            a.anims.delete(uai)
+            setPop(uai, 0)
             a.dying.delete(uai)
             gone = true
-          }
+          } else settle(uai)
           continue
         }
         // « Réduire les animations » : le point grossit ou rétrécit en douceur, sans rebond ni onde.
@@ -466,8 +473,18 @@ export default function MapView({
     const next = new Map(statuses.map((s) => [s.uai, s]))
     const added = [...next.keys()].filter((uai) => !a.shown.has(uai))
     const removed = [...a.shown.values()].filter((s) => !next.has(s.uai))
-    const animate = !a.first && readyRef.current && added.length + removed.length <= MAX_ANIMATED
-    a.first = false
+    // Le premier jeu de données (le défaut est vide tant que ça charge) et un changement de nature
+    // des données (autre période, Historique) s'affichent d'un coup : rien ne « naît » ni ne « meurt ».
+    const switched = a.key !== datasetKey
+    a.key = datasetKey
+    const initial = a.first
+    if (next.size > 0) a.first = false
+    if (switched) {
+      for (const uai of [...a.anims.keys()]) settle(uai)
+      a.dying.clear()
+    }
+    const animate =
+      !initial && !switched && readyRef.current && added.length + removed.length <= MAX_ANIMATED
     const now = performance.now()
     for (const uai of added) {
       a.dying.delete(uai)
@@ -492,7 +509,7 @@ export default function MapView({
     // Le caractère « récent » d'un signal change avec le temps : on redessine chaque minute.
     const id = window.setInterval(render, 60_000)
     return () => window.clearInterval(id)
-  }, [statuses])
+  }, [statuses, datasetKey])
 
   // Sélection : repère + recentrage si le lycée est hors champ ou la vue trop large.
   useEffect(() => {

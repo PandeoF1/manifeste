@@ -190,6 +190,9 @@ describe('hourChoices', () => {
     expect(hourChoices(5)).toEqual([1, 3, 5, 6, 12, 24, 48])
     expect(hourChoices(12)).toEqual([1, 3, 6, 12, 24, 48])
   })
+  it("garde la valeur d'un lien partagé même hors de la liste", () => {
+    expect(hourChoices(5, 8)).toEqual([1, 3, 5, 6, 8, 12, 24, 48])
+  })
 })
 
 describe('formats', () => {

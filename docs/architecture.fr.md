@@ -62,7 +62,7 @@ le temps, curseur pour remonter la carte à n'importe quel instant, bouton lectu
 - **Données** : la fonction SQL `timeline_events(p_since)` renvoie en une fois les établissements
   concernés et tous les signalements validés non masqués (identifiant, statut, heure, clé de
   source), du plus ancien au plus récent. Même règles d'accès que la carte (`security invoker`) :
-  aucun lien, photo ou position d'utilisateur. Chargée seulement dans ce mode, rafraîchie toutes les 2 minutes.
+  aucun lien, photo ou position d'utilisateur. Chargée seulement dans ce mode, rafraîchie toutes les 5 minutes.
 - **Calcul** : tout se fait dans le navigateur (`src/lib/timeline.ts`). À l'instant T, la carte
   affiche, pour chaque établissement, le dernier signalement des `h` heures précédentes (même règle
   que le direct, décalée à T). Pas d'appel réseau pendant qu'on avance dans le temps.

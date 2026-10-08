@@ -226,6 +226,15 @@ export function Timeline({
     cancelQueued()
     onAtChange(fromPointer(e), true)
   }
+  // Geste annulé par le navigateur (le téléphone reprend la main) : on garde la dernière position
+  // valide au lieu de lire des coordonnées qui n'en sont pas.
+  const onPointerCancel = () => {
+    if (!dragging.current) return
+    dragging.current = false
+    lockSelection(false)
+    cancelQueued()
+    onAtChange(live.current.at, true)
+  }
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = size
     const at = shownAt
@@ -301,7 +310,7 @@ export function Timeline({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerCancel={onPointerCancel}
         onKeyDown={onKeyDown}
         className="relative mt-3 h-12 cursor-ew-resize touch-none overflow-hidden rounded-lg border border-border bg-bg/60 outline-offset-2 md:h-16"
       >
