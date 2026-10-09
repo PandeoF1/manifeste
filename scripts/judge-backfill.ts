@@ -20,21 +20,11 @@
  * Aucun appel Gemini ; Jev coûte quelques centimes pour toute la base.
  */
 import { existsSync } from 'node:fs'
-import {
-  JEV_MODEL,
-  MIN_JUDGE_CHARS,
-  createJevJudge,
-  createJudgeMeter,
-} from '../supabase/functions/_shared/judge.ts'
-import { fetchReadable } from '../supabase/functions/_shared/page.ts'
+import { JEV_MODEL, createJevJudge, createJudgeMeter } from '../supabase/functions/_shared/judge.ts'
 import { sentencesAbout } from '../supabase/functions/_shared/school-text.ts'
 import { recordAiUsage } from '../supabase/functions/_shared/ai-usage.ts'
 import { JEV_USD_PER_INPUT_TOKEN, estimateTokens } from './eval-judge-lib.ts'
-import { parseArticle } from './audit-reports-lib.ts'
-
-/** Lecture des articles comme un navigateur : France 3, La 1ère, La Provence… refusent un robot identifié ou un faux Googlebot (403). */
-const BROWSER_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+import { readArticle, type Article } from './article-reader.ts'
 
 for (const f of ['.env.backfill', '.env.prod', '.env']) if (existsSync(f)) process.loadEnvFile(f)
 
@@ -103,34 +93,6 @@ async function loadRows(): Promise<Row[]> {
 
 const parisDay = (iso: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(iso))
-
-type Article = { title: string; text: string; reader?: boolean }
-
-async function readArticle(url: string): Promise<Article | null> {
-  const direct = await readDirect(url)
-  if (direct) return direct
-  // Site fermé aux robots : texte lu par la passerelle (vérifié ensuite, pour chaque établissement).
-  const text = await fetchReadable(fetch, url)
-  return text.length >= MIN_JUDGE_CHARS ? { title: '', text, reader: true } : null
-}
-
-async function readDirect(url: string): Promise<{ title: string; text: string } | null> {
-  try {
-    const res = await fetch(url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(20_000),
-      headers: {
-        'user-agent': BROWSER_UA,
-        'accept-language': 'fr-FR',
-      },
-    })
-    if (!res.ok) return null
-    const a = parseArticle(await res.text())
-    return a.text.length >= MIN_JUDGE_CHARS ? a : null
-  } catch {
-    return null
-  }
-}
 
 async function main() {
   const rows = await loadRows()

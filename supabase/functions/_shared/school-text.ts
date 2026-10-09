@@ -26,3 +26,14 @@ export function sentencesAbout(text: string, school: { name: string; city: strin
     .filter((st) => keys.some((k) => norm(st).includes(k)))
     .slice(0, 4)
 }
+
+/** Un événement extrait parle-t-il de cet établissement ? Nom distinctif, à défaut la commune. */
+export function sameSchool(
+  ev: { school_name: string; city: string | null },
+  school: { name: string; city: string },
+): boolean {
+  const keys = (norm(school.name).match(/[a-z]{5,}/g) ?? []).filter((w) => !GENERIC.has(w))
+  const name = norm(ev.school_name)
+  if (keys.length) return keys.some((k) => name.includes(k))
+  return norm(ev.city) === norm(school.city)
+}
