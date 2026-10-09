@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { ACTIVE_PHRASE, blockedPhrase } from '@shared/status.ts'
 import { CONTACT_EMAIL } from '@/config/legal'
 import { departmentName } from '@/config/departments'
 import {
@@ -111,8 +112,8 @@ function DataPage() {
 
       <Section id="jours" title="Jour après jour">
         <p>
-          Chaque barre compte les établissements signalés bloqués ou en barrage filtrant ce jour-là.
-          Le jour est celui des faits, en heure de Paris, pas celui où on l'a appris.
+          Chaque barre compte les établissements signalés {ACTIVE_PHRASE} ce jour-là. Le jour est
+          celui des faits, en heure de Paris, pas celui où on l'a appris.
         </p>
         {jours.data ? (
           <DailyBars jours={jours.data} />
@@ -299,7 +300,7 @@ function KeyFigures({ r }: { r: Resume }) {
     <section aria-label="Chiffres clés">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-6 border-y border-border py-6 sm:grid-cols-3">
         <Figure value={fmtInt(r.etablissements)}>
-          établissements signalés bloqués ou en barrage filtrant
+          établissements signalés {ACTIVE_PHRASE}
           {r.premier_jour ? ` depuis le ${fmtDay(r.premier_jour)}` : ''}
         </Figure>
         {r.pic && (
@@ -311,7 +312,8 @@ function KeyFigures({ r }: { r: Resume }) {
         <Figure value={fmtInt(r.departements)}>départements touchés</Figure>
         <Figure value={fmtInt(r.facs)}>facs et écoles supérieures signalées</Figure>
         <Figure value={fmtInt(maintenant)}>
-          en ce moment, dont {fmtInt(r.en_ce_moment.bloques)} bloqués
+          en ce moment, dont {fmtInt(r.en_ce_moment.bloques)}{' '}
+          {blockedPhrase(r.en_ce_moment.bloques)}
         </Figure>
         <Figure value={fmtInt(r.sites_sources)}>sites de presse et sources différents</Figure>
       </dl>

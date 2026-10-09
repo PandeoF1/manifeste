@@ -98,6 +98,13 @@ export type Database = {
           hidden: boolean
           observed_at: string
           created_at: string
+          /** Avis du juge Jev (mode observation) ; null = pas jugé. */
+          judge_score: number | null
+          judge_nature: 'blocage' | 'ferme' | 'rassemblement' | 'incident' | 'autre' | null
+          judge_level: 'lycee' | 'superieur' | 'inconnu' | null
+          judge_model: string | null
+          judged_at: string | null
+          judge_chars: number | null
         }
         Insert: {
           id?: string
@@ -113,6 +120,12 @@ export type Database = {
           hidden?: boolean
           observed_at: string
           created_at?: string
+          judge_score?: number | null
+          judge_nature?: 'blocage' | 'ferme' | 'rassemblement' | 'incident' | 'autre' | null
+          judge_level?: 'lycee' | 'superieur' | 'inconnu' | null
+          judge_model?: string | null
+          judged_at?: string | null
+          judge_chars?: number | null
         }
         Update: Partial<Database['public']['Tables']['reports']['Insert']>
         Relationships: [

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { blockedPhrase } from '@shared/status.ts'
 import { computeStats, statusesQuery } from '@/queries/statuses'
 import { fmtInt } from '@/lib/donneesFormat'
 import { useReportsRealtime } from '@/lib/realtime'
@@ -40,8 +41,8 @@ function EmbedCarte() {
           />
         </Suspense>
         <p className="glass pointer-events-none absolute top-2 left-2 z-10 rounded-xl border border-border px-3 py-2 text-sm shadow">
-          <strong className="text-lg tabular-nums">{fmtInt(stats.bloque)}</strong> bloqués en ce
-          moment
+          <strong className="text-lg tabular-nums">{fmtInt(stats.bloque)}</strong>{' '}
+          {blockedPhrase(stats.bloque)} en ce moment
         </p>
         <a
           href="/"

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { ExternalLink, Map as MapIcon, Megaphone } from 'lucide-react'
-import { formatRelative } from '@shared/status.ts'
+import { STATUS_SENTENCE, formatRelative } from '@shared/status.ts'
 import { ShareButton } from '@/components/ShareButton'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { SourceConfidence } from '@/components/status/SourceConfidence'
@@ -128,7 +128,7 @@ function SchoolPage() {
             title={`${school.name} - Manifeste`}
             text={
               current
-                ? `${school.name} (${school.city}) : ${current.status === 'bloque' ? 'bloqué' : current.status === 'filtrant' ? 'barrage filtrant' : 'blocus levé'}.`
+                ? `${school.name} (${school.city}) : ${STATUS_SENTENCE[current.status]}.`
                 : undefined
             }
           />

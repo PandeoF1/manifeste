@@ -60,6 +60,10 @@ npx supabase secrets set \
   COLLECT_MIN_CERTAINTY=moyenne \
   TURNSTILE_SECRET_KEY=<secret key turnstile>
 
+Optionnel : le juge Jev (TypeSafe AI) note chaque signalement de presse lisible (score, nature, niveau,
+enregistrés dans `reports.judge_*`). Mode observation : rien ne s'affiche ni ne se compte avec ces notes.
+`npx supabase secrets set TYPESAFE_API_KEY=<clé>` l'active ; `JEV_JUDGE=0` le coupe sans retirer la clé.
+
 npx supabase functions deploy collect --no-verify-jwt
 npx supabase functions deploy submit-report --no-verify-jwt
 npx supabase functions deploy purge-submissions --no-verify-jwt

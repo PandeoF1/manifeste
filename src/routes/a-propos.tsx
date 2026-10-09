@@ -57,6 +57,13 @@ function AboutPage() {
           parle du mouvement, pour mes propres stats, pas affichées.
         </p>
         <p>
+          « Bloqué ou fermé » regroupe les établissements dont l'entrée est bloquée par des élèves
+          et ceux qui ferment ou passent à distance à cause du mouvement : les articles ne
+          permettent pas toujours de les distinguer. L'IA se trompe aussi parfois (un rassemblement
+          devant un lycée pris pour un blocage, une date décalée). C'est pour ça que chaque point
+          renvoie vers son article : tu peux vérifier.
+        </p>
+        <p>
           « Direct » retire un établissement après {settings.statusTtlHours} h sans nouveau signal.
           « 24 h », « 7 jours » et « Tout » donnent le bilan d'une période, avec le pire statut
           connu. « Tout » remonte {periodDescription('tout', settings)}.

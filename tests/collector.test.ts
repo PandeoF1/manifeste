@@ -36,7 +36,11 @@ function fakeDb(candidates: Record<string, SchoolCandidate[]>) {
           ]
         : [],
     schoolsInCity: async (city) => (city === 'Hanches' ? [{ uai: '0280000A' }] : []),
-    schoolLevel: async (uai) => (uai === '0590099Z' ? 'superieur' : 'lycee'),
+    schoolInfo: async (uai) => ({
+      name: 'Lycée Test',
+      city: 'Lille',
+      level: uai === '0590099Z' ? 'superieur' : 'lycee',
+    }),
     insertReport: async (r) => {
       if (reports.some((x) => x.source_url === r.source_url && x.school_uai === r.school_uai))
         return 'duplicate'
@@ -536,5 +540,67 @@ describe('week-end : un lycée est fermé', () => {
   it('garde un statut autre que « bloqué »', async () => {
     const { reports } = await run('0590010A', '2026-10-03T07:00:00Z', 'filtrant')
     expect(reports).toHaveLength(1)
+  })
+})
+
+describe('juge (mode observation)', () => {
+  const fakeJudge = (probability: number) =>
+    vi.fn(async () => ({
+      probability,
+      nature: 'blocage' as const,
+      natureProbabilities: {},
+      level: 'lycee' as const,
+      levelProbabilities: {},
+      model: 'jev-1.13.0',
+      chars: 500,
+    }))
+  const run = async (judge: ReturnType<typeof fakeJudge> | undefined, text: string) => {
+    const { db, reports } = fakeDb({
+      'Lycée Test': [
+        {
+          uai: '0590010A',
+          name: 'Lycée Test',
+          city: 'Lille',
+          name_score: 1,
+          city_score: 1,
+          score: 1,
+        },
+      ],
+    })
+    const extract = async (batch: ReadonlyArray<{ id: string }>): Promise<ExtractedEvent[]> =>
+      batch.slice(0, 1).map((b) => ({
+        item_id: b.id,
+        school_name: 'Lycée Test',
+        city: 'Lille',
+        status: 'bloque' as const,
+        observed_at: null,
+        certainty: 'haute' as const,
+      }))
+    const long = html.replace(/<div class="tgme_widget_message_text[^>]*>/, (m) => `${m}${text}`)
+    await collectSource(source, {
+      db,
+      fetchFn: vi.fn(async () => new Response(long)),
+      extract,
+      now,
+      judge,
+    })
+    return reports
+  }
+
+  it('enregistre le score, la nature et le niveau sans changer la décision', async () => {
+    const judge = fakeJudge(0.12)
+    const reports = await run(judge, 'x'.repeat(10))
+    expect(reports).toHaveLength(1)
+    expect(judge).toHaveBeenCalled()
+    expect(reports[0]).toMatchObject({
+      judge_score: 0.12,
+      judge_nature: 'blocage',
+      judge_level: 'lycee',
+      judge_model: 'jev-1.13.0',
+    })
+  })
+  it('sans juge, aucun champ judge_*', async () => {
+    const reports = await run(undefined, 'x')
+    expect(reports[0]).not.toHaveProperty('judge_score')
   })
 })

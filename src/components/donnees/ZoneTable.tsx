@@ -36,7 +36,7 @@ export function ZoneTable({
                 Premier jour
               </th>
               <th scope="col" className="py-2 text-right font-medium">
-                Bloqués en ce moment
+                En ce moment
               </th>
             </tr>
           </thead>
