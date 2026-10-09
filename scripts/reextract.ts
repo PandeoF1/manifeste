@@ -10,7 +10,7 @@
  *   npm run reextract -- --apply --hide-no-event   # masque aussi ceux où Gemini ne voit aucun fait pour l'établissement
  *
  * Résultats possibles par signalement : confirmé (même établissement, même statut), statut différent,
- * aucun fait pour l'établissement, illisible. Rien n'est supprimé : « masquer » met hidden = true
+ * aucun fait pour l'établissement, à voir à la main (blocage dans la commune sans nom reconnu), illisible. Rien n'est supprimé : « masquer » met hidden = true
  * (réversible) et la sauvegarde `reextract-backup-*.json` garde l'état d'avant.
  * Les dates ne sont pas touchées. Après un --apply, lancer `npm run judge:backfill -- --run --unjudged`
  * pour que Jev juge le texte complet.
@@ -28,7 +28,7 @@ import {
   textCharsFromEnv,
   thinkingBudgetFromEnv,
 } from '../supabase/functions/_shared/gemini.ts'
-import { sameSchool, sentencesAbout } from '../supabase/functions/_shared/school-text.ts'
+import { matchSchool, sentencesAbout } from '../supabase/functions/_shared/school-text.ts'
 import { isQuotaExhausted } from './backfill-lib.ts'
 import { readArticle } from './article-reader.ts'
 
@@ -58,7 +58,7 @@ interface Row {
   observed_at: string
   schools: { name: string; city: string } | null
 }
-type Outcome = 'confirme' | 'statut' | 'aucun' | 'illisible'
+type Outcome = 'confirme' | 'statut' | 'aucun' | 'ambigu' | 'illisible'
 interface Cached {
   readable: boolean
   title: string
@@ -193,18 +193,20 @@ async function main() {
     const c = cache[r.source_url]
     const school = r.schools as NonNullable<Row['schools']>
     if (!c?.readable) return { r, outcome: 'illisible' as Outcome, found: undefined }
-    const mine = c.events.filter((e) => sameSchool(e, school))
+    const mine = c.events.filter((e) => matchSchool(e, school) === 'oui')
+    const sameCity = c.events.some((e) => matchSchool(e, school) === 'ville')
     if (!mine.length) {
       // Texte de la passerelle qui ne parle pas de l'établissement : probablement une page d'erreur.
       const junk = c.reader && !sentencesAbout(c.text, school).length
-      return { r, outcome: (junk ? 'illisible' : 'aucun') as Outcome, found: undefined }
+      const outcome = junk ? 'illisible' : sameCity ? 'ambigu' : 'aucun'
+      return { r, outcome: outcome as Outcome, found: undefined }
     }
     if (mine.some((e) => e.status === r.status))
       return { r, outcome: 'confirme' as Outcome, found: r.status }
     return { r, outcome: 'statut' as Outcome, found: mine[0]?.status }
   })
   const count = (o: Outcome) => verdicts.filter((v) => v.outcome === o).length
-  const summary = `confirmés ${count('confirme')} · statut différent ${count('statut')} · aucun fait ${count('aucun')} · illisibles ${count('illisible')}`
+  const summary = `confirmés ${count('confirme')} · statut différent ${count('statut')} · aucun fait ${count('aucun')} · à voir à la main ${count('ambigu')} · illisibles ${count('illisible')}`
   console.log(summary)
 
   const md = [
@@ -212,8 +214,8 @@ async function main() {
     '',
     summary,
     '',
-    ...(['statut', 'aucun'] as const).flatMap((o) => [
-      `## ${o === 'statut' ? 'Statut différent' : 'Aucun fait pour cet établissement'}`,
+    ...(['statut', 'aucun', 'ambigu'] as const).flatMap((o) => [
+      `## ${o === 'statut' ? 'Statut différent' : o === 'aucun' ? 'Aucun fait pour cet établissement' : 'À voir à la main (un blocage dans la commune, mais Gemini ne nomme pas cet établissement)'}`,
       '',
       ...verdicts
         .filter((v) => v.outcome === o)

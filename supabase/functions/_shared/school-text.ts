@@ -27,13 +27,36 @@ export function sentencesAbout(text: string, school: { name: string; city: strin
     .slice(0, 4)
 }
 
-/** Un événement extrait parle-t-il de cet établissement ? Nom distinctif, à défaut la commune. */
+const STOP = new Set<string>('de du des la le les et en d l'.split(' '))
+
+/**
+ * Un événement extrait parle-t-il de cet établissement ?
+ *  - « oui » : un mot distinctif du nom (ou son sigle : « ENS » pour École normale supérieure) ;
+ *  - « ville » : même commune mais le nom n'est pas reconnu (plusieurs établissements possibles) ;
+ *  - « non » : rien en commun.
+ * Une université dont le seul mot distinctif est la commune (« Université de Nantes ») est reconnue par la commune.
+ */
+export function matchSchool(
+  ev: { school_name: string; city: string | null },
+  school: { name: string; city: string },
+): 'oui' | 'ville' | 'non' {
+  const name = norm(ev.school_name)
+  const cityWords = norm(school.city).match(/[a-z]{4,}/g) ?? []
+  const keys = (norm(school.name).match(/[a-z]{5,}/g) ?? []).filter((w) => !GENERIC.has(w))
+  const sameCity = norm(ev.city) === norm(school.city) || cityWords.some((w) => name.includes(w))
+  if (keys.some((k) => name.includes(k))) return 'oui'
+  const initials = (norm(school.name).match(/[a-z]+/g) ?? [])
+    .filter((w) => !STOP.has(w))
+    .map((w) => w[0])
+    .join('')
+  if (initials.length >= 3 && new RegExp(`\\b${initials}\\b`).test(name)) return 'oui'
+  if (!keys.length || keys.every((k) => cityWords.includes(k))) return sameCity ? 'oui' : 'non'
+  return sameCity ? 'ville' : 'non'
+}
+
 export function sameSchool(
   ev: { school_name: string; city: string | null },
   school: { name: string; city: string },
 ): boolean {
-  const keys = (norm(school.name).match(/[a-z]{5,}/g) ?? []).filter((w) => !GENERIC.has(w))
-  const name = norm(ev.school_name)
-  if (keys.length) return keys.some((k) => name.includes(k))
-  return norm(ev.city) === norm(school.city)
+  return matchSchool(ev, school) === 'oui'
 }

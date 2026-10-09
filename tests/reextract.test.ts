@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cleanReadable } from '@shared/page.ts'
-import { sameSchool } from '@shared/school-text.ts'
+import { matchSchool, sameSchool } from '@shared/school-text.ts'
 
 describe('sameSchool', () => {
   const school = { name: 'Lycée polyvalent Jules Guesde', city: 'Montpellier' }
@@ -16,6 +16,25 @@ describe('sameSchool', () => {
     const generic = { name: 'Lycée général', city: 'Lille' }
     expect(sameSchool({ school_name: 'le lycée', city: 'Lille' }, generic)).toBe(true)
     expect(sameSchool({ school_name: 'le lycée', city: 'Lyon' }, generic)).toBe(false)
+  })
+})
+
+describe('matchSchool', () => {
+  it('sigle : ENS pour École normale supérieure', () => {
+    const ens = { name: 'École normale supérieure', city: 'Paris' }
+    expect(matchSchool({ school_name: 'ENS Ulm', city: 'Paris' }, ens)).toBe('oui')
+  })
+  it('université nommée par sa commune', () => {
+    const nantes = { name: 'Université de Nantes', city: 'Nantes' }
+    expect(matchSchool({ school_name: 'campus Censive', city: 'Nantes' }, nantes)).toBe('oui')
+    expect(matchSchool({ school_name: 'campus Censive', city: 'Rennes' }, nantes)).toBe('non')
+  })
+  it('même commune, nom non reconnu : à voir à la main', () => {
+    const lycee = { name: 'Lycée Maupertuis', city: 'Saint-Malo' }
+    expect(matchSchool({ school_name: 'lycée de Saint-Malo', city: 'Saint-Malo' }, lycee)).toBe(
+      'ville',
+    )
+    expect(matchSchool({ school_name: 'lycée Jean Moulin', city: 'Lyon' }, lycee)).toBe('non')
   })
 })
 
