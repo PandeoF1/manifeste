@@ -26,6 +26,28 @@ const FIELDS = [
     min: 1,
     max: 24,
   },
+  {
+    key: 'judge_tiers',
+    label: 'Niveaux du juge (Jev)',
+    help: 'Désactivé : rien ne change. Activé : la carte, les chiffres, l’historique et les données ouvertes ne comptent plus comme bloqués ou fermés que les signalements confirmés par le juge (et ceux qu’il n’a pas pu lire) ; les mobilisations « pas claires » s’affichent à part en gris, les récits et aperçus sont écartés. Rien n’est supprimé : repasser sur Désactivé rétablit tout. Voir l’onglet « Juge (Jev) » avant d’activer.',
+    type: 'select',
+    options: [
+      ['off', 'Désactivé'],
+      ['on', 'Activé'],
+    ],
+  },
+  {
+    key: 'judge_keep',
+    label: 'Seuil « confirmé » du juge',
+    help: 'Probabilité à partir de laquelle un signalement est confirmé (0,05 à 1). Recommandé : 0,5.',
+    type: 'decimal',
+  },
+  {
+    key: 'judge_low',
+    label: 'Seuil « mobilisation » du juge',
+    help: 'En dessous de ce seuil, un signalement est écarté (sauf rassemblement ou incident, qui restent en mobilisation). Recommandé : 0,3.',
+    type: 'decimal',
+  },
 ] as const
 
 const rawSettingsQuery = {
@@ -78,14 +100,29 @@ export function SettingsPanel() {
       {FIELDS.map((f) => (
         <label key={f.key} className="field">
           {f.label}
-          <input
-            name={f.key}
-            type={f.type}
-            className="input"
-            defaultValue={settings.data[f.key] ?? ''}
-            required
-            {...(f.type === 'number' ? { min: f.min, max: f.max, step: 1 } : {})}
-          />
+          {f.type === 'select' ? (
+            <select
+              name={f.key}
+              className="input"
+              defaultValue={settings.data[f.key] ?? f.options[0][0]}
+            >
+              {f.options.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              name={f.key}
+              type={f.type === 'decimal' ? 'number' : f.type}
+              className="input"
+              defaultValue={settings.data[f.key] ?? ''}
+              required
+              {...(f.type === 'number' ? { min: f.min, max: f.max, step: 1 } : {})}
+              {...(f.type === 'decimal' ? { min: 0.05, max: 1, step: 0.05 } : {})}
+            />
+          )}
           <span className="text-xs font-normal text-muted">{f.help}</span>
         </label>
       ))}

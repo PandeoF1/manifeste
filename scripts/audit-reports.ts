@@ -18,6 +18,10 @@ import {
   type ParsedArticle,
 } from './audit-reports-lib.ts'
 
+/** Lecture des articles comme un navigateur : France 3, La 1ère, La Provence… refusent un robot identifié ou un faux Googlebot (403). */
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+
 const CACHE = '.audit-reports-cache.json'
 const url = process.env.VITE_SUPABASE_URL
 const key = process.env.VITE_SUPABASE_ANON_KEY
@@ -65,7 +69,7 @@ async function worker() {
         redirect: 'follow',
         signal: AbortSignal.timeout(20_000),
         headers: {
-          'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
+          'user-agent': BROWSER_UA,
           'accept-language': 'fr-FR',
         },
       })

@@ -58,6 +58,7 @@ export function JudgePanel() {
           {
             probability: r.judge_score,
             nature: r.judge_nature,
+            status: r.status,
             userReport: r.source_type === 'utilisateur',
           },
           keep,

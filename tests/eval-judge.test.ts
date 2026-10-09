@@ -192,6 +192,7 @@ describe('niveaux', () => {
     expect(tierOf({ probability: 0.8, nature: 'blocage' })).toBe('confirme')
     expect(tierOf({ probability: 0.6, nature: 'ferme' })).toBe('confirme')
     expect(tierOf({ probability: 0.7, nature: 'incident' })).toBe('mobilise')
+    expect(tierOf({ probability: 0.7, nature: 'autre', status: 'leve' })).toBe('confirme')
     expect(tierOf({ probability: 0.4, nature: 'blocage' })).toBe('mobilise')
     expect(tierOf({ probability: 0.1, nature: 'rassemblement' })).toBe('mobilise')
     expect(tierOf({ probability: 0.1, nature: 'incident' })).toBe('mobilise')

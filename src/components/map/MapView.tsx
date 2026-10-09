@@ -62,6 +62,8 @@ export interface MapViewState {
 
 interface Props {
   statuses: ReadonlyArray<SchoolStatus>
+  /** Mobilisations « pas claires » (niveaux du juge) : points gris discrets, sous les autres. */
+  mobilisation?: ReadonlyArray<SchoolStatus>
   initialView: MapViewState
   selected: SchoolStatus | undefined
   onViewChange: (view: MapViewState) => void
@@ -143,12 +145,26 @@ function toGeoJSON(
   }
 }
 
+const MOBILISATION_SOURCE = 'mobilisation'
+
+function mobilisationGeoJSON(rows: ReadonlyArray<SchoolStatus>): FeatureCollection<Point> {
+  return {
+    type: 'FeatureCollection',
+    features: rows.map((r) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
+      properties: { uai: r.uai },
+    })),
+  }
+}
+
 function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 export default function MapView({
   statuses,
+  mobilisation = [],
   initialView,
   selected,
   onViewChange,
@@ -173,9 +189,9 @@ export default function MapView({
     raf: 0,
     first: true,
   })
-  const latest = useRef({ statuses, onViewChange, onSelect, theme })
+  const latest = useRef({ statuses, mobilisation, onViewChange, onSelect, theme })
   useEffect(() => {
-    latest.current = { statuses, onViewChange, onSelect, theme }
+    latest.current = { statuses, mobilisation, onViewChange, onSelect, theme }
   })
 
   // Création unique de la carte.
@@ -350,7 +366,28 @@ export default function MapView({
         },
       })
 
-      for (const layer of ['schools', 'glow', 'core']) {
+      // Mobilisations « pas claires » : un petit point gris, sous les foyers et les formes.
+      map.addSource(MOBILISATION_SOURCE, {
+        type: 'geojson',
+        data: mobilisationGeoJSON(latest.current.mobilisation),
+      })
+      map.addLayer(
+        {
+          id: 'mobilisation-dots',
+          type: 'circle',
+          source: MOBILISATION_SOURCE,
+          paint: {
+            'circle-color': '#8b93a1',
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(2.2), 9, scaled(4.5)],
+            'circle-opacity': 0.8,
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 1,
+          },
+        },
+        'glow',
+      )
+
+      for (const layer of ['schools', 'glow', 'core', 'mobilisation-dots']) {
         map.on('click', layer, (e: MapLayerMouseEvent) => {
           const uai = e.features?.[0]?.properties?.uai
           if (typeof uai === 'string') latest.current.onSelect(uai)
@@ -411,6 +448,13 @@ export default function MapView({
     // La vue initiale n'est lue qu'au montage ; ensuite la carte est la source de vérité.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Mobilisations « pas claires » : simple mise à jour de la source (pas d'animation).
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !readyRef.current) return
+    map.getSource<GeoJSONSource>(MOBILISATION_SOURCE)?.setData(mobilisationGeoJSON(mobilisation))
+  }, [mobilisation])
 
   // Bascule de thème à chaud (sans recharger le style).
   useEffect(() => {

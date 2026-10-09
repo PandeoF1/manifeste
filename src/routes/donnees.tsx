@@ -316,6 +316,12 @@ function KeyFigures({ r }: { r: Resume }) {
           {blockedPhrase(r.en_ce_moment.bloques)}
         </Figure>
         <Figure value={fmtInt(r.sites_sources)}>sites de presse et sources différents</Figure>
+        {(r.mobilises ?? 0) > 0 && (
+          <Figure value={fmtInt(r.mobilises ?? 0)}>
+            établissements de plus, avec une mobilisation signalée mais sans blocage ni fermeture
+            confirmés
+          </Figure>
+        )}
       </dl>
     </section>
   )

@@ -15,6 +15,8 @@ export function tierOf(
   r: {
     probability: number | null
     nature: string | null
+    /** Statut publié : pour un « levé », le score seul suffit (la nature décrit le blocage passé). */
+    status?: string
     levelConflict?: boolean
     userReport?: boolean
   },
@@ -25,7 +27,9 @@ export function tierOf(
   if (r.probability === null) return 'non-juge'
   if (r.levelConflict) return 'non-retenu'
   if (r.probability >= keep)
-    return r.nature === 'blocage' || r.nature === 'ferme' ? 'confirme' : 'mobilise'
+    return r.status === 'leve' || r.nature === 'blocage' || r.nature === 'ferme'
+      ? 'confirme'
+      : 'mobilise'
   if (r.probability >= low) return 'mobilise'
   return r.nature === 'rassemblement' || r.nature === 'incident' ? 'mobilise' : 'non-retenu'
 }

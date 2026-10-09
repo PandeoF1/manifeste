@@ -345,6 +345,11 @@ export type Database = {
         }
         Relationships: []
       }
+      /** Mêmes colonnes que le direct : établissements avec seulement une mobilisation « pas claire ». */
+      school_mobilisation_status: {
+        Row: Database['public']['Views']['school_current_status']['Row']
+        Relationships: []
+      }
     }
     Functions: {
       open_data: {

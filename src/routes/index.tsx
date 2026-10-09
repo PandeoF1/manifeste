@@ -13,6 +13,7 @@ import { HeroStats, Legend } from '@/components/status/HeroStats'
 import { ShareButton } from '@/components/ShareButton'
 import {
   computeStats,
+  mobilisationQuery,
   periodStatusesQuery,
   statusesQuery,
   type SchoolStatus,
@@ -100,6 +101,13 @@ function MapPage() {
   // (changer de période ferait sinon apparaître de faux nouveaux lycées).
   const { data: live = [] } = useQuery(statusesQuery)
   useReportsRealtime()
+  // Niveaux du juge : les mobilisations « pas claires » se montrent à part, en direct seulement.
+  const mobilisationOn = settings.judgeTiers && period === 'direct' && !historyMode
+  const { data: mobilisationData } = useQuery({ ...mobilisationQuery, enabled: mobilisationOn })
+  const mobilisation = useMemo(
+    () => (mobilisationOn ? (mobilisationData ?? []) : []),
+    [mobilisationOn, mobilisationData],
+  )
 
   // Mode Historique : instant affiché (null = maintenant), période de la frise, durée d'un signal.
   const to = useNow(60_000).getTime()
@@ -190,9 +198,13 @@ function MapPage() {
     ? `${stats.bloque} établissements ont été ${blockedPhrase(2)} ${history} en France.`
     : `${stats.bloque} établissements ${blockedPhrase(stats.bloque)} en ce moment en France.`
   // En mode Historique, la fiche reste ouverte même si l'établissement n'a pas de signal à cet instant.
-  const selected =
+  const confirmed =
     shown.find((s) => s.uai === search.uai) ??
     (historyMode ? statuses.find((s) => s.uai === search.uai) : undefined)
+  const mobilisationSelected = confirmed
+    ? undefined
+    : mobilisation.find((s) => s.uai === search.uai)
+  const selected = confirmed ?? mobilisationSelected
   const showTimeline = historyMode && !(isPhone && selected)
   const historyPicker = { active: historyMode, onSelect: openHistory }
 
@@ -232,9 +244,10 @@ function MapPage() {
             updatedAt={dataUpdatedAt}
             isError={isError}
             history={history}
+            mobilises={mobilisation.length}
             picker={<PeriodPicker value={period} onChange={setPeriod} history={historyPicker} />}
           />
-          <Legend />
+          <Legend mobilisation={mobilisation.length > 0} />
           <ShareButton
             url={shareUrl}
             title="Manifeste - les lycées et les facs mobilisés, en direct"
@@ -272,6 +285,7 @@ function MapPage() {
         <Suspense fallback={<div className="absolute inset-0 bg-bg" aria-busy="true" />}>
           <MapView
             statuses={shown}
+            mobilisation={mobilisation}
             initialView={initialView}
             selected={selected}
             onViewChange={onViewChange}
@@ -291,6 +305,7 @@ function MapPage() {
                 updatedAt={dataUpdatedAt}
                 isError={isError}
                 history={history}
+                mobilises={mobilisation.length}
                 compact
                 picker={
                   <PeriodPicker
@@ -364,7 +379,13 @@ function MapPage() {
           </p>
         )}
 
-        {selected && <SchoolPanel school={selected} onClose={() => onSelect(undefined)} />}
+        {selected && (
+          <SchoolPanel
+            school={selected}
+            mobilisation={mobilisationSelected !== undefined}
+            onClose={() => onSelect(undefined)}
+          />
+        )}
       </div>
     </main>
   )
