@@ -257,7 +257,14 @@ function PhotoReview({
 /** Avis du juge (Jev) sur le signalement : probabilité que le texte dise bien « bloqué » et nature. */
 function JudgeOpinion({ r }: { r: PendingReport }) {
   if (r.judge_score === null)
-    return <span>Jev : {r.judged_at ? 'article illisible ou trop court' : 'pas encore jugé'}</span>
+    return (
+      <span>
+        Jev : pas d’avis
+        {r.judged_at
+          ? ' (article illisible ou trop court)'
+          : ' (texte trop court, ou pas encore jugé)'}
+      </span>
+    )
   const pct = Math.round(r.judge_score * 100)
   return (
     <span className="font-medium text-fg">

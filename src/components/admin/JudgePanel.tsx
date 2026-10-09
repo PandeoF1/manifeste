@@ -341,7 +341,9 @@ function JudgeRow({ r }: { r: Row }) {
         {score === null ? (
           <span className="text-muted">
             Pas d'avis du juge
-            {r.judged_at ? ' (article illisible ou trop court)' : ' (pas encore jugé)'}
+            {r.judged_at
+              ? ' (article illisible ou trop court)'
+              : ' (texte trop court, ou pas encore jugé)'}
           </span>
         ) : (
           <>
