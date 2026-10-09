@@ -33,7 +33,7 @@
   --status-bloque: #c0261f;
   --status-filtrant: #b45309;
   --status-leve: #5f6673;
-  --mobilisation: #0e8a96;
+  --mobilisation: #c99a1c;
   --chart-1: #0a6cd6;
   --chart-2: #6d28d9;
   /* Séries d'un graphique à plus de deux séries (validées, CVD et contraste) : modèles IA, etc. */
@@ -58,7 +58,7 @@
     --status-bloque: #ff453a;
     --status-filtrant: #ff9f0a;
     --status-leve: #98a2b3;
-    --mobilisation: #2dd4bf;
+    --mobilisation: #e6c15a;
     --chart-1: #64d2ff;
     --chart-2: #c4b5fd;
     --series-1: #3987e5;
@@ -84,7 +84,7 @@
   --status-bloque: #c0261f;
   --status-filtrant: #b45309;
   --status-leve: #5f6673;
-  --mobilisation: #0e8a96;
+  --mobilisation: #c99a1c;
   --chart-1: #0a6cd6;
   --chart-2: #6d28d9;
   --series-1: #2a78d6;
@@ -111,7 +111,7 @@
   --status-bloque: #ff453a;
   --status-filtrant: #ff9f0a;
   --status-leve: #98a2b3;
-  --mobilisation: #2dd4bf;
+  --mobilisation: #e6c15a;
   --chart-1: #64d2ff;
   --chart-2: #c4b5fd;
   --series-1: #3987e5;
@@ -277,7 +277,7 @@ body {
   color: #c9ced8;
 }
 
-/* Mobilisation signalée (niveaux du juge) : anneau turquoise translucide, comme sur la carte. */
+/* Mobilisation signalée (niveaux du juge) : anneau ocre translucide, comme sur la carte. */
 .mob-dot {
   display: inline-block;
   flex: none;

@@ -366,7 +366,7 @@ export default function MapView({
         },
       })
 
-      // Mobilisations signalées : un anneau turquoise translucide, assez grand pour se voir à l’échelle nationale.
+      // Mobilisations signalées : un anneau ocre translucide, assez grand pour se voir à l’échelle nationale.
       map.addSource(MOBILISATION_SOURCE, {
         type: 'geojson',
         data: mobilisationGeoJSON(latest.current.mobilisation),
@@ -377,10 +377,10 @@ export default function MapView({
           type: 'circle',
           source: MOBILISATION_SOURCE,
           paint: {
-            'circle-color': '#14b8c4',
+            'circle-color': '#e6b93a',
             'circle-opacity': 0.3,
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(4), 9, scaled(8)],
-            'circle-stroke-color': '#0e8a96',
+            'circle-stroke-color': '#c99a1c',
             'circle-stroke-width': 2,
             'circle-stroke-opacity': 0.95,
           },

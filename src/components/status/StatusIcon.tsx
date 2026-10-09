@@ -50,7 +50,7 @@ export function StatusIcon({ status, size = 16 }: { status: ReportStatus; size?:
   }
 }
 
-/** Mobilisation signalée : anneau turquoise translucide, comme sur la carte. */
+/** Mobilisation signalée : anneau ocre translucide, comme sur la carte. */
 export function MobilisationIcon({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
