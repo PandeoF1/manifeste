@@ -1,6 +1,7 @@
 import { chunk, mapLimit } from './collector-utils.ts'
 import { canonicalUrl, extractDomain } from './domain.ts'
 import { enrichItems } from './enrich.ts'
+import type { Judge } from './judge.ts'
 import {
   isRelevant,
   meetsCertainty,
@@ -44,6 +45,13 @@ export interface NewReport {
   published_at: string
   extracted_observed_at: string | null
   date_basis: DateBasis
+  /** Second avis du juge (mode observation : enregistré, pas encore utilisé). */
+  judge_score?: number
+  judge_nature?: string
+  judge_level?: string
+  judge_model?: string
+  judged_at?: string
+  judge_chars?: number
 }
 
 export interface NewUnmatched {
@@ -67,8 +75,10 @@ export interface CollectorDb {
   nearbySchools(lat: number, lng: number): Promise<NearbyCandidate[]>
   /** Établissements du même niveau dans la commune (au plus 2 suffisent pour savoir s'il n'y en a qu'un). */
   schoolsInCity(city: string, level: 'lycee' | 'superieur'): Promise<Array<{ uai: string }>>
-  /** Niveau de l'établissement (null si inconnu). */
-  schoolLevel(uai: string): Promise<'lycee' | 'superieur' | null>
+  /** Nom, commune et niveau de l'établissement (null si inconnu). */
+  schoolInfo(
+    uai: string,
+  ): Promise<{ name: string; city: string; level: 'lycee' | 'superieur' } | null>
   insertReport(report: NewReport): Promise<'inserted' | 'duplicate'>
   insertUnmatched(row: NewUnmatched): Promise<void>
   /** Fin de passage : met à jour la source et enregistre le journal (s'il y a du nouveau). */
@@ -88,6 +98,8 @@ export interface CollectorOptions {
   lookbackHours?: number
   maxItemsPerSource?: number
   batchSize?: number
+  /** Juge Jev : donne un second avis sur chaque signalement avant l'enregistrement (absent = aucun). */
+  judge?: Judge
 }
 
 /** Devenir d'un nouvel élément lu pendant un passage (journal du collecteur). */
@@ -269,6 +281,8 @@ export async function gatherSources(
  * Un élément n'est marqué traité qu'une fois analysé : en cas d'échec de l'IA ou de budget
  * de temps dépassé, il est repris au passage suivant. Enregistre le passage de chaque source.
  */
+const MAX_JUDGE_CALLS = 60
+
 export async function analyzePending(
   pending: ReadonlyArray<Pending>,
   results: SourceRunResult[],
@@ -283,6 +297,16 @@ export async function analyzePending(
   const minCertainty = opts.minCertainty ?? 'moyenne'
   const batchSize = opts.batchSize ?? 50
   const budgetMs = opts.budgetMs ?? 110_000
+  // Le juge ne doit jamais retarder la collecte : au plus 60 appels par passage, et plus aucun
+  // quand 70 % du temps est écoulé (le signalement est alors enregistré sans second avis).
+  const rawJudge = opts.judge
+  let judgeCalls = 0
+  const judge: Judge | undefined = rawJudge
+    ? (input) =>
+        judgeCalls++ >= MAX_JUDGE_CALLS || Date.now() - startedAt > budgetMs * 0.7
+          ? Promise.resolve(null)
+          : rawJudge(input)
+    : undefined
   const byId = new Map(results.map((r) => [r.source_id, r]))
   const res = (s: CollectorSource) => {
     let r = byId.get(s.id)
@@ -358,7 +382,7 @@ export async function analyzePending(
       try {
         log = {
           ...base,
-          ...(await handleEvent(event, entry.item, entry.source, r, minCertainty, opts.db)),
+          ...(await handleEvent(event, entry.item, entry.source, r, minCertainty, opts.db, judge)),
         }
       } catch (e) {
         r.error = e instanceof Error ? e.message : String(e)
@@ -420,6 +444,7 @@ async function handleEvent(
   r: SourceRunResult,
   minCertainty: Certainty,
   db: CollectorDb,
+  judge?: Judge,
 ): Promise<Pick<ItemLog, 'outcome' | 'school_uai' | 'detail'>> {
   if (!meetsCertainty(event.certainty, minCertainty)) {
     r.low_certainty++
@@ -469,13 +494,24 @@ async function handleEvent(
   }
   const domain = item.publisherDomain ?? extractDomain(item.url)
   if (!domain) return { outcome: 'erreur', school_uai: uai, detail: 'lien source invalide' }
+  const info = await db.schoolInfo(uai)
   // Un lycée est fermé le week-end : un « bloqué » daté du samedi ou du dimanche est un récit
   // ou un bilan publié ce jour-là, pas un blocage. Les facs restent exemptées (occupations).
-  if (event.status === 'bloque' && isParisWeekend(observation.at)) {
-    if ((await db.schoolLevel(uai)) === 'lycee') {
-      return { outcome: 'aucun_fait', school_uai: uai, detail: 'lycée fermé le week-end' }
-    }
+  if (event.status === 'bloque' && isParisWeekend(observation.at) && info?.level === 'lycee') {
+    return { outcome: 'aucun_fait', school_uai: uai, detail: 'lycée fermé le week-end' }
   }
+  // Second avis du juge : enregistré seulement (aucune décision n'en dépend pour l'instant).
+  const verdict =
+    judge && info
+      ? await judge({
+          school: { name: info.name, city: info.city },
+          status: event.status,
+          text: item.text,
+          publishedDay: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(
+            item.publishedAt,
+          ),
+        })
+      : null
   const outcome = await db.insertReport({
     school_uai: uai,
     status: event.status,
@@ -488,6 +524,16 @@ async function handleEvent(
     published_at: item.publishedAt.toISOString(),
     extracted_observed_at: event.observed_at,
     date_basis: observation.basis,
+    ...(verdict
+      ? {
+          judge_score: verdict.probability ?? undefined,
+          judge_nature: verdict.nature ?? undefined,
+          judge_level: verdict.level ?? undefined,
+          judge_model: verdict.model,
+          judged_at: new Date().toISOString(),
+          judge_chars: verdict.chars,
+        }
+      : {}),
   })
   if (outcome === 'inserted') r.reports++
   else r.duplicates++

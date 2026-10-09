@@ -57,14 +57,16 @@ export function createServiceDb(admin: SupabaseClient): CollectorDb {
       if (error) throw new Error(`match_school: ${error.message}`)
       return (data ?? []) as SchoolCandidate[]
     },
-    async schoolLevel(uai) {
+    async schoolInfo(uai) {
       const { data, error } = await admin
         .from('schools')
-        .select('level')
+        .select('name, city, level')
         .eq('uai', uai)
         .maybeSingle()
       if (error) throw new Error(`schools: ${error.message}`)
-      return (data?.level as 'lycee' | 'superieur' | undefined) ?? null
+      return data
+        ? { name: data.name, city: data.city, level: data.level as 'lycee' | 'superieur' }
+        : null
     },
     async insertReport(report) {
       // ON CONFLICT DO NOTHING : un doublon ne lève plus d'erreur (ni de ligne rouge dans les

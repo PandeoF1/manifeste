@@ -2,6 +2,10 @@
 // tests/audit-reports.test.ts. Elle relit l'article source d'un signalement et vérifie deux choses :
 // que l'établissement y est cité, et que le jour retenu est celui que dit le texte.
 
+import { GENERIC, norm, sentencesAbout } from '../supabase/functions/_shared/school-text.ts'
+
+export { norm, sentencesAbout }
+
 const WEEKDAYS: Record<string, number> = {
   lundi: 1,
   mardi: 2,
@@ -12,16 +16,6 @@ const WEEKDAYS: Record<string, number> = {
   dimanche: 0,
 }
 const MONTHS: Record<string, number> = { septembre: 9, octobre: 10, novembre: 11 }
-const GENERIC = new Set(
-  'lycee polyvalent professionnel professionnelle technologique general generale metiers prive public universite institut ecole saint sainte'.split(
-    ' ',
-  ),
-)
-
-export function norm(s: string | null | undefined): string {
-  return (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-}
-
 function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, '&')
@@ -97,18 +91,6 @@ export function schoolMention(text: string, school: { name: string; city: string
   if (nameWords.length > 0 && nameHit / nameWords.length >= 0.5) return 'nom'
   if (cityWords.length > 0 && cityWords.every((w) => words.has(w))) return 'ville'
   return 'non'
-}
-
-/** Phrases du texte qui parlent de l'établissement (nom distinctif ou commune). */
-export function sentencesAbout(text: string, school: { name: string; city: string }): string[] {
-  const keys = [
-    ...(norm(school.name).match(/[a-z]{5,}/g) ?? []).filter((w) => !GENERIC.has(w)),
-    ...(norm(school.city).match(/[a-z]{4,}/g) ?? []),
-  ]
-  return text
-    .split(/(?<=[.!?])\s+|\n/)
-    .filter((st) => keys.some((k) => norm(st).includes(k)))
-    .slice(0, 4)
 }
 
 const DAY_MS = 86_400_000
