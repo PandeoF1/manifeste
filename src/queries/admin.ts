@@ -76,6 +76,9 @@ interface ModeratorRow {
   certainty: PendingReport['certainty']
   distance_m: number | null
   photo_path: string | null
+  judge_score: number | null
+  judge_nature: string | null
+  judged_at: string | null
 }
 
 /** File d'attente du modérateur : mêmes champs que l'admin, sans position ni détail des sources. */
@@ -96,6 +99,9 @@ export const moderatorPendingQuery = queryOptions({
           source_domain: r.source_domain,
           source_url: r.source_url,
           certainty: r.certainty,
+          judge_score: r.judge_score,
+          judge_nature: r.judge_nature,
+          judged_at: r.judged_at,
           schools: r.school_name ? { name: r.school_name, city: r.school_city ?? '' } : null,
           scrape_sources: r.source_label ? { label: r.source_label } : null,
           report_submissions:

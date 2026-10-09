@@ -121,6 +121,7 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
                       {r.source_domain ? ` · ${r.source_domain}` : ''}
                     </span>
                     {r.certainty && <span>certitude {r.certainty}</span>}
+                    {r.source_type !== 'utilisateur' && <JudgeOpinion r={r} />}
                     {sub && (
                       <span className="inline-flex items-center gap-1">
                         <MapPin size={14} aria-hidden="true" /> à {sub.distance_m} m de
@@ -250,5 +251,17 @@ function PhotoReview({
         l'original est supprimé définitivement{canReject ? '' : ' (dans l’heure)'}.
       </p>
     </div>
+  )
+}
+
+/** Avis du juge (Jev) sur le signalement : probabilité que le texte dise bien « bloqué » et nature. */
+function JudgeOpinion({ r }: { r: PendingReport }) {
+  if (r.judge_score === null)
+    return <span>Jev : {r.judged_at ? 'article illisible ou trop court' : 'pas encore jugé'}</span>
+  const pct = Math.round(r.judge_score * 100)
+  return (
+    <span className="font-medium text-fg">
+      Jev : {pct} %{r.judge_nature ? ` · ${r.judge_nature}` : ''}
+    </span>
   )
 }
