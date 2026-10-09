@@ -146,8 +146,9 @@ async function main() {
     while (next < todo.length) {
       const t = todo[next++] as Target
       try {
-        cache[keyOf(t)] = await ask(t, first)
+        const showRaw = first
         first = false
+        cache[keyOf(t)] = await ask(t, showRaw)
       } catch (e) {
         console.error(`\n${t.reportId} : ${e instanceof Error ? e.message : String(e)}`)
         writeFileSync(CACHE_FILE, JSON.stringify(cache))
