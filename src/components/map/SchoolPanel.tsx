@@ -59,7 +59,7 @@ export function SchoolPanel({
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         {mobilisation ? (
           <span className="inline-flex items-center gap-1.5 font-semibold text-muted">
-            <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" />
+            <span aria-hidden="true" className="mob-dot size-3 rounded-full" />
             Mobilisation signalée
           </span>
         ) : (
@@ -73,9 +73,9 @@ export function SchoolPanel({
 
       {mobilisation && (
         <p className="mt-2 text-sm text-muted">
-          Les articles parlent d'une mobilisation (rassemblement, incident…) mais ne disent pas que
-          l'entrée est bloquée ni que l'établissement est fermé. Ce n'est pas compté dans les
-          établissements bloqués ou fermés.
+          Une mobilisation est signalée ici (rassemblement, incident…), mais les articles ne disent
+          pas que l'entrée est bloquée ni que l'établissement est fermé. Elle n'est donc pas comptée
+          dans les établissements bloqués ou fermés.
         </p>
       )}
 

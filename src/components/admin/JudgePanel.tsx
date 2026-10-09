@@ -16,7 +16,7 @@ const TIER_LABEL: Record<Tier, string> = {
 }
 const TIER_HELP: Record<Tier, string> = {
   confirme: 'Le texte dit bloqué ou fermé',
-  mobilise: 'Quelque chose, mais pas clair',
+  mobilise: 'Rassemblement, incident, cas incertain',
   'non-retenu': 'Récit, aperçu, mauvais établissement',
   'non-juge': 'Article illisible ou trop court',
 }

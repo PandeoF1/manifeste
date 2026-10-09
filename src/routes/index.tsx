@@ -101,7 +101,7 @@ function MapPage() {
   // (changer de période ferait sinon apparaître de faux nouveaux lycées).
   const { data: live = [] } = useQuery(statusesQuery)
   useReportsRealtime()
-  // Niveaux du juge : les mobilisations « pas claires » se montrent à part, en direct seulement.
+  // Niveaux du juge : les mobilisations signalées se montrent à part, en direct seulement.
   const mobilisationOn = settings.judgeTiers && period === 'direct' && !historyMode
   const { data: mobilisationData } = useQuery({ ...mobilisationQuery, enabled: mobilisationOn })
   const mobilisation = useMemo(

@@ -7,7 +7,7 @@ export interface PublicSettings {
   statusTtlHours: number
   /** AAAA-MM-JJ */
   movementStart: string
-  /** Niveaux du juge allumés : la carte montre à part les mobilisations « pas claires ». */
+  /** Niveaux du juge allumés : la carte montre à part les mobilisations signalées. */
   judgeTiers: boolean
 }
 

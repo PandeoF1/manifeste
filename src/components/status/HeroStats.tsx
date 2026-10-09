@@ -16,7 +16,7 @@ interface Props {
   history?: string
   /** Sélecteur de période, affiché sous l'en-tête. */
   picker?: ReactNode
-  /** Établissements avec une mobilisation « pas claire » (niveaux du juge) : non comptés ci-dessus. */
+  /** Établissements avec une mobilisation signalée (niveaux du juge) : en plus des comptes ci-dessus. */
   mobilises?: number
 }
 
@@ -101,11 +101,10 @@ export function HeroStats({
           <p
             className={`flex items-center gap-2 text-muted ${compact ? 'mt-0.5 text-xs' : 'mt-2 text-sm'}`}
           >
-            <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" />
+            <span aria-hidden="true" className="mob-dot size-3 rounded-full" />
             <span>
               <strong className="tabular-nums text-fg">+{mobilises}</strong> mobilisation
-              {plural(mobilises)} signalée{plural(mobilises)}, pas claire{plural(mobilises)} (non
-              comptée{plural(mobilises)})
+              {plural(mobilises)} signalée{plural(mobilises)} en plus
             </span>
           </p>
         )}
@@ -138,8 +137,7 @@ export function Legend({ mobilisation = false }: { mobilisation?: boolean }) {
       </li>
       {mobilisation && (
         <li className="flex items-center gap-1.5">
-          <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" /> Mobilisation, pas
-          claire
+          <span aria-hidden="true" className="mob-dot size-3 rounded-full" /> Mobilisation signalée
         </li>
       )}
       <li className="flex items-center gap-1.5">
