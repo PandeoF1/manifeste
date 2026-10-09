@@ -45,6 +45,10 @@ insert into t select 'coupé : aucune vue mobilisation', (select count(*) = 0 fr
 insert into t select 'coupé : données ouvertes inchangées (4 établissements bloqués ou filtrants)',
   (select (public.open_data('resume')->>'etablissements')::int = 4);
 insert into t select 'coupé : mobilises = 0', (select (public.open_data('resume')->>'mobilises')::int = 0);
+insert into t select 'coupé : aucune confiance dans les exports',
+  (select bool_and(p->>'confiance' is null) from jsonb_array_elements(public.open_data('signalements')) p);
+insert into t select 'coupé : la mobilisation des périodes est vide',
+  (select count(*) = 0 from public.school_mobilisation_since(now() - interval '1 day'));
 
 -- Allumé.
 reset role;
@@ -64,10 +68,28 @@ insert into t select 'allumé : la vue mobilisation a les mêmes colonnes que le
 insert into t select 'allumé : données ouvertes sans le rassemblement (3 établissements)',
   (select (public.open_data('resume')->>'etablissements')::int = 3);
 insert into t select 'allumé : mobilises = 1', (select (public.open_data('resume')->>'mobilises')::int = 1);
-insert into t select 'allumé : l''historique ignore le rassemblement',
-  (select not (public.timeline_events(now() - interval '1 day')::text like '%0920002B%'));
+insert into t select 'allumé : l''historique garde le rassemblement, marqué « m »',
+  (select bool_or((e->>'u') = '0920002B' and (e->>'m')::boolean)
+   from jsonb_array_elements(public.timeline_events(now() - interval '1 day')->'events') e);
 insert into t select 'allumé : les périodes ignorent le rassemblement',
   (select count(*) = 0 from public.school_status_since(now() - interval '1 day') where uai = '0920002B');
+insert into t select 'allumé : les périodes le montrent dans la mobilisation',
+  (select count(*) = 1 from public.school_mobilisation_since(now() - interval '1 day') where uai = '0920002B');
+insert into t select 'allumé : un établissement confirmé n''est pas dans la mobilisation des périodes',
+  (select count(*) = 0 from public.school_mobilisation_since(now() - interval '1 day') where uai = '0920001A');
+insert into t select 'allumé : jours : une mobilisation aujourd''hui',
+  (select coalesce(sum((p->>'mobilises')::int), 0) = 1
+   from jsonb_array_elements(public.open_data('jours')) p);
+insert into t select 'allumé : établissements : confiance confirmé et mobilisation',
+  (select bool_or(p->>'uai' = '0920001A' and p->>'confiance' = 'confirmé')
+      and bool_or(p->>'uai' = '0920002B' and p->>'confiance' = 'mobilisation')
+   from jsonb_array_elements(public.open_data('etablissements')) p);
+insert into t select 'allumé : signalements : la mobilisation est listée avec sa confiance',
+  (select count(*) = 1 from jsonb_array_elements(public.open_data('signalements')) p
+   where p->>'confiance' = 'mobilisation');
+insert into t select 'allumé : départements : mobilises = 1 dans le Nord',
+  (select (p->>'mobilises')::int = 1
+   from jsonb_array_elements(public.open_data('departements')) p where p->>'zone' = '59');
 
 -- Seuils modifiables depuis l'admin ; réglage invalide refusé.
 reset role;
@@ -76,7 +98,7 @@ insert into t select 'seuil : 0,9 devient « pas clair » quand le seuil monte �
   (select public.report_tier(r) = 'mobilise' from public.reports r where source_url = 'https://p.example/1');
 update public.app_settings set value = '0.5' where key = 'judge_keep';
 
-insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 20;
+insert into t select 'toutes les vérifications présentes', (select count(*) from t) = 28;
 
 select name, ok from t;
 do $$ declare f text; begin

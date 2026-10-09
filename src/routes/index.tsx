@@ -13,7 +13,7 @@ import { HeroStats, Legend } from '@/components/status/HeroStats'
 import { ShareButton } from '@/components/ShareButton'
 import {
   computeStats,
-  mobilisationQuery,
+  periodMobilisationQuery,
   periodStatusesQuery,
   statusesQuery,
   type SchoolStatus,
@@ -35,6 +35,7 @@ import {
   hourChoices,
   rangeStart,
   statusesAt,
+  mobilisationAt,
   type TimelineRange,
 } from '@/lib/timeline'
 
@@ -101,14 +102,6 @@ function MapPage() {
   // (changer de période ferait sinon apparaître de faux nouveaux lycées).
   const { data: live = [] } = useQuery(statusesQuery)
   useReportsRealtime()
-  // Niveaux du juge : les mobilisations signalées se montrent à part, en direct seulement.
-  const mobilisationOn = settings.judgeTiers && period === 'direct' && !historyMode
-  const { data: mobilisationData } = useQuery({ ...mobilisationQuery, enabled: mobilisationOn })
-  const mobilisation = useMemo(
-    () => (mobilisationOn ? (mobilisationData ?? []) : []),
-    [mobilisationOn, mobilisationData],
-  )
-
   // Mode Historique : instant affiché (null = maintenant), période de la frise, durée d'un signal.
   const to = useNow(60_000).getTime()
   const range: TimelineRange = search.r ?? DEFAULT_TIMELINE_RANGE
@@ -120,6 +113,29 @@ function MapPage() {
   const replayed = useMemo(
     () => (historyMode && timeline.data ? statusesAt(timeline.data, at, hours) : undefined),
     [historyMode, timeline.data, at, hours],
+  )
+  // Niveaux du juge : les mobilisations signalées, en plus des établissements comptés (direct, périodes
+  // et replay). Vide tant que les niveaux sont coupés.
+  const { data: mobilisationData } = useQuery({
+    ...periodMobilisationQuery(period, settings),
+    enabled: settings.judgeTiers && !historyMode,
+    placeholderData: keepPreviousData,
+  })
+  const replayedMobilisation = useMemo(
+    () =>
+      historyMode && settings.judgeTiers && timeline.data
+        ? mobilisationAt(timeline.data, at, hours)
+        : undefined,
+    [historyMode, settings.judgeTiers, timeline.data, at, hours],
+  )
+  const mobilisation = useMemo(
+    () =>
+      settings.judgeTiers
+        ? historyMode
+          ? (replayedMobilisation ?? NONE)
+          : (mobilisationData ?? NONE)
+        : NONE,
+    [settings.judgeTiers, historyMode, replayedMobilisation, mobilisationData],
   )
   const shown = historyMode ? (replayed ?? NONE) : statuses
   const loading = historyMode ? timeline.isPending : isPending
@@ -262,7 +278,12 @@ function MapPage() {
           {loading ? (
             <FeedSkeleton />
           ) : (
-            <LiveFeed statuses={deferredShown} selectedUai={search.uai} onSelect={onSelect} />
+            <LiveFeed
+              statuses={deferredShown}
+              mobilisation={mobilisation}
+              selectedUai={search.uai}
+              onSelect={onSelect}
+            />
           )}
         </div>
       </aside>

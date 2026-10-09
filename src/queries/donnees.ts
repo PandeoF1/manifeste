@@ -34,6 +34,10 @@ export interface Jour {
   via_organisations: number
   via_autres_sources: number
   via_signalements_sur_place: number
+  /** Mobilisations signalées ce jour-là (niveaux du juge allumés), en plus des établissements. */
+  mobilises?: number
+  mobilises_lycees?: number
+  mobilises_facs?: number
 }
 
 export interface Zone {
@@ -46,6 +50,7 @@ export interface Zone {
   signalements: number
   bloques_maintenant: number
   filtrants_maintenant: number
+  mobilises?: number
 }
 
 interface Vues {

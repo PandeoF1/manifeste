@@ -29,6 +29,8 @@ const eventSchema = z.object({
   t: z.number(),
   /** Clé de source (une source compte pour une, quel que soit le nombre d'articles). Absente pour un signalement sur place. */
   k: z.string().nullable(),
+  /** Mobilisation signalée (niveaux du juge) : n'entre pas dans les statuts comptés. */
+  m: z.boolean().optional(),
 })
 const timelineSchema = z.object({ schools: z.array(z.unknown()), events: z.array(z.unknown()) })
 
@@ -79,6 +81,26 @@ function firstAfter(events: ReadonlyArray<TimelineEvent>, t: number): number {
  * dernier), mais décalée à `at`. Fenêtre : ]at - hours, at].
  */
 export function statusesAt(data: TimelineData, at: number, hours: number): SchoolStatus[] {
+  return stateAt(data, at, hours, false)
+}
+
+/**
+ * Les mobilisations signalées à l'instant `at` : établissements qui n'ont, dans la fenêtre, que des
+ * événements de mobilisation (rien de compté). Même fenêtre que `statusesAt`.
+ */
+export function mobilisationAt(data: TimelineData, at: number, hours: number): SchoolStatus[] {
+  const counted = new Set(stateAt(data, at, hours, false).map((s) => s.uai))
+  return stateAt(data, at, hours, true)
+    .filter((s) => !counted.has(s.uai) && s.status !== 'leve')
+    .map((s) => ({ ...s, mobilisation: true }))
+}
+
+function stateAt(
+  data: TimelineData,
+  at: number,
+  hours: number,
+  mobilisation: boolean,
+): SchoolStatus[] {
   const { events } = data
   const end = firstAfter(events, at)
   const start = firstAfter(events, at - hours * HOUR)
@@ -86,7 +108,7 @@ export function statusesAt(data: TimelineData, at: number, hours: number): Schoo
   const sources = new Map<string, Set<string>>()
   for (let i = start; i < end; i++) {
     const e = events[i]
-    if (!e) continue
+    if (!e || (e.m === true) !== mobilisation) continue
     // Triés par heure : le dernier vu est le plus récent.
     latest.set(e.u, { status: e.s, t: e.t })
     let set = sources.get(e.u)
@@ -193,6 +215,7 @@ export function bucketize(
   for (let i = firstAfter(events, from - 1); i < events.length; i++) {
     const e = events[i]
     if (!e || e.t > to) break
+    if (e.m === true) continue
     const b = buckets[Math.min(count - 1, Math.floor((e.t - from) / size))]
     if (!b) continue
     b[e.s]++

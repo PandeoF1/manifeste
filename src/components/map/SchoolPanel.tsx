@@ -24,7 +24,7 @@ export function SchoolPanel({
 }: {
   school: SchoolStatus
   onClose: () => void
-  /** Niveaux du juge : les articles parlent d'une mobilisation sans dire « bloqué ou fermé ». */
+  /** Niveaux du juge : les articles parlent d'une mobilisation sans dire « bloqué » ni « fermé ». */
   mobilisation?: boolean
 }) {
   const reports = useQuery(schoolReportsQuery(school.uai))
@@ -75,7 +75,7 @@ export function SchoolPanel({
         <p className="mt-2 text-sm text-muted">
           Une mobilisation est signalée ici (rassemblement, incident…), mais les articles ne disent
           pas que l'entrée est bloquée ni que l'établissement est fermé. Elle n'est donc pas comptée
-          dans les établissements bloqués ou fermés.
+          dans les établissements bloqués.
         </p>
       )}
 

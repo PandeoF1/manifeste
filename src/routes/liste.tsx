@@ -5,8 +5,13 @@ import { Search, X } from 'lucide-react'
 import { z } from 'zod'
 import { REPORT_STATUSES, STATUS_LABELS, formatRelative } from '@shared/status.ts'
 import { SourceConfidenceInline } from '@/components/status/SourceConfidence'
-import { StatusIcon } from '@/components/status/StatusIcon'
-import { periodStatusesQuery, statusesQuery, type SchoolStatus } from '@/queries/statuses'
+import { MobilisationIcon, StatusIcon } from '@/components/status/StatusIcon'
+import {
+  periodMobilisationQuery,
+  periodStatusesQuery,
+  statusesQuery,
+  type SchoolStatus,
+} from '@/queries/statuses'
 import { settingsQuery } from '@/queries/settings'
 import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib/periods'
 import { PeriodPicker } from '@/components/status/PeriodPicker'
@@ -16,7 +21,10 @@ const searchSchema = z.object({
   q: z.string().max(100).optional().catch(undefined),
   academie: z.string().max(80).optional().catch(undefined),
   dep: z.string().max(3).optional().catch(undefined),
-  statut: z.enum(REPORT_STATUSES).optional().catch(undefined),
+  statut: z
+    .enum([...REPORT_STATUSES, 'mobilisation'])
+    .optional()
+    .catch(undefined),
   periode: z.enum(PERIODS).optional().catch(undefined),
 })
 
@@ -50,6 +58,11 @@ function ListPage() {
     isError,
     refetch,
   } = useQuery({ ...periodStatusesQuery(period, settings), placeholderData: keepPreviousData })
+  const { data: mobilises = [] } = useQuery({
+    ...periodMobilisationQuery(period, settings),
+    enabled: settings.judgeTiers,
+    placeholderData: keepPreviousData,
+  })
   const description = periodDescription(period, settings)
   const now = useNow()
 
@@ -66,13 +79,20 @@ function ListPage() {
 
   const filtered = useMemo(() => {
     const q = search.q ? normalize(search.q.trim()) : ''
-    return statuses
-      .filter((s) => !search.statut || s.status === search.statut)
+    const rows = settings.judgeTiers ? [...statuses, ...mobilises] : statuses
+    return rows
+      .filter(
+        (s) =>
+          !search.statut ||
+          (search.statut === 'mobilisation'
+            ? s.mobilisation
+            : !s.mobilisation && s.status === search.statut),
+      )
       .filter((s) => !search.academie || s.academy === search.academie)
       .filter((s) => !search.dep || s.department === search.dep)
       .filter((s) => !q || normalize(`${s.name} ${s.city}`).includes(q))
       .sort((a, b) => b.last_signal_at.localeCompare(a.last_signal_at))
-  }, [statuses, search])
+  }, [statuses, mobilises, settings.judgeTiers, search])
 
   const set = (patch: Partial<z.infer<typeof searchSchema>>) =>
     void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
@@ -120,6 +140,18 @@ function ListPage() {
               <StatusIcon status={s} size={16} /> {STATUS_LABELS[s]}
             </button>
           ))}
+          {settings.judgeTiers && (
+            <button
+              type="button"
+              aria-pressed={search.statut === 'mobilisation'}
+              onClick={() =>
+                set({ statut: search.statut === 'mobilisation' ? undefined : 'mobilisation' })
+              }
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm aria-pressed:border-fg aria-pressed:bg-surface aria-pressed:font-semibold"
+            >
+              <MobilisationIcon size={16} /> Mobilisation signalée
+            </button>
+          )}
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="field">
@@ -196,7 +228,11 @@ function ListPage() {
               params={{ uai: s.uai }}
               className="flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-bg"
             >
-              <StatusIcon status={s.status} size={22} />
+              {s.mobilisation ? (
+                <MobilisationIcon size={22} />
+              ) : (
+                <StatusIcon status={s.status} size={22} />
+              )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{s.name}</span>
                 <span className="block truncate text-sm text-muted">
@@ -206,8 +242,10 @@ function ListPage() {
                 </span>
               </span>
               <span className="shrink-0 text-right text-xs">
-                <span className={`block font-semibold ${TEXT[s.status]}`}>
-                  {STATUS_LABELS[s.status]}
+                <span
+                  className={`block font-semibold ${s.mobilisation ? 'text-muted' : TEXT[s.status]}`}
+                >
+                  {s.mobilisation ? 'Mobilisation signalée' : STATUS_LABELS[s.status]}
                 </span>
                 <time dateTime={s.last_signal_at} className="block text-muted">
                   {formatRelative(new Date(s.last_signal_at), now)}

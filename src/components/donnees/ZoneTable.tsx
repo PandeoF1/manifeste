@@ -15,6 +15,7 @@ export function ZoneTable({
   initial?: number
 }) {
   const [all, setAll] = useState(false)
+  const hasMob = zones.some((z) => (z.mobilises ?? 0) > 0)
   const rows = all ? zones : zones.slice(0, initial)
   return (
     <div className="space-y-2">
@@ -32,6 +33,11 @@ export function ZoneTable({
               <th scope="col" className="py-2 pr-3 text-right font-medium">
                 dont facs
               </th>
+              {hasMob && (
+                <th scope="col" className="py-2 pr-3 text-right font-medium">
+                  Mobilisation signalée
+                </th>
+              )}
               <th scope="col" className="py-2 pr-3 font-medium">
                 Premier jour
               </th>
@@ -48,6 +54,7 @@ export function ZoneTable({
                 </th>
                 <td className="py-2 pr-3 text-right font-semibold">{fmtInt(z.etablissements)}</td>
                 <td className="py-2 pr-3 text-right">{fmtInt(z.facs)}</td>
+                {hasMob && <td className="py-2 pr-3 text-right">{fmtInt(z.mobilises ?? 0)}</td>}
                 <td className="py-2 pr-3">{z.premier_jour ? fmtDay(z.premier_jour) : '–'}</td>
                 <td className="py-2 text-right">
                   {fmtInt(z.bloques_maintenant + z.filtrants_maintenant)}
