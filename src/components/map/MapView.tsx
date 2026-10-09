@@ -100,11 +100,18 @@ function glowOpacity(theme: Theme): ExpressionSpecification {
   return ['*', POP_ALPHA, ['match', ['get', 'status'], 'leve', 0.2, MAP_BASES[theme].glowOpacity]]
 }
 
+/** Lueur des mobilisations : celle des blocages, un peu plus discrète. */
+function mobGlowOpacity(theme: Theme): ExpressionSpecification {
+  return ['*', POP_ALPHA, MAP_BASES[theme].glowOpacity * 0.75]
+}
+
 /** Thème du fond et des calques dépendants, appliqué au chargement puis à chaque bascule. */
 function applyTheme(map: MapLibreMap, theme: Theme) {
   styleBase(map, MAP_BASES[theme])
   if (map.getLayer('heat')) map.setPaintProperty('heat', 'heatmap-color', heatColor(theme))
   if (map.getLayer('glow')) map.setPaintProperty('glow', 'circle-opacity', glowOpacity(theme))
+  if (map.getLayer('mobilisation-glow'))
+    map.setPaintProperty('mobilisation-glow', 'circle-opacity', mobGlowOpacity(theme))
   if (map.getLayer('selected'))
     map.setPaintProperty('selected', 'circle-stroke-color', MAP_BASES[theme].selection)
 }
@@ -371,6 +378,31 @@ export default function MapView({
         type: 'geojson',
         data: mobilisationGeoJSON(latest.current.mobilisation),
       })
+      // Même effet de lueur que les blocages, en ocre et un peu plus discret.
+      map.addLayer(
+        {
+          id: 'mobilisation-glow',
+          type: 'circle',
+          source: MOBILISATION_SOURCE,
+          paint: {
+            'circle-color': '#e6b93a',
+            'circle-radius': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              3,
+              scaled(5),
+              8,
+              scaled(11),
+              13,
+              scaled(18),
+            ],
+            'circle-blur': 1,
+            'circle-opacity': mobGlowOpacity(latest.current.theme),
+          },
+        },
+        'selected',
+      )
       map.addLayer(
         {
           id: 'mobilisation-dots',

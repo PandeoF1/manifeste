@@ -144,6 +144,8 @@ export function createJevJudge(opts: {
   fetchFn?: FetchLike
   model?: string
   timeoutMs?: number
+  /** Appelé à chaque requête aboutie, avec une estimation des tokens envoyés (≈ 4 caractères). */
+  onUsage?: (usage: { model: string; tokens: number }) => void
 }): Judge {
   const fetchFn = opts.fetchFn ?? fetch
   const model = opts.model ?? JEV_MODEL
@@ -155,22 +157,50 @@ export function createJevJudge(opts: {
       input.publishedDay,
     )
     try {
+      const body = JSON.stringify({
+        state,
+        model,
+        questions: buildQuestions(input.school, input.status),
+      })
       const res = await fetchFn(JEV_ENDPOINT, {
         method: 'POST',
         headers: { authorization: `Bearer ${opts.apiKey}`, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          state,
-          model,
-          questions: buildQuestions(input.school, input.status),
-        }),
+        body,
         signal: AbortSignal.timeout(opts.timeoutMs ?? 5000),
       })
       if (!res.ok) return null
+      opts.onUsage?.({ model, tokens: Math.ceil(body.length / 4) })
       const answer = parseJevResponse(await res.json())
       if (answer.probability === null) return null
       return { ...answer, model, chars: state.length }
     } catch {
       return null
     }
+  }
+}
+
+/**
+ * Compteur de la consommation de Jev, au format de la table ai_usage (tâche « judge »).
+ * `drain` rend ce qui a été compté depuis le dernier appel et remet à zéro.
+ */
+export function createJudgeMeter() {
+  const byModel = new Map<string, { calls: number; tokens: number }>()
+  return {
+    onUsage({ model, tokens }: { model: string; tokens: number }) {
+      const cur = byModel.get(model) ?? { calls: 0, tokens: 0 }
+      byModel.set(model, { calls: cur.calls + 1, tokens: cur.tokens + tokens })
+    },
+    drain() {
+      const rows = [...byModel].map(([model, u]) => ({
+        task: 'judge' as const,
+        model,
+        calls: u.calls,
+        prompt_tokens: u.tokens,
+        output_tokens: 0,
+        thoughts_tokens: 0,
+      }))
+      byModel.clear()
+      return rows
+    },
   }
 }

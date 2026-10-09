@@ -1,7 +1,7 @@
 // Enregistrement de la consommation de tokens (table ai_usage, graphiques de l'admin).
 import type { TokenUsage } from './gemini.ts'
 
-export type AiTask = 'extraction' | 'media' | 'reanalyse' | 'backfill'
+export type AiTask = 'extraction' | 'media' | 'reanalyse' | 'backfill' | 'judge'
 
 export interface AiUsageRow {
   task: AiTask

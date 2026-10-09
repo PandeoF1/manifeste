@@ -38,7 +38,7 @@ import {
   type TokenUsage,
 } from '../_shared/gemini.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
-import { createJevJudge } from '../_shared/judge.ts'
+import { createJevJudge, createJudgeMeter } from '../_shared/judge.ts'
 import { SUPABASE_URL, admin, db, getCollectSecret, isAuthorized } from '../_shared/service.ts'
 import { batchByLength, traceSink } from '../_shared/service-db.ts'
 import { isPressItem, mediaRows, mediaRequest, parseMediaAnalyses } from '../_shared/media.ts'
@@ -69,9 +69,14 @@ const STRICT_PROMPT = Deno.env.get('GEMINI_STRICT_PROMPT') === '1'
 // Juge Jev (mode observation : son avis est enregistré, rien n'en dépend). Absent sans clé ;
 // JEV_JUDGE=0 le coupe sans retirer la clé.
 const TYPESAFE_API_KEY = Deno.env.get('TYPESAFE_API_KEY') ?? ''
+const JUDGE_METER = createJudgeMeter()
 const JUDGE =
   TYPESAFE_API_KEY && Deno.env.get('JEV_JUDGE') !== '0'
-    ? createJevJudge({ apiKey: TYPESAFE_API_KEY, model: Deno.env.get('JEV_MODEL') || undefined })
+    ? createJevJudge({
+        apiKey: TYPESAFE_API_KEY,
+        model: Deno.env.get('JEV_MODEL') || undefined,
+        onUsage: (u) => JUDGE_METER.onUsage(u),
+      })
     : undefined
 const MIN_CERTAINTY_RAW = Deno.env.get('COLLECT_MIN_CERTAINTY') ?? 'moyenne'
 const MIN_CERTAINTY: Certainty = (CERTAINTIES as readonly string[]).includes(MIN_CERTAINTY_RAW)
@@ -408,6 +413,7 @@ Deno.serve(async (req) => {
     await recordAiUsage(admin, [
       ...usageRows('extraction', usage.extraction),
       ...usageRows('media', usage.media),
+      ...JUDGE_METER.drain(),
     ])
     const sum = (k: 'reports' | 'unmatched' | 'relevant') =>
       results.reduce((acc, r) => acc + r[k], 0)
