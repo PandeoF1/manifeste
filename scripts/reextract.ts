@@ -8,6 +8,7 @@
  *   npm run reextract -- --limit 30           # essai sur 30 signalements
  *   npm run reextract -- --browser            # lit aussi les pages fermées aux robots avec Chromium (Playwright)
  *   npm run reextract -- --apply              # corrige les statuts qui diffèrent (sauvegarde locale avant)
+ *   npm run reextract -- --apply --no-lift    # ne passe aucun signalement en « levé » (à relire à la main)
  *   npm run reextract -- --apply --hide-no-event   # masque aussi ceux où Gemini ne voit aucun fait pour l'établissement
  *
  * Résultats possibles par signalement : confirmé (même établissement, même statut), statut différent,
@@ -42,6 +43,7 @@ const arg = (name: string) => {
 const flag = (name: string) => process.argv.includes(`--${name}`)
 const APPLY = flag('apply')
 const HIDE = flag('hide-no-event')
+const NO_LIFT = flag('no-lift')
 const LIMIT = arg('limit') ? Number(arg('limit')) : Infinity
 const BATCH = 12
 const CACHE = '.reextract-cache.json'
@@ -234,7 +236,11 @@ async function main() {
     console.log('Aucune modification (ajouter --apply pour corriger les statuts).')
     return
   }
-  const changes = verdicts.filter((v) => v.outcome === 'statut' || (HIDE && v.outcome === 'aucun'))
+  const changes = verdicts.filter(
+    (v) =>
+      (v.outcome === 'statut' && !(NO_LIFT && v.found === 'leve' && v.r.status !== 'leve')) ||
+      (HIDE && v.outcome === 'aucun'),
+  )
   const backup = `reextract-backup-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.json`
   writeFileSync(
     backup,
