@@ -41,7 +41,7 @@ export function matchSchool(
   school: { name: string; city: string },
 ): 'oui' | 'ville' | 'non' {
   const name = norm(ev.school_name)
-  const cityWords = norm(school.city).match(/[a-z]{4,}/g) ?? []
+  const cityWords: string[] = norm(school.city).match(/[a-z]{4,}/g) ?? []
   const keys = (norm(school.name).match(/[a-z]{5,}/g) ?? []).filter((w) => !GENERIC.has(w))
   const sameCity = norm(ev.city) === norm(school.city) || cityWords.some((w) => name.includes(w))
   if (keys.some((k) => name.includes(k))) return 'oui'
