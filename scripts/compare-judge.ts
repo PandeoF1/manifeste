@@ -10,6 +10,7 @@
  *   npm run compare:judge -- --run --hours 24 --group domain
  *   npm run compare:judge -- --run --hours 48 --group day --labels audit-manuel.csv
  *
+ * --retry-unreadable relit les articles déjà essayés sans succès (403…), par exemple après un changement d'agent.
  * Options : --hours N (défaut 24, fenêtre sur la date de création) ou --all (toute la base), --group domain|day|status|level|
  * certainty (défaut domain), --keep 0.5 et --low 0.3 (seuils), --limit N, --model (défaut jev-1.13.0,
  * version fixée : « jev-latest » peut changer sans prévenir), --labels fichier.csv (audit manuel :
@@ -44,6 +45,10 @@ import {
   type ReportRow,
 } from './eval-judge-lib.ts'
 
+/** Lecture des articles comme un navigateur : France 3, La 1ère, La Provence… refusent un robot identifié ou un faux Googlebot (403). */
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+
 for (const f of ['.env.backfill', '.env.prod', '.env']) if (existsSync(f)) process.loadEnvFile(f)
 
 const arg = (name: string) => {
@@ -53,6 +58,7 @@ const arg = (name: string) => {
 const RUN = process.argv.includes('--run')
 const HOURS = Number(arg('hours') ?? 24)
 const ALL = process.argv.includes('--all')
+const RETRY = process.argv.includes('--retry-unreadable')
 const GROUP = (arg('group') ?? 'domain') as GroupBy
 const KEEP = Number(arg('keep') ?? 0.5)
 const LOW = Number(arg('low') ?? 0.3)
@@ -150,7 +156,9 @@ async function loadRows(): Promise<{ all: Row[]; rows: Row[]; unreadable: number
 }
 
 async function loadArticles(urls: string[]): Promise<void> {
-  const todo = urls.filter((u) => !(u in cache.articles))
+  const todo = urls.filter(
+    (u) => !(u in cache.articles) || (RETRY && (cache.articles[u]?.status ?? 0) !== 200),
+  )
   console.log(`Articles : ${urls.length - todo.length} en cache, ${todo.length} à lire.`)
   let next = 0
   await Promise.all(
@@ -162,7 +170,7 @@ async function loadArticles(urls: string[]): Promise<void> {
             redirect: 'follow',
             signal: AbortSignal.timeout(20_000),
             headers: {
-              'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
+              'user-agent': BROWSER_UA,
               'accept-language': 'fr-FR',
             },
           })

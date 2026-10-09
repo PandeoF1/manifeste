@@ -20,6 +20,10 @@ import { JEV_MODEL, MIN_JUDGE_CHARS, createJevJudge } from '../supabase/function
 import { JEV_USD_PER_INPUT_TOKEN, estimateTokens } from './eval-judge-lib.ts'
 import { parseArticle } from './audit-reports-lib.ts'
 
+/** Lecture des articles comme un navigateur : France 3, La 1ère, La Provence… refusent un robot identifié ou un faux Googlebot (403). */
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+
 for (const f of ['.env.backfill', '.env.prod', '.env']) if (existsSync(f)) process.loadEnvFile(f)
 
 const arg = (name: string) => {
@@ -90,7 +94,7 @@ async function readArticle(url: string): Promise<{ title: string; text: string }
       redirect: 'follow',
       signal: AbortSignal.timeout(20_000),
       headers: {
-        'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
+        'user-agent': BROWSER_UA,
         'accept-language': 'fr-FR',
       },
     })
