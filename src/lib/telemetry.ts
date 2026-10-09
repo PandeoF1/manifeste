@@ -41,6 +41,18 @@ function send(body: { page: PageGroup; view: boolean; metrics: Sample[] }) {
   }).catch(() => {})
 }
 
+function tabSession(): string {
+  try {
+    const saved = sessionStorage.getItem('tab-session')
+    if (saved) return saved
+    const id = crypto.randomUUID()
+    sessionStorage.setItem('tab-session', id)
+    return id
+  } catch {
+    return crypto.randomUUID()
+  }
+}
+
 export function startTelemetry(router: {
   state: { location: { pathname: string } }
   subscribe: (event: 'onResolved', fn: () => void) => () => void
@@ -50,7 +62,8 @@ export function startTelemetry(router: {
   const firstPage = pageGroup(location.pathname)
   let current = firstPage
   let lastPath = location.pathname
-  const session = crypto.randomUUID()
+  // Identifiant de l'onglet (gardé au rechargement) : rafraîchir la page ne crée pas un « visiteur en ligne » de plus.
+  const session = tabSession()
 
   // Pages vues : la première, puis chaque changement d'adresse (hors admin).
   if (firstPage) send({ page: firstPage, view: true, metrics: [] })
