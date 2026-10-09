@@ -21,3 +21,5 @@ outreach/
 scripts/outreach*.ts
 tests/outreach.test.ts
 .vitest/
+.eval-judge-cache.json
+eval-judge-report.json
