@@ -93,17 +93,59 @@ export function extractArticleText(html: string, max = 3000): string {
   return [...new Set(lines)].join('\n').slice(0, max)
 }
 
-export async function fetchPageContext(fetchFn: FetchLike, url: string): Promise<string> {
+/** Date de publication de la page (meta article:published_time, JSON-LD, <time>), si lisible. */
+export function extractPublished(html: string): Date | null {
+  const head = html.slice(0, 200_000)
+  const raw =
+    metaContent(head, 'article:published_time') ??
+    head.match(/"datePublished"\s*:\s*"([^"]+)"/i)?.[1] ??
+    head.match(/<time[^>]*datetime=["']([^"']+)/i)?.[1] ??
+    null
+  if (!raw) return null
+  const d = new Date(raw)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+export interface PageInfo {
+  context: string
+  published: Date | null
+  /** Titre de la page (pour reconnaître un article « en direct », mis à jour dans la journée). */
+  title: string
+}
+
+export async function fetchPageInfo(fetchFn: FetchLike, url: string): Promise<PageInfo> {
   try {
     const res = await fetchFn(url, {
       headers: { 'user-agent': USER_AGENT, accept: 'text/html' },
       redirect: 'follow',
       signal: AbortSignal.timeout(6000),
     })
-    if (!res.ok) return ''
+    if (!res.ok) return { context: '', published: null, title: '' }
     const html = await readText(res, 600_000)
-    return [extractPageContext(html), extractArticleText(html)].filter(Boolean).join('\n')
+    return {
+      context: [extractPageContext(html), extractArticleText(html)].filter(Boolean).join('\n'),
+      published: extractPublished(html),
+      title: html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? '',
+    }
   } catch {
-    return ''
+    return { context: '', published: null, title: '' }
   }
+}
+
+export async function fetchPageContext(fetchFn: FetchLike, url: string): Promise<string> {
+  return (await fetchPageInfo(fetchFn, url)).context
+}
+
+const HOUR_MS = 3_600_000
+
+/**
+ * Date de publication à utiliser : celle de la page quand elle est nettement plus ancienne que
+ * celle du flux (Google Actualités et certains flux redonnent la date de dernière indexation d'un
+ * article d'hier). Un article « en direct » garde la date du flux : il est mis à jour dans la journée.
+ */
+export function reconcilePublished(feed: Date, page: PageInfo): Date {
+  if (!page.published) return feed
+  if (/\b(en )?direct\b|\blive\b/i.test(page.title)) return feed
+  const gap = feed.getTime() - page.published.getTime()
+  return gap >= 6 * HOUR_MS && gap <= 5 * 24 * HOUR_MS ? page.published : feed
 }
