@@ -62,7 +62,7 @@ export interface MapViewState {
 
 interface Props {
   statuses: ReadonlyArray<SchoolStatus>
-  /** Mobilisations « pas claires » (niveaux du juge) : points gris discrets, sous les autres. */
+  /** Mobilisations signalées (niveaux du juge) : points gris cerclés de blanc. */
   mobilisation?: ReadonlyArray<SchoolStatus>
   initialView: MapViewState
   selected: SchoolStatus | undefined
@@ -366,7 +366,7 @@ export default function MapView({
         },
       })
 
-      // Mobilisations « pas claires » : un petit point gris, sous les foyers et les formes.
+      // Mobilisations signalées : un point gris cerclé de blanc, assez grand pour se voir à l’échelle nationale.
       map.addSource(MOBILISATION_SOURCE, {
         type: 'geojson',
         data: mobilisationGeoJSON(latest.current.mobilisation),
@@ -377,14 +377,14 @@ export default function MapView({
           type: 'circle',
           source: MOBILISATION_SOURCE,
           paint: {
-            'circle-color': '#8b93a1',
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(2.2), 9, scaled(4.5)],
-            'circle-opacity': 0.8,
+            'circle-color': '#a3acba',
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(4), 9, scaled(8)],
+            'circle-opacity': 0.95,
             'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 1,
+            'circle-stroke-width': 2,
           },
         },
-        'glow',
+        'selected',
       )
 
       for (const layer of ['schools', 'glow', 'core', 'mobilisation-dots']) {
@@ -449,7 +449,7 @@ export default function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Mobilisations « pas claires » : simple mise à jour de la source (pas d'animation).
+  // Mobilisations signalées : simple mise à jour de la source (pas d'animation).
   useEffect(() => {
     const map = mapRef.current
     if (!map || !readyRef.current) return
