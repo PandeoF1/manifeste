@@ -15,6 +15,8 @@ export const TRACE_NODES = [
   'bluesky',
   'mymaps',
   'gemini',
+  'jev',
+  'reader',
   'base',
 ] as const
 export type TraceNode = (typeof TRACE_NODES)[number]
@@ -48,6 +50,8 @@ export function classifyUrl(url: string, feeds: ReadonlySet<string> = new Set())
   const host = parsed.hostname
   const path = parsed.pathname
   if (host === 'generativelanguage.googleapis.com') return 'gemini'
+  if (host === 'api.typesafe.ai') return 'jev'
+  if (host === 'r.jina.ai') return 'reader'
   if (host === 'news.google.com')
     return path.startsWith('/rss/search') ? 'google-news' : 'google-decode'
   if (host === 't.me') return 'telegram'
@@ -126,7 +130,14 @@ export function tracingFetch(
 ): FetchLike {
   return async (input, init) => {
     const target = classifyUrl(input, feeds)
-    const label = target === 'gemini' ? geminiModel(input) : shortUrl(input)
+    const label =
+      target === 'gemini'
+        ? geminiModel(input)
+        : target === 'jev'
+          ? 'juge'
+          : target === 'reader'
+            ? shortUrl(input.replace(/^https:\/\/r\.jina\.ai\//, ''))
+            : shortUrl(input)
     const started = Date.now()
     tracer.emit({ actor, target, phase: 'req', label, detail: init?.method ?? 'GET' })
     try {

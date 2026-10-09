@@ -95,13 +95,29 @@ export const NODES: NodeDef[] = [
     y: 300,
     color: '#ff453a',
   },
-  { id: 'gemini', title: 'Gemini', subtitle: 'extraction IA', x: 892, y: 170, color: '#64d2ff' },
+  { id: 'gemini', title: 'Gemini', subtitle: 'extraction IA', x: 892, y: 110, color: '#64d2ff' },
+  {
+    id: 'jev',
+    title: 'Jev (TypeSafe)',
+    subtitle: 'juge : probabilité',
+    x: 892,
+    y: 270,
+    color: '#e6b93a',
+  },
+  {
+    id: 'reader',
+    title: 'Passerelle de lecture',
+    subtitle: 'pages fermées aux robots',
+    x: 430,
+    y: 500,
+    color: '#2dd4bf',
+  },
   {
     id: 'base',
     title: 'Base Manifeste',
     subtitle: 'rattachement',
     x: 892,
-    y: 430,
+    y: 490,
     color: '#30d158',
   },
 ]
@@ -167,6 +183,8 @@ export const EDGES: EdgeDef[] = [
   ...SERVICES.map((s) => edge('lecteurs', s)),
   edge('collecteur', 'lecteurs'),
   edge('collecteur', 'gemini'),
+  edge('collecteur', 'jev'),
+  edge('collecteur', 'reader'),
   edge('collecteur', 'base'),
 ]
 export const EDGE_BY_KEY = new Map(EDGES.map((e) => [e.key, e]))
@@ -194,6 +212,8 @@ export interface RunStats {
   requests: number
   errors: number
   geminiCalls: number
+  jevCalls: number
+  readerCalls: number
   linked: number
   unmatched: number
   duplicates: number
@@ -210,6 +230,8 @@ export function emptyStats(): RunStats {
     requests: 0,
     errors: 0,
     geminiCalls: 0,
+    jevCalls: 0,
+    readerCalls: 0,
     linked: 0,
     unmatched: 0,
     duplicates: 0,
@@ -253,6 +275,8 @@ export function applyEvent(stats: RunStats, e: TraceRow, at: number): void {
   if (e.phase === 'req') {
     stats.requests++
     if (e.target === 'gemini') stats.geminiCalls++
+    if (e.target === 'jev') stats.jevCalls++
+    if (e.target === 'reader') stats.readerCalls++
   }
   if (e.phase === 'err') stats.errors++
   if (e.target === 'base' && e.phase !== 'req') {
