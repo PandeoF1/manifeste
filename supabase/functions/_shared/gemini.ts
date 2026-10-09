@@ -1,5 +1,5 @@
 import {
-  GEMINI_RESPONSE_SCHEMA,
+  responseSchema,
   systemPrompt,
   buildUserPrompt,
   parseExtraction,
@@ -286,11 +286,12 @@ export function extractionRequest(
   batch: ReadonlyArray<{ id: string; item: ScrapedItem }>,
   textChars?: number,
   strictPrompt = false,
+  nature = false,
 ): JsonRequest {
   return {
-    system: systemPrompt(strictPrompt),
+    system: systemPrompt(strictPrompt, nature),
     user: buildUserPrompt(batch, textChars),
-    schema: GEMINI_RESPONSE_SCHEMA,
+    schema: responseSchema(nature),
   }
 }
 

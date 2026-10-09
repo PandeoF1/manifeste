@@ -12,7 +12,13 @@
  *   npm run eval:prompt -- --run              # appelle Gemini (quelques dizaines de centimes)
  *   npm run eval:prompt -- --run --csv audit-manuel.csv --model gemini-3.5-flash-lite
  *
- * Options : --csv (défaut audit-manuel.csv), --model (défaut GEMINI_MODEL), --rpm (défaut 30),
+ *   npm run eval:prompt -- --run --nature     # variante « nature » (blocage / ferme / rassemblement)
+ *
+ * Avec --nature, la variante « strict » est remplacée par « nature » : on demande au modèle la
+ * nature du fait et on mesure surtout combien de VRAIS blocages seraient classés « ferme » ou
+ * « rassemblement » (ce qu'on ne veut pas), et combien de FAUX sont séparés du blocage.
+ *
+ * Options : --nature, --csv (défaut audit-manuel.csv), --model (défaut GEMINI_MODEL), --rpm (défaut 30),
  * --cache fichier, --out fichier.
  * Variables : GEMINI_API_KEY (et GEMINI_THINKING_BUDGET comme en production) ; VITE_SUPABASE_URL
  * et VITE_SUPABASE_ANON_KEY pour relire les signalements (clé publique). Chargées depuis
@@ -41,7 +47,15 @@ import {
 } from '../supabase/functions/_shared/gemini.ts'
 import type { ScrapedItem } from '../supabase/functions/_shared/fetchers/types.ts'
 import { isQuotaExhausted } from './backfill-lib.ts'
-import { hasKeptEvent, parseLabels, summarize, type Outcome } from './eval-prompt-lib.ts'
+import {
+  hasKeptEvent,
+  natureOf,
+  parseLabels,
+  summarize,
+  summarizeNature,
+  type NatureOutcome,
+  type Outcome,
+} from './eval-prompt-lib.ts'
 
 for (const f of ['.env.backfill', '.env.prod', '.env']) if (existsSync(f)) process.loadEnvFile(f)
 
@@ -51,6 +65,8 @@ const arg = (name: string) => {
   return i >= 0 ? process.argv[i + 1] : undefined
 }
 const RUN = process.argv.includes('--run')
+const NATURE = process.argv.includes('--nature')
+const VARIANT = NATURE ? 'nature' : 'strict'
 const CSV = arg('csv') ?? 'audit-manuel.csv'
 const RPM = Number(arg('rpm') ?? 30)
 const CACHE_FILE = arg('cache') ?? '.eval-prompt-cache.json'
@@ -145,6 +161,42 @@ async function loadTexts(articles: Article[]): Promise<void> {
   if (todo.length) console.log()
 }
 
+function reportNature(
+  usable: Article[],
+  events: Record<'base' | 'strict' | 'nature', Map<string, ExtractedEvent[]>>,
+  model: string,
+) {
+  const outcomes: (NatureOutcome & { reportId: string; url: string })[] = []
+  for (const a of usable)
+    for (const t of a.targets)
+      outcomes.push({
+        reportId: t.reportId,
+        url: a.url,
+        label: t.blocage,
+        base: hasKeptEvent(events.base.get(a.url) ?? [], t.school, MIN_CERTAINTY),
+        nature: natureOf(events.nature.get(a.url) ?? [], t.school, MIN_CERTAINTY),
+      })
+  const s = summarizeNature(outcomes)
+  const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)} %` : '—')
+  console.log(`\nNature des faits retenus (certitude ≥ ${MIN_CERTAINTY}) :`)
+  console.log(
+    `  VRAIS blocages (n=${s.vrais.n}) : blocage ${s.vrais.blocage}, ferme ${s.vrais.ferme}, rassemblement ${s.vrais.rassemblement}, plus retenu ${s.vrais.absent}.`,
+  )
+  const mal = s.vrais.ferme + s.vrais.rassemblement
+  console.log(
+    `  → ${mal} vrais blocages classés « ferme » ou « rassemblement » (${pct(mal, s.vrais.n)}). Seuil visé : moins de 5 %.`,
+  )
+  console.log(
+    `  FAUX (n=${s.faux.n}) : blocage ${s.faux.blocage}, ferme ${s.faux.ferme}, rassemblement ${s.faux.rassemblement}, plus retenu ${s.faux.absent}.`,
+  )
+  console.log(
+    `  → ${s.faux.ferme + s.faux.rassemblement} faux séparés du blocage par la nature (${pct(s.faux.ferme + s.faux.rassemblement, s.faux.n)}).`,
+  )
+  const out = OUT_FILE.replace(/\.json$/, '-nature.json')
+  writeFileSync(out, JSON.stringify({ model, summary: s, outcomes }, null, 1))
+  console.log(`Détail : ${out}`)
+}
+
 async function main() {
   const articles = await loadArticles()
   await loadTexts(articles)
@@ -169,9 +221,10 @@ async function main() {
   })
   console.log(`Modèle : ${model}`)
 
-  const events: Record<'base' | 'strict', Map<string, ExtractedEvent[]>> = {
+  const events: Record<'base' | 'strict' | 'nature', Map<string, ExtractedEvent[]>> = {
     base: new Map(),
     strict: new Map(),
+    nature: new Map(),
   }
   for (const [index, group] of batches.entries()) {
     const batch = group.map((a, i) => ({
@@ -188,14 +241,16 @@ async function main() {
       .update(`${model}|${batch.map((b) => b.item.url).join('|')}`)
       .digest('hex')
       .slice(0, 16)
-    for (const variant of ['base', 'strict'] as const) {
+    for (const variant of ['base', VARIANT] as const) {
       const key = `${variant}:${batchKey}`
       let parsed = cache.runs[key]
       if (!parsed) {
         const startedAt = Date.now()
         try {
           parsed = parseExtraction(
-            await client.generate(extractionRequest(batch, undefined, variant === 'strict')),
+            await client.generate(
+              extractionRequest(batch, undefined, variant === 'strict', variant === 'nature'),
+            ),
             ids,
           )
         } catch (e) {
@@ -219,6 +274,11 @@ async function main() {
     }
   }
   console.log(`\n${formatUsage(totalUsage(client.usage))}`)
+
+  if (NATURE) {
+    reportNature(usable, events, model)
+    return
+  }
 
   const outcomes: (Outcome & { reportId: string; url: string })[] = []
   for (const a of usable)

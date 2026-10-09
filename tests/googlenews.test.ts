@@ -120,4 +120,32 @@ describe('Google Actualités', () => {
     expect(item?.text).toContain('Saint-Aubin-du-Cormier')
     expect(item?.publisherDomain).toBe('ouest-france.fr')
   })
+
+  it('prend la date de la page quand le flux redonne celle de la réindexation', async () => {
+    const article = (title: string) =>
+      `<title>${title}</title><meta property="article:published_time" content="2026-10-08T09:30:00+00:00"><meta property="og:description" content="Mortiers tirés dans un lycée.">`
+    const run = async (title: string) => {
+      const fetchFn = async (url: string) => {
+        if (url.startsWith('https://news.google.com/rss/articles/')) return new Response(page)
+        if (url.includes('batchexecute'))
+          return new Response(batchResponse(['https://www.lyonmag.com/article/1']))
+        if (url === 'https://www.lyonmag.com/article/1') return new Response(article(title))
+        throw new Error(url)
+      }
+      const [item] = await enrichItems(fetchFn, [
+        {
+          externalId: 'g2',
+          url: GN,
+          text: 'Mobilisation lycéenne à Lyon - Lyon Mag',
+          publishedAt: new Date('2026-10-09T04:27:00Z'),
+        },
+      ])
+      return item?.publishedAt.toISOString()
+    }
+    expect(await run('Mobilisation lycéenne à Lyon : 31 établissements')).toBe(
+      '2026-10-08T09:30:00.000Z',
+    )
+    // Un article « en direct » est mis à jour dans la journée : on garde la date du flux.
+    expect(await run('DIRECT - Mobilisation lycéenne à Lyon')).toBe('2026-10-09T04:27:00.000Z')
+  })
 })

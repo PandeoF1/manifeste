@@ -168,6 +168,8 @@ describe('resolveObservedAt', () => {
       '2026-10-02T06:00:00.000Z',
     )
     expect(resolveObservedAt('2026-09-20', published)).toEqual(published)
+    expect(resolveObservation('2026-09-20', published).basis).toBe('stale')
+    expect(resolveObservation('2020-11-04T10:00:00Z', published).basis).toBe('stale')
   })
   it('indique l’origine de la date', () => {
     const sunday = new Date('2026-10-04T17:06:00Z')
@@ -279,5 +281,37 @@ describe('systemPrompt', () => {
     expect(strict).toContain(STRICT_RULE)
     expect(strict.indexOf(STRICT_RULE)).toBeGreaterThan(strict.indexOf('Un appel ou un projet'))
     expect(strict.length).toBeGreaterThan(SYSTEM_PROMPT.length)
+  })
+
+  it('la consigne « nature » est absente par défaut, et le schéma ne la demande qu’à la demande', async () => {
+    const { systemPrompt, SYSTEM_PROMPT, NATURE_RULE, responseSchema, GEMINI_RESPONSE_SCHEMA } =
+      await import('../supabase/functions/_shared/extraction.ts')
+    expect(SYSTEM_PROMPT).not.toContain('nature')
+    expect(responseSchema()).toBe(GEMINI_RESPONSE_SCHEMA)
+    const withNature = systemPrompt(false, true)
+    expect(withNature).toContain(NATURE_RULE)
+    expect(withNature).toContain('En cas de doute, choisis "blocage"')
+    const item = responseSchema(true).properties.events.items as unknown as {
+      required: string[]
+      properties: { nature: { enum: string[] } }
+    }
+    expect(item.required).toContain('nature')
+    expect(item.properties.nature.enum).toEqual(['blocage', 'ferme', 'rassemblement'])
+    expect(GEMINI_RESPONSE_SCHEMA.properties.events.items.required).not.toContain('nature')
+  })
+  it('accepte un événement avec ou sans nature, refuse une nature inconnue', async () => {
+    const { parseExtraction } = await import('../supabase/functions/_shared/extraction.ts')
+    const base = {
+      item_id: '0',
+      school_name: 'Lycée Victor-Hugo',
+      city: 'Besançon',
+      status: 'bloque',
+      observed_at: null,
+      certainty: 'haute',
+    }
+    const ids = new Set(['0'])
+    expect(parseExtraction({ events: [base] }, ids)).toHaveLength(1)
+    expect(parseExtraction({ events: [{ ...base, nature: 'ferme' }] }, ids)).toHaveLength(1)
+    expect(parseExtraction({ events: [{ ...base, nature: 'autre' }] }, ids)).toHaveLength(0)
   })
 })

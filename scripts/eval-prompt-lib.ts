@@ -3,6 +3,7 @@ import {
   meetsCertainty,
   type Certainty,
   type ExtractedEvent,
+  type Nature,
 } from '../supabase/functions/_shared/extraction.ts'
 import { plainName } from './eval-truncation-lib.ts'
 
@@ -115,4 +116,52 @@ export function summarize(outcomes: ReadonlyArray<Outcome>): Summary {
       lost: vrais.filter((o) => o.base && !o.strict).length,
     },
   }
+}
+
+/**
+ * Nature retenue pour un établissement : celle d'un fait de certitude suffisante qui le vise.
+ * S'il y en a plusieurs, « blocage » l'emporte (même règle que la consigne : en cas de doute,
+ * blocage). null = aucun fait retenu pour cet établissement.
+ */
+export function natureOf(
+  events: ReadonlyArray<ExtractedEvent>,
+  school: { name: string; city: string },
+  min: Certainty,
+): Nature | null {
+  const kept = events.filter(
+    (e) => meetsCertainty(e.certainty, min) && eventMatchesSchool(e, school),
+  )
+  if (kept.length === 0) return null
+  const natures = kept.map((e) => e.nature ?? 'blocage')
+  return natures.includes('blocage') ? 'blocage' : (natures[0] as Nature)
+}
+
+export interface NatureOutcome {
+  label: 'oui' | 'non'
+  /** Retenu avec le prompt de base (sans nature). */
+  base: boolean
+  /** Nature donnée avec la variante « nature », null si le fait n'est plus retenu. */
+  nature: Nature | null
+}
+
+export interface NatureSummary {
+  /** Vrais blocages (audit « oui ») : ceux qu'on ne doit pas classer « ferme » ou « rassemblement ». */
+  vrais: { n: number; blocage: number; ferme: number; rassemblement: number; absent: number }
+  /** Faux (audit « non ») : ceux que la nature sépare du blocage (c'est le but). */
+  faux: { n: number; blocage: number; ferme: number; rassemblement: number; absent: number }
+}
+
+export function summarizeNature(outcomes: ReadonlyArray<NatureOutcome>): NatureSummary {
+  const count = (label: 'oui' | 'non') => {
+    const rows = outcomes.filter((o) => o.label === label)
+    const by = (n: Nature | null) => rows.filter((o) => o.nature === n).length
+    return {
+      n: rows.length,
+      blocage: by('blocage'),
+      ferme: by('ferme'),
+      rassemblement: by('rassemblement'),
+      absent: by(null),
+    }
+  }
+  return { vrais: count('oui'), faux: count('non') }
 }

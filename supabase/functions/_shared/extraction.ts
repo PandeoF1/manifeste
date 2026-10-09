@@ -30,6 +30,15 @@ export function isRelevant(text: string): boolean {
   return LEGACY_KEYWORDS.test(t) || (SCHOOL_WORDS.test(t) && BLOCKING_WORDS.test(t))
 }
 
+/**
+ * Nature du fait (variante d'essai, absente en production) : ce qui se passe à l'établissement.
+ * blocage : des élèves en gênent l'entrée (même si l'établissement ferme à cause de ça) ;
+ * ferme : fermé ou en cours à distance sans élèves qui bloquent ; rassemblement : devant ou en
+ * ville, sans gêner l'entrée ni fermer.
+ */
+export const NATURES = ['blocage', 'ferme', 'rassemblement'] as const
+export type Nature = (typeof NATURES)[number]
+
 /** Événement tel que renvoyé par le modèle, validé strictement. */
 export const extractedEventSchema = z.object({
   item_id: z.string(),
@@ -38,6 +47,7 @@ export const extractedEventSchema = z.object({
   status: z.enum(REPORT_STATUSES),
   observed_at: z.string().nullable(),
   certainty: z.enum(CERTAINTIES),
+  nature: z.enum(NATURES).optional(),
 })
 export type ExtractedEvent = z.infer<typeof extractedEventSchema>
 
@@ -76,6 +86,29 @@ export const GEMINI_RESPONSE_SCHEMA = {
   required: ['events'],
 } as const
 
+/** Schéma de sortie avec la nature du fait (variante d'essai). */
+export function responseSchema(withNature = false) {
+  if (!withNature) return GEMINI_RESPONSE_SCHEMA
+  const item = GEMINI_RESPONSE_SCHEMA.properties.events.items
+  return {
+    ...GEMINI_RESPONSE_SCHEMA,
+    properties: {
+      events: {
+        ...GEMINI_RESPONSE_SCHEMA.properties.events,
+        items: {
+          ...item,
+          properties: {
+            ...item.properties,
+            nature: { type: 'STRING', enum: [...NATURES] },
+          },
+          required: [...item.required, 'nature'],
+          propertyOrdering: [...item.propertyOrdering, 'nature'],
+        },
+      },
+    },
+  }
+}
+
 export const SYSTEM_PROMPT = `Tu extrais des faits sur des blocages de lycées et d'établissements d'enseignement supérieur (facs, universités, IUT, écoles) français à partir de messages publics (presse, canaux Telegram, Bluesky).
 
 Pour chaque établissement explicitement cité comme bloqué, sous barrage filtrant ou débloqué, produis un événement :
@@ -104,13 +137,31 @@ Réponds uniquement avec le JSON demandé.`
 export const STRICT_RULE =
   '- Un établissement cité seulement pour un incident (agression, incendie, tirs de mortiers, dégradations, coût des travaux), pour une manifestation de rue, ou dans un bilan ou un récit d\'événements passés, sans que le texte dise que son entrée est bloquée ou qu\'il est fermé à cette date : certainty "faible".'
 
-/** Prompt système, avec ou sans la règle stricte (insérée après la règle sur les appels au blocus). */
-export function systemPrompt(strict = false): string {
-  if (!strict) return SYSTEM_PROMPT
+/** Consigne de la variante « nature » : priorité au blocage, et au blocage en cas de doute. */
+export const NATURE_RULE = `- nature : ce qui se passe à l'établissement.
+  - "blocage" : des élèves ou des étudiants gênent ou empêchent l'entrée (barrage, blocus, poubelles, piquet), même si l'établissement ferme ou passe à distance à cause de ça.
+  - "ferme" : l'établissement est fermé ou en cours à distance, sans que le texte dise que des élèves bloquent l'entrée.
+  - "rassemblement" : des élèves se rassemblent ou manifestent devant l'établissement ou en ville, sans gêner l'entrée ni fermeture.
+  - En cas de doute, choisis "blocage".`
+
+/**
+ * Prompt système, avec ou sans la règle stricte (insérée après la règle sur les appels au blocus)
+ * et la consigne « nature » (variante d'essai).
+ */
+export function systemPrompt(strict = false, nature = false): string {
+  let prompt = SYSTEM_PROMPT
   const anchor = '- Un appel ou un projet de blocus n\'est pas un blocage : certainty "faible".\n'
-  return SYSTEM_PROMPT.includes(anchor)
-    ? SYSTEM_PROMPT.replace(anchor, `${anchor}${STRICT_RULE}\n`)
-    : SYSTEM_PROMPT
+  if (strict && prompt.includes(anchor))
+    prompt = prompt.replace(anchor, `${anchor}${STRICT_RULE}\n`)
+  if (nature) {
+    const marker = '- certainty :'
+    const at = prompt.indexOf(marker)
+    prompt =
+      at >= 0
+        ? prompt.replace(marker, `${NATURE_RULE}\n${marker}`)
+        : prompt.replace('\nRègles strictes :', `\n${NATURE_RULE}\n\nRègles strictes :`)
+  }
+  return prompt
 }
 
 /** Longueur maximale du texte envoyé par élément (jamais atteinte en pratique : max observé ≈ 4 500). */
@@ -210,6 +261,9 @@ const ANNOUNCED_MAX_MS = 3 * 86_400_000
 /** D'où vient la date retenue pour un fait. */
 export type DateBasis = 'extracted' | 'announced' | 'published'
 
+/** Plus de 7 jours avant la publication : récit, archive ou rétrospective, pas un fait du jour. */
+const STALE_MS = 7 * 86_400_000
+
 /**
  * Date du fait retenue : celle extraite si plausible, sinon la date de publication.
  * Plausible = pas après la publication (+1 h de marge) et au plus 7 jours avant. Exception : un
@@ -219,7 +273,7 @@ export type DateBasis = 'extracted' | 'announced' | 'published'
 export function resolveObservation(
   extracted: string | null,
   publishedAt: Date,
-): { at: Date; basis: DateBasis } {
+): { at: Date; basis: DateBasis | 'stale' } {
   const fallback = { at: publishedAt, basis: 'published' as const }
   if (!extracted) return fallback
   const d = new Date(extracted)
@@ -242,13 +296,13 @@ export function resolveObservation(
       if (parisHour(publishedAt) < NIGHT_END_HOUR) return { at: morning, basis: 'announced' }
       return { at: morning < publishedAt ? morning : publishedAt, basis: 'extracted' }
     }
-    return morning.getTime() - publishedAt.getTime() < -7 * 86_400_000
-      ? fallback
+    return morning.getTime() - publishedAt.getTime() < -STALE_MS
+      ? { at: publishedAt, basis: 'stale' }
       : { at: morning, basis: 'extracted' }
   }
 
   const delta = d.getTime() - publishedAt.getTime()
-  if (delta < -7 * 86_400_000) return fallback
+  if (delta < -STALE_MS) return { at: publishedAt, basis: 'stale' }
   if (delta <= 3_600_000) return { at: d, basis: 'extracted' }
   const announced = delta <= ANNOUNCED_MAX_MS && parisDay(d) > parisDay(publishedAt)
   return announced ? { at: d, basis: 'announced' } : fallback

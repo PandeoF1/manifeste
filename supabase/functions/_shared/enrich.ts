@@ -6,7 +6,7 @@ import { mapLimit } from './collector-utils.ts'
 import { extractDomain } from './domain.ts'
 import { resolveGoogleNewsUrls, isGoogleNewsUrl } from './fetchers/googlenews.ts'
 import type { FetchLike, ScrapedItem } from './fetchers/types.ts'
-import { fetchPageContext } from './page.ts'
+import { fetchPageInfo, reconcilePublished } from './page.ts'
 
 /** En dessous de cette longueur, le texte est un simple titre : on lit la page. */
 const SHORT_TEXT = 400
@@ -31,7 +31,9 @@ export async function enrichItems(
         }
       : { ...item }
     if (next.text.length < SHORT_TEXT && !isGoogleNewsUrl(next.url)) {
-      const context = await fetchPageContext(fetchFn, next.url)
+      const page = await fetchPageInfo(fetchFn, next.url)
+      const context = page.context
+      next.publishedAt = reconcilePublished(next.publishedAt, page)
       const known = new Set(next.text.split('\n').map((l) => l.trim()))
       const extra = context.split('\n').filter((l) => !known.has(l.trim()))
       if (extra.length) next.text = [next.text, ...extra].join('\n').slice(0, 4500)

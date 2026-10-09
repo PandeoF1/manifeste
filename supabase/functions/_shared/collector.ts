@@ -425,7 +425,16 @@ async function handleEvent(
     r.low_certainty++
     return { outcome: 'certitude_faible', detail: `certitude ${event.certainty}` }
   }
-  const observation = resolveObservation(event.observed_at, item.publishedAt)
+  const resolved = resolveObservation(event.observed_at, item.publishedAt)
+  // Fait daté de plus de 7 jours avant la publication (archive, rétrospective, récit) : l'ancien
+  // repli sur la date de publication le faisait passer pour un fait du jour.
+  if (resolved.basis === 'stale') {
+    return {
+      outcome: 'aucun_fait',
+      detail: 'fait ancien : date extraite > 7 jours avant la publication',
+    }
+  }
+  const observation = { at: resolved.at, basis: resolved.basis }
   const observedAt = observation.at.toISOString()
   let uai: string | null = null
   if (item.geo) {
