@@ -1,13 +1,15 @@
+# Env file
+.env
+.env.*
+!.env.example
+
 node_modules
 dist
 dev-dist
-.env
-.env.local
 *.local
 supabase/.temp
 supabase/.branches
 .DS_Store
-.env.backfill
 .eval-truncation-cache.json
 .audit-reports-cache.json
 .eval-prompt-cache.json
@@ -15,7 +17,7 @@ eval-prompt-report.json
 audit-manuel*
 audit-report.json
 eval-truncation-report.json
-.env.outreach
+
 # local-only tooling
 outreach/
 scripts/outreach*.ts
@@ -28,5 +30,3 @@ compare-judge-review.csv
 .reextract-cache.json
 reextract-report.md
 reextract-backup-*.json
-.env.dev
-.env.prod
