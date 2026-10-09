@@ -7,6 +7,8 @@ import { periodSince, type Period, type PublicSettings } from '@/lib/periods'
 export type SchoolStatus = Views<'school_current_status'> & {
   /** Périodes passées : nombre de jours avec un signal bloqué ou filtrant. */
   signal_days?: number
+  /** Niveaux du juge : simple mobilisation signalée (ajoutée par l'appli aux listes, jamais par la base). */
+  mobilisation?: boolean
 }
 export type PublicReport = Pick<
   Tables<'reports'>,
@@ -48,22 +50,48 @@ async function fetchCurrentStatuses(): Promise<SchoolStatus[]> {
 }
 
 /**
- * Mobilisations signalées sans que le texte dise « bloqué ou fermé » (rassemblement, incident, cas pas
+ * Mobilisations signalées sans que le texte dise « bloqué » ni « fermé » (rassemblement, incident, cas
  * clair). Vide tant que les niveaux du juge sont coupés ; demandée seulement quand ils sont allumés.
  */
+async function mobilisationFetch(): Promise<SchoolStatus[]> {
+  const { data, error } = await supabase
+    .from('school_mobilisation_status')
+    .select('*')
+    .order('last_signal_at', { ascending: false })
+  if (error) throw error
+  return data.map((s) => ({ ...s, mobilisation: true }))
+}
+
 export const mobilisationQuery = queryOptions({
   queryKey: [...queryKeys.statuses.all, 'mobilisation'],
-  queryFn: async (): Promise<SchoolStatus[]> => {
-    const { data, error } = await supabase
-      .from('school_mobilisation_status')
-      .select('*')
-      .order('last_signal_at', { ascending: false })
-    if (error) throw error
-    return data
-  },
+  queryFn: mobilisationFetch,
   staleTime: REFRESH_MS,
   refetchInterval: REFRESH_MS,
 })
+
+/** Mobilisations signalées sur une période (direct : la vue ; autres : fonction SQL). */
+export const periodMobilisationQuery = (period: Period, settings: PublicSettings) =>
+  queryOptions<SchoolStatus[], Error, SchoolStatus[], readonly unknown[]>(
+    period === 'direct'
+      ? {
+          queryKey: [...mobilisationQuery.queryKey],
+          queryFn: mobilisationFetch,
+          staleTime: REFRESH_MS,
+          refetchInterval: REFRESH_MS,
+        }
+      : {
+          queryKey: [...queryKeys.statuses.all, 'mobilisation', period, settings.movementStart],
+          queryFn: async () => {
+            const { data, error } = await supabase.rpc('school_mobilisation_since', {
+              p_since: periodSince(period, settings).toISOString(),
+            })
+            if (error) throw error
+            return data.map((s) => ({ ...s, mobilisation: true }))
+          },
+          staleTime: REFRESH_MS,
+          refetchInterval: REFRESH_MS,
+        },
+  )
 
 export const statusesQuery = queryOptions({
   queryKey: queryKeys.statuses.list(),

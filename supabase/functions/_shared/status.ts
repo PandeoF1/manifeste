@@ -4,25 +4,25 @@ export type ReportStatus = (typeof REPORT_STATUSES)[number]
 
 /**
  * Mots du site pour chaque statut. Le statut rouge recouvre aussi les établissements fermés ou
- * passés à distance à cause du mouvement : « bloqué ou fermé ». Tout le texte du site passe par ici.
+ * passés à distance à cause du mouvement (la page À propos l'explique). Tout le texte du site passe par ici.
  */
 export const STATUS_LABELS: Record<ReportStatus, string> = {
-  bloque: 'Bloqué ou fermé',
+  bloque: 'Bloqué',
   filtrant: 'Barrage filtrant',
   leve: 'Levé',
 }
 
-/** Le statut rouge dans une phrase, accordé au nombre : « bloqué ou fermé », « bloqués ou fermés ». */
+/** Le statut rouge dans une phrase, accordé au nombre : « bloqué », « bloqués ». */
 export function blockedPhrase(count: number): string {
-  return count > 1 ? 'bloqués ou fermés' : 'bloqué ou fermé'
+  return count > 1 ? 'bloqués' : 'bloqué'
 }
 
 /** Rouge et barrage filtrant ensemble (ce que comptent les courbes et les chiffres clés). */
-export const ACTIVE_PHRASE = 'bloqués, fermés ou en barrage filtrant'
+export const ACTIVE_PHRASE = 'bloqués ou en barrage filtrant'
 
 /** Le statut dans une phrase (partage, résumé). */
 export const STATUS_SENTENCE: Record<ReportStatus, string> = {
-  bloque: 'bloqué ou fermé',
+  bloque: 'bloqué',
   filtrant: 'barrage filtrant',
   leve: 'blocus levé',
 }

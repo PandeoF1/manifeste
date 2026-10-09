@@ -7,6 +7,7 @@ import {
   fmtMoment,
   fmtTick,
   hourChoices,
+  mobilisationAt,
   parseTimeline,
   rangeStart,
   statusesAt,
@@ -213,5 +214,27 @@ describe('formats', () => {
     expect(fmtAgo(now - 12 * 60_000, now)).toBe('il y a 12 min')
     expect(fmtAgo(now - 3 * H, now)).toBe('il y a 3 h')
     expect(fmtAgo(now - 72 * H, now)).toBe('il y a 3 j')
+  })
+})
+
+describe('mobilisationAt', () => {
+  const withMob: TimelineData = {
+    schools: [school('A'), school('B', '31'), school('C')],
+    events: [
+      { u: 'A', s: 'bloque', t: t0, k: null },
+      { u: 'A', s: 'bloque', t: t0 + H, k: null, m: true },
+      { u: 'B', s: 'bloque', t: t0 + 2 * H, k: null, m: true },
+      { u: 'C', s: 'leve', t: t0 + 2 * H, k: null, m: true },
+    ],
+  }
+
+  it('ne garde que les établissements sans signal compté, hors levés', () => {
+    const rows = mobilisationAt(withMob, t0 + 3 * H, 5)
+    expect(rows.map((r) => r.uai)).toEqual(['B'])
+    expect(rows[0]?.mobilisation).toBe(true)
+  })
+
+  it('les mobilisations ne comptent pas dans statusesAt', () => {
+    expect(statusesAt(withMob, t0 + 3 * H, 5).map((r) => r.uai)).toEqual(['A'])
   })
 })

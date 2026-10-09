@@ -377,6 +377,10 @@ export type Database = {
           level: SchoolLevel
         }[]
       }
+      school_mobilisation_since: {
+        Args: { p_since: string }
+        Returns: Database['public']['Functions']['school_status_since']['Returns']
+      }
       admin_set_setting: {
         Args: { p_key: string; p_value: string }
         Returns: undefined

@@ -29,7 +29,7 @@ const FIELDS = [
   {
     key: 'judge_tiers',
     label: 'Niveaux du juge (Jev)',
-    help: 'Désactivé : rien ne change. Activé : la carte, les chiffres, l’historique et les données ouvertes ne comptent plus comme bloqués ou fermés que les signalements confirmés par le juge (et ceux qu’il n’a pas pu lire) ; les mobilisations signalées (rassemblement, incident…) s’affichent à part en gris, les récits et aperçus sont écartés. Rien n’est supprimé : repasser sur Désactivé rétablit tout. Voir l’onglet « Juge (Jev) » avant d’activer.',
+    help: 'Désactivé : rien ne change. Activé : la carte, les chiffres, l’historique et les données ouvertes ne comptent plus comme bloqués que les signalements confirmés par le juge (et ceux qu’il n’a pas pu lire) ; les mobilisations signalées (rassemblement, incident…) s’affichent à part en gris, les récits et aperçus sont écartés. Rien n’est supprimé : repasser sur Désactivé rétablit tout. Voir l’onglet « Juge (Jev) » avant d’activer.',
     type: 'select',
     options: [
       ['off', 'Désactivé'],

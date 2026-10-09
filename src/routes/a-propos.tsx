@@ -57,11 +57,13 @@ function AboutPage() {
           parle du mouvement, pour mes propres stats, pas affichées.
         </p>
         <p>
-          « Bloqué ou fermé » regroupe les établissements dont l'entrée est bloquée par des élèves
-          et ceux qui ferment ou passent à distance à cause du mouvement : les articles ne
-          permettent pas toujours de les distinguer. L'IA se trompe aussi parfois (un rassemblement
-          devant un lycée pris pour un blocage, une date décalée). C'est pour ça que chaque point
-          renvoie vers son article : tu peux vérifier.
+          « Bloqué » regroupe les établissements dont l'entrée est bloquée par des élèves et ceux
+          qui ferment ou passent à distance à cause du mouvement : les articles ne permettent pas
+          toujours de les distinguer. Quand le texte ne dit pas que l'entrée est bloquée ni que
+          l'établissement est fermé (un rassemblement, un incident…), c'est une « mobilisation
+          signalée » : visible sur la carte, mais pas comptée. L'IA se trompe aussi parfois (une
+          date décalée, un établissement mal rattaché). C'est pour ça que chaque point renvoie vers
+          son article : tu peux vérifier.
         </p>
         <p>
           « Direct » retire un établissement après {settings.statusTtlHours} h sans nouveau signal.

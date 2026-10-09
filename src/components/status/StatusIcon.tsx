@@ -49,3 +49,12 @@ export function StatusIcon({ status, size = 16 }: { status: ReportStatus; size?:
       )
   }
 }
+
+/** Mobilisation signalée : point gris à contour blanc, comme sur la carte. */
+export function MobilisationIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="8" fill="#a3acba" stroke="white" strokeWidth="2" />
+    </svg>
+  )
+}

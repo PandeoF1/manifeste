@@ -24,7 +24,7 @@ function useWidth() {
 }
 
 /**
- * Une barre par jour : établissements signalés (bloqués, fermés ou en barrage filtrant), lycées en bas,
+ * Une barre par jour : établissements signalés (bloqués ou en barrage filtrant), lycées en bas,
  * facs au-dessus. Le détail du jour s'affiche sous le titre (survol ou toucher) ; le tableau
  * complet est proposé à côté pour les lecteurs d'écran.
  */
@@ -37,7 +37,8 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
   const first = jours[0]
   const last = jours[n - 1]
   if (!first || !last) return null
-  const max = Math.max(1, ...jours.map((j) => j.etablissements))
+  const hasMob = jours.some((j) => (j.mobilises ?? 0) > 0)
+  const max = Math.max(1, ...jours.map((j) => j.etablissements + (j.mobilises ?? 0)))
   const step = niceStep(max)
   const top = Math.ceil(max / step) * step
   const innerH = H - PAD_TOP - PAD_BOTTOM
@@ -70,6 +71,13 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
             ({fmtInt(shown.lycees)} lycées, {fmtInt(shown.facs)} facs)
           </span>
         )}
+        {hasMob && (shown.mobilises ?? 0) > 0 && (
+          <span className="text-muted tabular-nums">
+            {' '}
+            · +{fmtInt(shown.mobilises ?? 0)} mobilisation{(shown.mobilises ?? 0) > 1 ? 's' : ''}{' '}
+            signalée{(shown.mobilises ?? 0) > 1 ? 's' : ''}
+          </span>
+        )}
       </p>
       <div ref={ref}>
         <svg
@@ -99,6 +107,7 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
             const x = PAD_LEFT + i * col + (col - bar) / 2
             const hl = j.lycees
             const hf = j.facs
+            const hm = j.mobilises ?? 0
             const active = (hover ?? peakIndex) === i
             return (
               <g key={j.jour} opacity={active ? 1 : 0.78}>
@@ -116,6 +125,15 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
                   height={Math.max(0, y(hl) - y(hl + hf))}
                   fill="var(--chart-2)"
                 />
+                {hm > 0 && (
+                  <rect
+                    x={x}
+                    y={y(hl + hf + hm)}
+                    width={bar}
+                    height={Math.max(0, y(hl + hf) - y(hl + hf + hm))}
+                    fill="var(--mobilisation, #a3acba)"
+                  />
+                )}
                 {i % labelEvery === 0 && (
                   <text
                     x={x + bar / 2}
@@ -149,6 +167,12 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
           <span className="size-3 rounded-sm" style={{ background: 'var(--chart-2)' }} /> Facs et
           écoles supérieures
         </span>
+        {hasMob && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="size-3 rounded-sm" style={{ background: '#a3acba' }} /> Mobilisation
+            signalée
+          </span>
+        )}
       </figcaption>
     </figure>
   )
