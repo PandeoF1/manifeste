@@ -80,7 +80,7 @@ async function loadRows(): Promise<Row[]> {
   for (let from = 0; ; from += 1000) {
     const res = await rest(
       `reports?select=id,status,source_url,observed_at,schools(name,city)` +
-        `&moderation=eq.validated&hidden=eq.false&source_url=not.is.null` +
+        `&moderation=in.(validated,pending)&hidden=eq.false&source_url=not.is.null` +
         `&source_url=not.ilike.*news.google.com*${filter}${STATUSES.length ? `&status=in.(${STATUSES.join(',')})` : ''}&order=observed_at.desc&offset=${from}&limit=1000`,
     )
     if (!res.ok) throw new Error(`reports : HTTP ${res.status} ${(await res.text()).slice(0, 200)}`)
