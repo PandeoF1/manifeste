@@ -8,6 +8,8 @@
  *   npm run judge:backfill -- --run             # tout ce qui n'a pas encore été essayé
  *   npm run judge:backfill -- --run --redo      # rejuge tout (après un changement de question)
  *   npm run judge:backfill -- --run --retry-unreadable   # retente les articles qui étaient illisibles
+ *   npm run judge:backfill -- --run --unjudged  # gros nettoyage : tout ce qui n'a pas d'avis (jamais essayé ou illisible),
+ *                                                # avec relecture de la page, y compris via la passerelle de lecture
  *
  *   npm run judge:backfill -- --run --redo --status filtrant,leve   # rejuge seulement ces statuts
  *
@@ -44,6 +46,7 @@ const flag = (name: string) => process.argv.includes(`--${name}`)
 const RUN = flag('run')
 const REDO = flag('redo')
 const RETRY = flag('retry-unreadable')
+const UNJUDGED = flag('unjudged')
 const LIMIT = arg('limit') ? Number(arg('limit')) : Infinity
 const CONCURRENCY = Number(arg('concurrency') ?? 4)
 const MODEL = arg('model') ?? JEV_MODEL
@@ -79,9 +82,11 @@ async function loadRows(): Promise<Row[]> {
   const rows: Row[] = []
   const filter = REDO
     ? ''
-    : RETRY
-      ? '&judged_at=not.is.null&judge_score=is.null'
-      : '&judged_at=is.null'
+    : UNJUDGED
+      ? '&judge_score=is.null'
+      : RETRY
+        ? '&judged_at=not.is.null&judge_score=is.null'
+        : '&judged_at=is.null'
   for (let from = 0; ; from += 1000) {
     const res = await rest(
       `reports?select=id,status,source_url,observed_at,schools(name,city)` +
