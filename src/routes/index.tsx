@@ -8,6 +8,7 @@ import { LiveFeed } from '@/components/map/LiveFeed'
 import { NewSignalToasts } from '@/components/map/NewSignalToasts'
 import { SchoolPanel } from '@/components/map/SchoolPanel'
 import { Timeline } from '@/components/map/Timeline'
+import { blockedPhrase } from '@shared/status.ts'
 import { HeroStats, Legend } from '@/components/status/HeroStats'
 import { ShareButton } from '@/components/ShareButton'
 import {
@@ -186,8 +187,8 @@ function MapPage() {
       ? '/'
       : `/?periode=${period}`
   const shareText = history
-    ? `${stats.bloque} établissements ont été bloqués ${history} en France.`
-    : `${stats.bloque} établissements bloqués en ce moment en France.`
+    ? `${stats.bloque} établissements ont été ${blockedPhrase(2)} ${history} en France.`
+    : `${stats.bloque} établissements ${blockedPhrase(stats.bloque)} en ce moment en France.`
   // En mode Historique, la fiche reste ouverte même si l'établissement n'a pas de signal à cet instant.
   const selected =
     shown.find((s) => s.uai === search.uai) ??

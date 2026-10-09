@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { History } from 'lucide-react'
-import { formatRelative } from '@shared/status.ts'
+import { STATUS_LABELS, blockedPhrase, formatRelative } from '@shared/status.ts'
 import type { NationalStats } from '@/queries/statuses'
 import { useCountUp } from '@/lib/useCountUp'
 import { useNow } from '@/lib/useNow'
@@ -65,9 +65,9 @@ export function HeroStats({ stats, updatedAt, isError, compact = false, history,
       {/* Lecteurs d'écran : une phrase complète, mise à jour sans annoncer l'animation. */}
       <p className="sr-only" aria-live="polite">
         {history ? `${history[0]?.toUpperCase()}${history.slice(1)}, ` : ''}
-        {stats.bloque} établissement{plural(stats.bloque)} {history ? 'ont été ' : ''}bloqué
-        {plural(stats.bloque)}, {stats.filtrant} en barrage filtrant, dans {stats.departments}{' '}
-        département{plural(stats.departments)}.
+        {stats.bloque} établissement{plural(stats.bloque)} {history ? 'ont été ' : ''}
+        {blockedPhrase(stats.bloque)}, {stats.filtrant} en barrage filtrant, dans{' '}
+        {stats.departments} département{plural(stats.departments)}.
       </p>
       <div aria-hidden="true">
         <p className="flex items-baseline gap-3">
@@ -80,7 +80,7 @@ export function HeroStats({ stats, updatedAt, isError, compact = false, history,
             établissement{plural(stats.bloque)}
             {compact ? ' ' : <br />}
             {history ? (stats.bloque > 1 ? 'ont été ' : 'a été ') : ''}
-            bloqué{plural(stats.bloque)}
+            {blockedPhrase(stats.bloque)}
           </span>
         </p>
         <p className={`flex items-center gap-2 ${compact ? 'mt-0.5 text-sm' : 'mt-3 text-lg'}`}>
@@ -106,7 +106,7 @@ export function Legend() {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted" aria-label="Légende">
       <li className="flex items-center gap-1.5">
-        <StatusIcon status="bloque" size={14} /> Bloqué
+        <StatusIcon status="bloque" size={14} /> {STATUS_LABELS.bloque}
       </li>
       <li className="flex items-center gap-1.5">
         <StatusIcon status="filtrant" size={14} /> Barrage filtrant

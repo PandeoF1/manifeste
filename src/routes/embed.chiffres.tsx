@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { ACTIVE_PHRASE } from '@shared/status.ts'
 import { joursQuery, resumeQuery } from '@/queries/donnees'
 import { DailyBars } from '@/components/donnees/DailyBars'
 import { fmtInt } from '@/lib/donneesFormat'
@@ -20,7 +21,7 @@ function EmbedChiffres() {
         <p className="text-4xl leading-none font-black tabular-nums">
           {maintenant != null ? fmtInt(maintenant) : '…'}
         </p>
-        <p className="mt-1">établissements bloqués ou en barrage filtrant en ce moment</p>
+        <p className="mt-1">établissements {ACTIVE_PHRASE} en ce moment</p>
         {r && (
           <p className="text-sm text-muted">
             {fmtInt(r.etablissements)} signalés depuis le début, dans {fmtInt(r.departements)}{' '}

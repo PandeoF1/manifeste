@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ACTIVE_PHRASE } from '@shared/status.ts'
 import type { Jour } from '@/queries/donnees'
 import { fmtDay, fmtDayLong, fmtInt, niceStep } from '@/lib/donneesFormat'
 
@@ -23,7 +24,7 @@ function useWidth() {
 }
 
 /**
- * Une barre par jour : établissements signalés bloqués ou en barrage filtrant, lycées en bas,
+ * Une barre par jour : établissements signalés (bloqués, fermés ou en barrage filtrant), lycées en bas,
  * facs au-dessus. Le détail du jour s'affiche sous le titre (survol ou toucher) ; le tableau
  * complet est proposé à côté pour les lecteurs d'écran.
  */
@@ -76,7 +77,7 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
           height={H}
           className="block touch-pan-y select-none"
           role="img"
-          aria-label={`Établissements signalés bloqués ou en barrage filtrant, jour par jour, du ${fmtDay(first.jour)} au ${fmtDay(last.jour)}. Pic : ${fmtInt(peak.etablissements)} le ${fmtDay(peak.jour)}.`}
+          aria-label={`Établissements signalés ${ACTIVE_PHRASE}, jour par jour, du ${fmtDay(first.jour)} au ${fmtDay(last.jour)}. Pic : ${fmtInt(peak.etablissements)} le ${fmtDay(peak.jour)}.`}
           onPointerLeave={() => setHover(null)}
         >
           {ticks.map((t) => (
