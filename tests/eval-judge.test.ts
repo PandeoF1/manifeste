@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   bestThreshold,
   buildQuestions,
+  conflictsWithBase,
+  focusState,
   estimateTokens,
   parseJevResponse,
+  summarizeGroups,
   sweep,
+  zoneOf,
   type JudgedOutcome,
+  type ReportRow,
 } from '../scripts/eval-judge-lib'
 
 const rows: JudgedOutcome[] = [
@@ -71,14 +76,14 @@ describe('Jev : questions et réponse', () => {
         },
       },
     })
-    expect(a).toEqual({
+    expect(a).toMatchObject({
       probability: 0.82,
       nature: 'ferme',
       natureProbabilities: { ferme: 0.7, blocage: 0.3 },
     })
   })
   it('tolère une réponse incomplète ou inattendue', () => {
-    expect(parseJevResponse(null)).toEqual({
+    expect(parseJevResponse(null)).toMatchObject({
       probability: null,
       nature: null,
       natureProbabilities: {},
@@ -89,5 +94,83 @@ describe('Jev : questions et réponse', () => {
       probability: null,
       nature: null,
     })
+  })
+})
+
+const row = (over: Partial<ReportRow>): ReportRow => ({
+  id: 'x',
+  day: '2026-10-09',
+  domain: 'a.fr',
+  status: 'bloque',
+  level: 'lycee',
+  certainty: 'haute',
+  probability: 0.9,
+  nature: 'blocage',
+  levelConflict: false,
+  ...over,
+})
+
+describe('comparaison par groupes', () => {
+  it('classe garde / incertain / retiré selon la probabilité, et retire un niveau contredit', () => {
+    expect(zoneOf(row({ probability: 0.8 }))).toBe('garde')
+    expect(zoneOf(row({ probability: 0.4 }))).toBe('incertain')
+    expect(zoneOf(row({ probability: 0.1 }))).toBe('retire')
+    expect(zoneOf(row({ probability: null }))).toBe('non-juge')
+    expect(zoneOf(row({ probability: 0.95, levelConflict: true }))).toBe('retire')
+  })
+  it('résume par groupe, du plus gros au plus petit, avec la répartition des natures', () => {
+    const g = summarizeGroups(
+      [
+        row({ domain: 'a.fr' }),
+        row({ domain: 'a.fr', probability: 0.1, nature: 'rassemblement' }),
+        row({ domain: 'b.fr', probability: 0.4 }),
+      ],
+      'domain',
+    )
+    expect(g.map((x) => x.group)).toEqual(['a.fr', 'b.fr'])
+    expect(g[0]).toMatchObject({
+      n: 2,
+      garde: 1,
+      retire: 1,
+      natures: { blocage: 1, rassemblement: 1 },
+    })
+    expect(g[1]).toMatchObject({ n: 1, incertain: 1 })
+  })
+  it('un niveau contredit seulement si le juge est sûr et ne répond pas « inconnu »', () => {
+    expect(
+      conflictsWithBase('lycee', { level: 'superieur', levelProbabilities: { superieur: 0.95 } }),
+    ).toBe(true)
+    expect(
+      conflictsWithBase('lycee', { level: 'superieur', levelProbabilities: { superieur: 0.6 } }),
+    ).toBe(false)
+    expect(
+      conflictsWithBase('lycee', { level: 'inconnu', levelProbabilities: { inconnu: 1 } }),
+    ).toBe(false)
+    expect(
+      conflictsWithBase('superieur', { level: 'superieur', levelProbabilities: { superieur: 1 } }),
+    ).toBe(false)
+  })
+  it('envoie au juge le titre et les phrases sur l’établissement, pas tout l’article', () => {
+    const text =
+      'Le maire a parlé de budget pour la ville. Au lycée Victor Hugo à Besançon, les élèves bloquent l’entrée depuis 7 h. Une météo clémente est prévue demain pour la région.'
+    const s = focusState(
+      { title: 'Blocus', text },
+      { name: 'Lycée Victor Hugo', city: 'Besançon' },
+      '2026-10-09',
+    )
+    expect(s).toContain('Article publié le 2026-10-09')
+    expect(s).toContain('Titre : Blocus')
+    expect(s).toContain('bloquent l’entrée')
+    expect(s).not.toContain('météo')
+  })
+  it('lit le niveau et ses probabilités dans la réponse', () => {
+    const a = parseJevResponse({
+      answers: {
+        bloque: { noul: 0.7 },
+        level: { choice: 'superieur', probabilities: { superieur: 0.9, lycee: 0.1 } },
+      },
+    })
+    expect(a.level).toBe('superieur')
+    expect(a.levelProbabilities).toEqual({ superieur: 0.9, lycee: 0.1 })
   })
 })

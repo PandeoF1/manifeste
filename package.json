@@ -27,7 +27,8 @@
     "eval:truncation": "tsx scripts/eval-truncation.ts",
     "audit:reports": "tsx scripts/audit-reports.ts",
     "eval:prompt": "tsx scripts/eval-prompt.ts",
-    "eval:judge": "tsx scripts/eval-judge.ts"
+    "eval:judge": "tsx scripts/eval-judge.ts",
+    "compare:judge": "tsx scripts/compare-judge.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
