@@ -1,12 +1,13 @@
 // Onglet « Coût IA » : lecture de admin_ai_usage et agrégation pour les graphiques.
 
-export type AiTask = 'extraction' | 'media' | 'reanalyse' | 'backfill'
+export type AiTask = 'extraction' | 'media' | 'reanalyse' | 'backfill' | 'judge'
 
 export const TASK_LABEL: Record<AiTask, string> = {
   extraction: 'Extraction (collecte)',
   media: 'Analyse des médias',
   reanalyse: 'Réanalyse des non rattachés',
   backfill: 'Rattrapage (script)',
+  judge: 'Juge Jev (estimation)',
 }
 
 export interface UsageRow {

@@ -18,7 +18,13 @@
  * Aucun appel Gemini ; Jev coûte quelques centimes pour toute la base.
  */
 import { existsSync } from 'node:fs'
-import { JEV_MODEL, MIN_JUDGE_CHARS, createJevJudge } from '../supabase/functions/_shared/judge.ts'
+import {
+  JEV_MODEL,
+  MIN_JUDGE_CHARS,
+  createJevJudge,
+  createJudgeMeter,
+} from '../supabase/functions/_shared/judge.ts'
+import { recordAiUsage } from '../supabase/functions/_shared/ai-usage.ts'
 import { JEV_USD_PER_INPUT_TOKEN, estimateTokens } from './eval-judge-lib.ts'
 import { parseArticle } from './audit-reports-lib.ts'
 
@@ -120,7 +126,13 @@ async function main() {
     console.log('Simulation seulement. Relancer avec --run (et --limit 20 pour un premier essai).')
     return
   }
-  const judge = createJevJudge({ apiKey: env('TYPESAFE_API_KEY'), model: MODEL, timeoutMs: 30_000 })
+  const meter = createJudgeMeter()
+  const judge = createJevJudge({
+    apiKey: env('TYPESAFE_API_KEY'),
+    model: MODEL,
+    timeoutMs: 30_000,
+    onUsage: (u) => meter.onUsage(u),
+  })
   const cache = new Map<string, Promise<{ title: string; text: string } | null>>()
   let next = 0
   const done = { judged: 0, unreadable: 0, failed: 0 }
@@ -173,6 +185,24 @@ async function main() {
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker))
+  // Consommation de Jev dans l'onglet « Coût IA » de l'admin (sans jamais faire échouer le script).
+  await recordAiUsage(
+    {
+      rpc: (fn, args) =>
+        fetch(`${BASE}/rest/v1/rpc/${fn}`, {
+          method: 'POST',
+          headers: {
+            apikey: KEY,
+            authorization: `Bearer ${KEY}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(args),
+        }).then(async (r) => ({
+          error: r.ok ? null : { message: `${r.status} ${await r.text()}` },
+        })),
+    },
+    meter.drain(),
+  )
   console.log(
     `\nTerminé : ${done.judged} jugés, ${done.unreadable} illisibles, ${done.failed} échecs Jev (relançable).`,
   )
