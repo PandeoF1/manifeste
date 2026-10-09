@@ -25,6 +25,8 @@ describe('classifyUrl', () => {
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
       'gemini',
     ],
+    ['https://api.typesafe.ai/v1/systemone', 'jev'],
+    ['https://r.jina.ai/https://www.ouest-france.fr/x.html', 'reader'],
     ['https://abc.supabase.co/functions/v1/collect', 'lecteurs'],
     ['https://basta.media/spip.php?page=backend', 'rss'],
     ['pas une url', 'pages'],

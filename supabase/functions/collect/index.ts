@@ -70,11 +70,13 @@ const STRICT_PROMPT = Deno.env.get('GEMINI_STRICT_PROMPT') === '1'
 // JEV_JUDGE=0 le coupe sans retirer la clé.
 const TYPESAFE_API_KEY = Deno.env.get('TYPESAFE_API_KEY') ?? ''
 const JUDGE_METER = createJudgeMeter()
-const JUDGE =
+/** Un juge par passage : ses requêtes passent par le `fetch` tracé (page « direct »). */
+const makeJudge = (ctx: Ctx) =>
   TYPESAFE_API_KEY && Deno.env.get('JEV_JUDGE') !== '0'
     ? createJevJudge({
         apiKey: TYPESAFE_API_KEY,
         model: Deno.env.get('JEV_MODEL') || undefined,
+        fetchFn: ctx.fetchFor('collecteur'),
         onUsage: (u) => JUDGE_METER.onUsage(u),
       })
     : undefined
@@ -163,7 +165,7 @@ async function analyze(
     fetchFn: ctx.fetchFor('collecteur'),
     extract: extractor.extract,
     minCertainty: MIN_CERTAINTY,
-    judge: JUDGE,
+    judge: makeJudge(ctx),
     batchSize: ITEMS_PER_GEMINI_CALL,
     budgetMs: 130_000,
     startedAt,

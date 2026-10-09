@@ -132,6 +132,39 @@ export async function fetchPageInfo(fetchFn: FetchLike, url: string): Promise<Pa
   }
 }
 
+/** Passerelle de lecture publique (rend le texte d'une page, sans cookies ni menus compliqués). */
+const READER_URL = 'https://r.jina.ai/'
+
+/** Garde les paragraphes : la passerelle rend aussi les menus et le bandeau de cookies, qui ne servent à rien au juge ni à l'IA. */
+export function cleanReadable(text: string): string {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(
+      (l) => l.length >= 50 && !/cookie|consentement|partenaires|publicit|newsletter/i.test(l),
+    )
+    .join('\n')
+}
+
+/**
+ * Dernier recours pour un article que le site refuse de servir à un robot (403) : on demande le texte
+ * à une passerelle de lecture. Seul le lien d'un article public lui est envoyé, jamais de donnée
+ * personnelle. Vide en cas d'échec. Sert au juge uniquement, jamais à l'extraction.
+ */
+export async function fetchReadable(fetchFn: FetchLike, url: string, max = 8000): Promise<string> {
+  if (!/^https?:\/\//i.test(url)) return ''
+  try {
+    const res = await fetchFn(READER_URL + url, {
+      headers: { accept: 'text/plain', 'x-return-format': 'text' },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return ''
+    return cleanReadable(await readText(res, 300_000)).slice(0, max)
+  } catch {
+    return ''
+  }
+}
+
 export async function fetchPageContext(fetchFn: FetchLike, url: string): Promise<string> {
   return (await fetchPageInfo(fetchFn, url)).context
 }

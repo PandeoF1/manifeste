@@ -62,7 +62,7 @@ npx supabase secrets set \
 
 Optionnel : le juge Jev (TypeSafe AI) note chaque signalement de presse lisible (score, nature, niveau,
 enregistrés dans `reports.judge_*`). Mode observation : rien ne s'affiche ni ne se compte avec ces notes.
-`npx supabase secrets set TYPESAFE_API_KEY=<clé>` l'active ; `JEV_JUDGE=0` le coupe sans retirer la clé.
+`npx supabase secrets set TYPESAFE_API_KEY=<clé>` l'active ; `JEV_JUDGE=0` le coupe sans retirer la clé. Quand un site refuse les robots (403) et que le flux ne donne que le titre, la page est lue via la passerelle publique r.jina.ai (20 pages au plus par passage, uniquement le lien de l'article, pour le juge seulement) ; le texte n'est gardé que s'il parle de l'établissement.
 
 npx supabase functions deploy collect --no-verify-jwt
 npx supabase functions deploy submit-report --no-verify-jwt

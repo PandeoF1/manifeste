@@ -29,7 +29,8 @@
     "eval:prompt": "tsx scripts/eval-prompt.ts",
     "eval:judge": "tsx scripts/eval-judge.ts",
     "compare:judge": "tsx scripts/compare-judge.ts",
-    "judge:backfill": "tsx scripts/judge-backfill.ts"
+    "judge:backfill": "tsx scripts/judge-backfill.ts",
+    "reextract": "tsx scripts/reextract.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

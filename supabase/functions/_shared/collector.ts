@@ -1,7 +1,9 @@
 import { chunk, mapLimit } from './collector-utils.ts'
 import { canonicalUrl, extractDomain } from './domain.ts'
 import { enrichItems } from './enrich.ts'
-import type { Judge } from './judge.ts'
+import { MIN_JUDGE_CHARS, type Judge, type JudgeInput } from './judge.ts'
+import { fetchReadable } from './page.ts'
+import { sentencesAbout } from './school-text.ts'
 import {
   isRelevant,
   meetsCertainty,
@@ -282,6 +284,8 @@ export async function gatherSources(
  * de temps dépassé, il est repris au passage suivant. Enregistre le passage de chaque source.
  */
 const MAX_JUDGE_CALLS = 60
+/** Pages relues via la passerelle de lecture, par passage (le site d'origine refuse les robots). */
+const MAX_READER_CALLS = 20
 
 export async function analyzePending(
   pending: ReadonlyArray<Pending>,
@@ -301,11 +305,23 @@ export async function analyzePending(
   // quand 70 % du temps est écoulé (le signalement est alors enregistré sans second avis).
   const rawJudge = opts.judge
   let judgeCalls = 0
+  let readerCalls = 0
+  // Texte du flux trop court (titre seul) et page fermée aux robots : on la fait lire par la
+  // passerelle, et on ne garde ce texte que s'il parle bien de l'établissement (sinon c'est une page d'erreur).
+  async function withPageText(input: JudgeInput): Promise<JudgeInput> {
+    if (input.text.length >= MIN_JUDGE_CHARS || !input.url || readerCalls >= MAX_READER_CALLS)
+      return input
+    readerCalls++
+    const text = await fetchReadable(opts.fetchFn ?? fetch, input.url)
+    return text.length >= MIN_JUDGE_CHARS && sentencesAbout(text, input.school).length > 0
+      ? { ...input, text }
+      : input
+  }
   const judge: Judge | undefined = rawJudge
-    ? (input) =>
+    ? async (input) =>
         judgeCalls++ >= MAX_JUDGE_CALLS || Date.now() - startedAt > budgetMs * 0.7
-          ? Promise.resolve(null)
-          : rawJudge(input)
+          ? null
+          : rawJudge(await withPageText(input))
     : undefined
   const byId = new Map(results.map((r) => [r.source_id, r]))
   const res = (s: CollectorSource) => {
@@ -507,6 +523,7 @@ async function handleEvent(
           school: { name: info.name, city: info.city },
           status: event.status,
           text: item.text,
+          url: item.url,
           publishedDay: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(
             item.publishedAt,
           ),

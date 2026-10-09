@@ -8,29 +8,23 @@
  *   npm run judge:backfill -- --run             # tout ce qui n'a pas encore été essayé
  *   npm run judge:backfill -- --run --redo      # rejuge tout (après un changement de question)
  *   npm run judge:backfill -- --run --retry-unreadable   # retente les articles qui étaient illisibles
+ *   npm run judge:backfill -- --run --unjudged  # gros nettoyage : tout ce qui n'a pas d'avis (jamais essayé ou illisible),
+ *                                                # avec relecture de la page, y compris via la passerelle de lecture
  *
  *   npm run judge:backfill -- --run --redo --status filtrant,leve   # rejuge seulement ces statuts
  *
- * Options : --limit N, --concurrency N (défaut 4), --model (défaut jev-1.13.0).
+ * Options : --browser (lit aussi les pages avec Chromium via Playwright, à installer à part), --limit N, --concurrency N (défaut 4), --model (défaut jev-1.13.0).
  * Variables (environnement ou .env.backfill) : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TYPESAFE_API_KEY.
  * Relançable : un signalement déjà essayé (judged_at) est ignoré, sauf --redo. Un article illisible
  * (403, page vide) reçoit judged_at et pas de score, pour ne pas être relu à chaque passage.
  * Aucun appel Gemini ; Jev coûte quelques centimes pour toute la base.
  */
 import { existsSync } from 'node:fs'
-import {
-  JEV_MODEL,
-  MIN_JUDGE_CHARS,
-  createJevJudge,
-  createJudgeMeter,
-} from '../supabase/functions/_shared/judge.ts'
+import { JEV_MODEL, createJevJudge, createJudgeMeter } from '../supabase/functions/_shared/judge.ts'
+import { sentencesAbout } from '../supabase/functions/_shared/school-text.ts'
 import { recordAiUsage } from '../supabase/functions/_shared/ai-usage.ts'
 import { JEV_USD_PER_INPUT_TOKEN, estimateTokens } from './eval-judge-lib.ts'
-import { parseArticle } from './audit-reports-lib.ts'
-
-/** Lecture des articles comme un navigateur : France 3, La 1ère, La Provence… refusent un robot identifié ou un faux Googlebot (403). */
-const BROWSER_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+import { closeBrowser, readArticle, type Article } from './article-reader.ts'
 
 for (const f of ['.env.backfill', '.env.prod', '.env']) if (existsSync(f)) process.loadEnvFile(f)
 
@@ -42,6 +36,7 @@ const flag = (name: string) => process.argv.includes(`--${name}`)
 const RUN = flag('run')
 const REDO = flag('redo')
 const RETRY = flag('retry-unreadable')
+const UNJUDGED = flag('unjudged')
 const LIMIT = arg('limit') ? Number(arg('limit')) : Infinity
 const CONCURRENCY = Number(arg('concurrency') ?? 4)
 const MODEL = arg('model') ?? JEV_MODEL
@@ -77,13 +72,15 @@ async function loadRows(): Promise<Row[]> {
   const rows: Row[] = []
   const filter = REDO
     ? ''
-    : RETRY
-      ? '&judged_at=not.is.null&judge_score=is.null'
-      : '&judged_at=is.null'
+    : UNJUDGED
+      ? '&judge_score=is.null'
+      : RETRY
+        ? '&judged_at=not.is.null&judge_score=is.null'
+        : '&judged_at=is.null'
   for (let from = 0; ; from += 1000) {
     const res = await rest(
       `reports?select=id,status,source_url,observed_at,schools(name,city)` +
-        `&moderation=eq.validated&hidden=eq.false&source_url=not.is.null` +
+        `&moderation=in.(validated,pending)&hidden=eq.false&source_url=not.is.null` +
         `&source_url=not.ilike.*news.google.com*${filter}${STATUSES.length ? `&status=in.(${STATUSES.join(',')})` : ''}&order=observed_at.desc&offset=${from}&limit=1000`,
     )
     if (!res.ok) throw new Error(`reports : HTTP ${res.status} ${(await res.text()).slice(0, 200)}`)
@@ -96,24 +93,6 @@ async function loadRows(): Promise<Row[]> {
 
 const parisDay = (iso: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(iso))
-
-async function readArticle(url: string): Promise<{ title: string; text: string } | null> {
-  try {
-    const res = await fetch(url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(20_000),
-      headers: {
-        'user-agent': BROWSER_UA,
-        'accept-language': 'fr-FR',
-      },
-    })
-    if (!res.ok) return null
-    const a = parseArticle(await res.text())
-    return a.text.length >= MIN_JUDGE_CHARS ? a : null
-  } catch {
-    return null
-  }
-}
 
 async function main() {
   const rows = await loadRows()
@@ -133,7 +112,7 @@ async function main() {
     timeoutMs: 30_000,
     onUsage: (u) => meter.onUsage(u),
   })
-  const cache = new Map<string, Promise<{ title: string; text: string } | null>>()
+  const cache = new Map<string, Promise<Article | null>>()
   let next = 0
   const done = { judged: 0, unreadable: 0, failed: 0 }
   let consecutiveFailures = 0
@@ -141,7 +120,13 @@ async function main() {
     while (next < rows.length && consecutiveFailures < 8) {
       const r = rows[next++] as Row
       if (!cache.has(r.source_url)) cache.set(r.source_url, readArticle(r.source_url))
-      const article = await cache.get(r.source_url)
+      let article = await cache.get(r.source_url)
+      // Texte venu de la passerelle : à garder seulement s'il parle de cet établissement (sinon page d'erreur).
+      if (
+        article?.reader &&
+        !sentencesAbout(article.text, r.schools as NonNullable<Row['schools']>).length
+      )
+        article = null
       let patch: Record<string, unknown>
       if (!article) {
         patch = { judged_at: new Date().toISOString(), judge_chars: 0, judge_score: null }
@@ -210,4 +195,8 @@ async function main() {
     console.error('Arrêt : 8 échecs de Jev d’affilée (clé, quota ou panne). Relancer plus tard.')
 }
 
-await main()
+try {
+  await main()
+} finally {
+  await closeBrowser()
+}

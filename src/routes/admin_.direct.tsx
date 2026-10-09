@@ -147,7 +147,7 @@ function LiveCollect() {
         ed.key,
         e.phase !== 'req',
         color,
-        e.target === 'base' || e.target === 'gemini',
+        e.target === 'base' || e.target === 'gemini' || e.target === 'jev',
       )
     }
   }, [])
@@ -261,13 +261,15 @@ function LiveCollect() {
         </div>
       </header>
 
-      <dl className="grid grid-cols-4 gap-px border-b border-slate-800 bg-slate-800 font-mono text-xs sm:grid-cols-8">
+      <dl className="grid grid-cols-4 gap-px border-b border-slate-800 bg-slate-800 font-mono text-xs sm:grid-cols-10">
         {[
           ['durée', `${elapsed.toFixed(1)} s`],
           ['sources', s.sources],
           ['requêtes', s.requests],
           ['erreurs', s.errors],
           ['gemini', s.geminiCalls],
+          ['jev', s.jevCalls],
+          ['lectures', s.readerCalls],
           ['rattachés', s.linked],
           ['non rattachés', s.unmatched],
           ['doublons', s.duplicates],

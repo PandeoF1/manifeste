@@ -130,6 +130,8 @@ export interface JudgeInput {
   text: string
   /** Jour de publication (AAAA-MM-JJ, heure de Paris). */
   publishedDay: string
+  /** Lien de l'article, pour aller lire la page quand le texte du flux est trop court. */
+  url?: string
 }
 
 /** Texte trop court pour juger : on ne demande rien (le juge n'a pas été mesuré sur des titres seuls). */
