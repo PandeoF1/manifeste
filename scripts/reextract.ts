@@ -6,6 +6,7 @@
  *
  *   npm run reextract                         # analyse : écrit reextract-report.md, ne modifie rien
  *   npm run reextract -- --limit 30           # essai sur 30 signalements
+ *   npm run reextract -- --browser            # lit aussi les pages fermées aux robots avec Chromium (Playwright)
  *   npm run reextract -- --apply              # corrige les statuts qui diffèrent (sauvegarde locale avant)
  *   npm run reextract -- --apply --hide-no-event   # masque aussi ceux où Gemini ne voit aucun fait pour l'établissement
  *
@@ -30,7 +31,7 @@ import {
 } from '../supabase/functions/_shared/gemini.ts'
 import { matchSchool, sentencesAbout } from '../supabase/functions/_shared/school-text.ts'
 import { isQuotaExhausted } from './backfill-lib.ts'
-import { readArticle } from './article-reader.ts'
+import { closeBrowser, readArticle } from './article-reader.ts'
 
 for (const f of ['.env.backfill', '.env.prod', '.env']) if (existsSync(f)) process.loadEnvFile(f)
 
@@ -252,7 +253,9 @@ async function main() {
   console.log(`${done}/${changes.length} signalements modifiés. Sauvegarde : ${backup}`)
 }
 
-main().catch((e) => {
-  console.error(e instanceof Error ? e.message : e)
-  process.exit(1)
-})
+main()
+  .catch((e) => {
+    console.error(e instanceof Error ? e.message : e)
+    process.exitCode = 1
+  })
+  .finally(() => closeBrowser())

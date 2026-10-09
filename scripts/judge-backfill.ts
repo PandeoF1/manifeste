@@ -13,7 +13,7 @@
  *
  *   npm run judge:backfill -- --run --redo --status filtrant,leve   # rejuge seulement ces statuts
  *
- * Options : --limit N, --concurrency N (défaut 4), --model (défaut jev-1.13.0).
+ * Options : --browser (lit aussi les pages avec Chromium via Playwright, à installer à part), --limit N, --concurrency N (défaut 4), --model (défaut jev-1.13.0).
  * Variables (environnement ou .env.backfill) : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TYPESAFE_API_KEY.
  * Relançable : un signalement déjà essayé (judged_at) est ignoré, sauf --redo. Un article illisible
  * (403, page vide) reçoit judged_at et pas de score, pour ne pas être relu à chaque passage.
@@ -24,7 +24,7 @@ import { JEV_MODEL, createJevJudge, createJudgeMeter } from '../supabase/functio
 import { sentencesAbout } from '../supabase/functions/_shared/school-text.ts'
 import { recordAiUsage } from '../supabase/functions/_shared/ai-usage.ts'
 import { JEV_USD_PER_INPUT_TOKEN, estimateTokens } from './eval-judge-lib.ts'
-import { readArticle, type Article } from './article-reader.ts'
+import { closeBrowser, readArticle, type Article } from './article-reader.ts'
 
 for (const f of ['.env.backfill', '.env.prod', '.env']) if (existsSync(f)) process.loadEnvFile(f)
 
@@ -195,4 +195,8 @@ async function main() {
     console.error('Arrêt : 8 échecs de Jev d’affilée (clé, quota ou panne). Relancer plus tard.')
 }
 
-await main()
+try {
+  await main()
+} finally {
+  await closeBrowser()
+}
