@@ -95,7 +95,7 @@ export function buildQuestions(
           ? `À la date de publication de l'article, le texte dit-il que le blocage ou la fermeture de ${who} est terminé ` +
             `(blocus levé, élèves repris les cours, établissement rouvert) ? Réponds non s'il n'en est pas question pour cet établissement.`
           : `À la date de publication de l'article, le texte dit-il que ${who} est bloqué par des élèves ou des étudiants, ` +
-            `ou fermé ou passé à distance à cause de la mobilisation ? Réponds non s'il s'agit seulement d'un rassemblement, ` +
+            `ou fermé ou passé à distance à cause de la mobilisation (y compris une fermeture décidée par la préfecture, le rectorat ou la direction à cause des tensions) ? Réponds non s'il s'agit seulement d'un rassemblement, ` +
             `d'un incident, d'un récit passé, d'un aperçu de ce qui pourrait arriver ou d'une opinion.`,
     },
     nature: {
