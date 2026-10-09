@@ -522,6 +522,12 @@ describe('week-end : un lycée est fermé', () => {
     expect(r.items.some((i) => i.detail === 'lycée fermé le week-end')).toBe(true)
   })
 
+  it('écarte un fait daté de plus de 7 jours avant la publication (archive, rétrospective)', async () => {
+    const { r, reports } = await run('0590099Z', '2020-11-04')
+    expect(reports).toHaveLength(0)
+    expect(r.items.some((i) => i.detail?.startsWith('fait ancien'))).toBe(true)
+  })
+
   it('garde une fac (occupation possible le week-end)', async () => {
     const { reports } = await run('0590099Z', '2026-10-03T07:00:00Z')
     expect(reports).toHaveLength(1)

@@ -210,6 +210,9 @@ const ANNOUNCED_MAX_MS = 3 * 86_400_000
 /** D'où vient la date retenue pour un fait. */
 export type DateBasis = 'extracted' | 'announced' | 'published'
 
+/** Plus de 7 jours avant la publication : récit, archive ou rétrospective, pas un fait du jour. */
+const STALE_MS = 7 * 86_400_000
+
 /**
  * Date du fait retenue : celle extraite si plausible, sinon la date de publication.
  * Plausible = pas après la publication (+1 h de marge) et au plus 7 jours avant. Exception : un
@@ -219,7 +222,7 @@ export type DateBasis = 'extracted' | 'announced' | 'published'
 export function resolveObservation(
   extracted: string | null,
   publishedAt: Date,
-): { at: Date; basis: DateBasis } {
+): { at: Date; basis: DateBasis | 'stale' } {
   const fallback = { at: publishedAt, basis: 'published' as const }
   if (!extracted) return fallback
   const d = new Date(extracted)
@@ -242,13 +245,13 @@ export function resolveObservation(
       if (parisHour(publishedAt) < NIGHT_END_HOUR) return { at: morning, basis: 'announced' }
       return { at: morning < publishedAt ? morning : publishedAt, basis: 'extracted' }
     }
-    return morning.getTime() - publishedAt.getTime() < -7 * 86_400_000
-      ? fallback
+    return morning.getTime() - publishedAt.getTime() < -STALE_MS
+      ? { at: publishedAt, basis: 'stale' }
       : { at: morning, basis: 'extracted' }
   }
 
   const delta = d.getTime() - publishedAt.getTime()
-  if (delta < -7 * 86_400_000) return fallback
+  if (delta < -STALE_MS) return { at: publishedAt, basis: 'stale' }
   if (delta <= 3_600_000) return { at: d, basis: 'extracted' }
   const announced = delta <= ANNOUNCED_MAX_MS && parisDay(d) > parisDay(publishedAt)
   return announced ? { at: d, basis: 'announced' } : fallback

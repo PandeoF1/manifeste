@@ -168,6 +168,8 @@ describe('resolveObservedAt', () => {
       '2026-10-02T06:00:00.000Z',
     )
     expect(resolveObservedAt('2026-09-20', published)).toEqual(published)
+    expect(resolveObservation('2026-09-20', published).basis).toBe('stale')
+    expect(resolveObservation('2020-11-04T10:00:00Z', published).basis).toBe('stale')
   })
   it('indique l’origine de la date', () => {
     const sunday = new Date('2026-10-04T17:06:00Z')
