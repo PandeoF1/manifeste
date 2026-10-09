@@ -45,10 +45,15 @@ export function buildQuestions(
       instructions:
         status === 'leve'
           ? `À la date de publication de l'article, le texte dit-il que le blocage ou la fermeture de ${who} est terminé ` +
-            `(blocus levé, élèves repris les cours, établissement rouvert) ? Réponds non s'il n'en est pas question pour cet établissement.`
-          : `À la date de publication de l'article, le texte dit-il que ${who} est bloqué par des élèves ou des étudiants, ` +
-            `ou fermé ou passé à distance à cause de la mobilisation (y compris une fermeture décidée par la préfecture, le rectorat ou la direction à cause des tensions) ? Réponds non s'il s'agit seulement d'un rassemblement, ` +
-            `d'un incident, d'un récit passé, d'un aperçu de ce qui pourrait arriver ou d'une opinion.`,
+            `(blocus levé ou terminé, élèves ou étudiants repris les cours, établissement rouvert ou qui rouvre) ? ` +
+            `Réponds non s'il n'en est pas question pour cet établissement.`
+          : status === 'filtrant'
+            ? `À la date de publication de l'article, le texte dit-il que des élèves ou des étudiants font un barrage filtrant ` +
+              `ou bloquent en partie l'entrée de ${who}, ou que cet établissement est bloqué ou fermé à cause de la mobilisation ? ` +
+              `Réponds non s'il s'agit seulement d'un rassemblement, d'un incident, d'un récit passé, d'un aperçu ou d'une opinion.`
+            : `À la date de publication de l'article, le texte dit-il que ${who} est bloqué par des élèves ou des étudiants, ` +
+              `ou fermé ou passé à distance à cause de la mobilisation (y compris une fermeture décidée par la préfecture, le rectorat ou la direction à cause des tensions) ? Réponds non s'il s'agit seulement d'un rassemblement, ` +
+              `d'un incident, d'un récit passé, d'un aperçu de ce qui pourrait arriver ou d'une opinion.`,
     },
     nature: {
       type: 'choice',

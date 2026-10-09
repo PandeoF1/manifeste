@@ -9,6 +9,8 @@
  *   npm run judge:backfill -- --run --redo      # rejuge tout (après un changement de question)
  *   npm run judge:backfill -- --run --retry-unreadable   # retente les articles qui étaient illisibles
  *
+ *   npm run judge:backfill -- --run --redo --status filtrant,leve   # rejuge seulement ces statuts
+ *
  * Options : --limit N, --concurrency N (défaut 4), --model (défaut jev-1.13.0).
  * Variables (environnement ou .env.backfill) : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TYPESAFE_API_KEY.
  * Relançable : un signalement déjà essayé (judged_at) est ignoré, sauf --redo. Un article illisible
@@ -37,6 +39,7 @@ const RETRY = flag('retry-unreadable')
 const LIMIT = arg('limit') ? Number(arg('limit')) : Infinity
 const CONCURRENCY = Number(arg('concurrency') ?? 4)
 const MODEL = arg('model') ?? JEV_MODEL
+const STATUSES = arg('status')?.split(',').filter(Boolean) ?? []
 const env = (name: string) => {
   const v = process.env[name]
   if (!v) throw new Error(`${name} est requis (environnement ou .env.backfill).`)
@@ -75,7 +78,7 @@ async function loadRows(): Promise<Row[]> {
     const res = await rest(
       `reports?select=id,status,source_url,observed_at,schools(name,city)` +
         `&moderation=eq.validated&hidden=eq.false&source_url=not.is.null` +
-        `&source_url=not.ilike.*news.google.com*${filter}&order=observed_at.desc&offset=${from}&limit=1000`,
+        `&source_url=not.ilike.*news.google.com*${filter}${STATUSES.length ? `&status=in.(${STATUSES.join(',')})` : ''}&order=observed_at.desc&offset=${from}&limit=1000`,
     )
     if (!res.ok) throw new Error(`reports : HTTP ${res.status} ${(await res.text()).slice(0, 200)}`)
     const data = (await res.json()) as Row[]
