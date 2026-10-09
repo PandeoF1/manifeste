@@ -10,7 +10,7 @@
  *   npm run compare:judge -- --run --hours 24 --group domain
  *   npm run compare:judge -- --run --hours 48 --group day --labels audit-manuel.csv
  *
- * Options : --hours N (défaut 24, fenêtre sur la date de création), --group domain|day|status|level|
+ * Options : --hours N (défaut 24, fenêtre sur la date de création) ou --all (toute la base), --group domain|day|status|level|
  * certainty (défaut domain), --keep 0.5 et --low 0.3 (seuils), --limit N, --model (défaut jev-1.13.0,
  * version fixée : « jev-latest » peut changer sans prévenir), --labels fichier.csv (audit manuel :
  * mesure alors précision et rappel sur les signalements déjà jugés), --sample N (écrit
@@ -29,12 +29,16 @@ import { parseLabels } from './eval-prompt-lib.ts'
 import {
   JEV_USD_PER_INPUT_TOKEN,
   buildQuestions,
+  chiffres,
   conflictsWithBase,
   estimateTokens,
   focusState,
   parseJevResponse,
   summarizeGroups,
+  tierOf,
   zoneOf,
+  type RapportRow,
+  type Tier,
   type GroupBy,
   type JudgeAnswer,
   type ReportRow,
@@ -48,6 +52,7 @@ const arg = (name: string) => {
 }
 const RUN = process.argv.includes('--run')
 const HOURS = Number(arg('hours') ?? 24)
+const ALL = process.argv.includes('--all')
 const GROUP = (arg('group') ?? 'domain') as GroupBy
 const KEEP = Number(arg('keep') ?? 0.5)
 const LOW = Number(arg('low') ?? 0.3)
@@ -87,43 +92,50 @@ interface Row {
   certainty: string | null
   createdAt: string
   observedAt: string
-  school: { name: string; city: string; level: string }
+  uai: string
+  sourceType: string
+  school: { name: string; city: string; level: string; department: string }
 }
 
 const parisDay = (iso: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(iso))
 
-async function loadRows(): Promise<{ rows: Row[]; unreadable: number }> {
+async function loadRows(): Promise<{ all: Row[]; rows: Row[]; unreadable: number }> {
   const supabase = createClient(env('VITE_SUPABASE_URL'), env('VITE_SUPABASE_ANON_KEY'))
-  const since = new Date(Date.now() - HOURS * 3_600_000).toISOString()
+  const since = ALL
+    ? '2000-01-01T00:00:00Z'
+    : new Date(Date.now() - HOURS * 3_600_000).toISOString()
   const all: Row[] = []
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from('reports')
       .select(
-        'id, status, certainty, source_url, source_domain, observed_at, created_at, schools(name, city, level)',
+        'id, school_uai, status, certainty, source_type, source_url, source_domain, observed_at, created_at, schools(name, city, level, department)',
       )
       .eq('moderation', 'validated')
       .eq('hidden', false)
-      .not('source_url', 'is', null)
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .range(from, from + 999)
     if (error) throw new Error(`reports : ${error.message}`)
     for (const r of data as unknown as {
       id: string
+      school_uai: string
       status: string
       certainty: string | null
-      source_url: string
+      source_type: string
+      source_url: string | null
       source_domain: string | null
       observed_at: string
       created_at: string
-      schools: { name: string; city: string; level: string } | null
+      schools: { name: string; city: string; level: string; department: string } | null
     }[])
       if (r.schools)
         all.push({
           id: r.id,
-          url: r.source_url,
+          uai: r.school_uai,
+          sourceType: r.source_type,
+          url: r.source_url ?? '',
           domain: r.source_domain ?? '?',
           status: r.status,
           certainty: r.certainty,
@@ -133,8 +145,8 @@ async function loadRows(): Promise<{ rows: Row[]; unreadable: number }> {
         })
     if (data.length < 1000) break
   }
-  const readable = all.filter((r) => !r.url.includes('news.google.com'))
-  return { rows: readable.slice(0, LIMIT), unreadable: all.length - readable.length }
+  const readable = all.filter((r) => r.url !== '' && !r.url.includes('news.google.com'))
+  return { all, rows: readable.slice(0, LIMIT), unreadable: all.length - readable.length }
 }
 
 async function loadArticles(urls: string[]): Promise<void> {
@@ -205,9 +217,9 @@ const csv = (v: unknown) =>
 const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)} %` : '—')
 
 async function main() {
-  const { rows: loaded, unreadable } = await loadRows()
+  const { all, rows: loaded, unreadable } = await loadRows()
   console.log(
-    `${loaded.length + unreadable} signalements validés créés depuis ${HOURS} h ; ${unreadable} en lien Google Actualités (non relisibles).`,
+    `${all.length} signalements validés créés ${ALL ? 'au total' : `depuis ${HOURS} h`} ; ${unreadable} sans article relisible (Google Actualités, signalements sur place).`depuis ${HOURS} h`} ; ${unreadable} en lien Google Actualités (non relisibles).`,
   )
   await loadArticles([...new Set(loaded.map((r) => r.url))])
   const rows = loaded.filter((r) => (cache.articles[r.url]?.text ?? '').length >= 300)
@@ -368,6 +380,69 @@ async function main() {
   ]
   writeFileSync(OUT, lines.join('\n'))
   console.log(`Détail à relire (les plus douteux d'abord) : ${OUT}`)
+
+  // --- Rapport par niveaux : ce que montrerait le site avec le juge --------------------------------
+  const verdict = new Map(report.map((r) => [r.id, r]))
+  const tierRows: RapportRow[] = all.map((r) => {
+    const v = verdict.get(r.id)
+    const tier: Tier = tierOf(
+      {
+        probability: v?.probability ?? null,
+        nature: v?.nature ?? null,
+        levelConflict: v?.levelConflict ?? false,
+        userReport: r.sourceType === 'utilisateur',
+      },
+      KEEP,
+      LOW,
+    )
+    return {
+      uai: r.uai,
+      department: r.school.department,
+      level: r.school.level,
+      status: r.status,
+      observedAt: r.observedAt,
+      domain: r.sourceType === 'utilisateur' ? null : r.domain,
+      tier,
+      nature: v?.nature ?? null,
+    }
+  })
+  const now = new Date()
+  const nTier = (t: Tier) => tierRows.filter((r) => r.tier === t).length
+  const cols: Array<[string, Tier[]]> = [
+    ['Aujourd’hui (sans juge)', ['confirme', 'mobilise', 'non-retenu', 'non-juge']],
+    ['Confirmé seul', ['confirme']],
+    ['+ mobilisation', ['confirme', 'mobilise']],
+    ['+ non jugés (tels quels)', ['confirme', 'mobilise', 'non-juge']],
+  ]
+  const fig = cols.map(([name, tiers]) => ({ name, c: chiffres(tierRows, tiers, now) }))
+  const rapportLines: Array<[string, (c: ReturnType<typeof chiffres>) => string]> = [
+    ['Établissements bloqués ou filtrants', (c) => String(c.etablissements)],
+    ['En une seule journée (meilleure)', (c) => `${c.pic.n} (${c.pic.jour})`],
+    ['Départements touchés', (c) => String(c.departements)],
+    ['Facs et écoles supérieures', (c) => String(c.facs)],
+    ['En ce moment (dont bloqués)', (c) => `${c.maintenant.total} (${c.maintenant.bloques})`],
+    ['Sites de presse et sources', (c) => String(c.sources)],
+    [
+      'Nature (établissements)',
+      (c) =>
+        Object.entries(c.natures)
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, v]) => `${k} ${v}`)
+          .join(', '),
+    ],
+  ]
+  const md = [
+    `# Rapport par niveaux (${new Date().toISOString().slice(0, 16)} UTC, ${MODEL}, seuils ${LOW} / ${KEEP})`,
+    '',
+    `Signalements validés : ${all.length} dont confirmés ${nTier('confirme')}, mobilisation ${nTier('mobilise')}, non retenus ${nTier('non-retenu')}, non jugés ${nTier('non-juge')}.`,
+    '',
+    `| | ${fig.map((f) => f.name).join(' | ')} |`,
+    `|---|${fig.map(() => '---').join('|')}|`,
+    ...rapportLines.map(([label, f]) => `| ${label} | ${fig.map((x) => f(x.c)).join(' | ')} |`),
+  ].join('\n')
+  console.log(`\n${md}`)
+  writeFileSync('compare-judge-rapport.md', md)
+  console.log('\nRapport écrit : compare-judge-rapport.md')
 }
 
 await main()
