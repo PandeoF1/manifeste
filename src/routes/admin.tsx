@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { LoginForm } from '@/components/admin/LoginForm'
 import { AiUsagePanel } from '@/components/admin/AiUsagePanel'
+import { JudgePanel } from '@/components/admin/JudgePanel'
 import { MediaPanel } from '@/components/admin/MediaPanel'
 import { PendingPanel } from '@/components/admin/PendingPanel'
 import { ProposalsPanel, proposalsQuery } from '@/components/admin/ProposalsPanel'
@@ -25,6 +26,7 @@ const TABS = [
   'stats',
   'ia',
   'medias',
+  'juge',
   'reglages',
 ] as const
 type Tab = (typeof TABS)[number]
@@ -39,6 +41,7 @@ const TAB_LABELS: Record<Tab, string> = {
   stats: 'Stats',
   ia: 'Coût IA',
   medias: 'Médias',
+  juge: 'Juge (Jev)',
   reglages: 'Réglages',
 }
 
@@ -118,6 +121,7 @@ function AdminPage() {
         {tab === 'stats' && <StatsPanel />}
         {tab === 'ia' && <AiUsagePanel />}
         {tab === 'medias' && <MediaPanel />}
+        {tab === 'juge' && <JudgePanel />}
         {tab === 'reglages' && <SettingsPanel />}
       </div>
     </main>

@@ -28,7 +28,8 @@
     "audit:reports": "tsx scripts/audit-reports.ts",
     "eval:prompt": "tsx scripts/eval-prompt.ts",
     "eval:judge": "tsx scripts/eval-judge.ts",
-    "compare:judge": "tsx scripts/compare-judge.ts"
+    "compare:judge": "tsx scripts/compare-judge.ts",
+    "judge:backfill": "tsx scripts/judge-backfill.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
