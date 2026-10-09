@@ -109,12 +109,11 @@ async function main() {
 
   // 1. Lecture des pages.
   const texts = new Map<string, { title: string; text: string; reader?: boolean }>()
-  const todo = urls.filter((u) => !cache[u])
+  const todo = urls.filter((u) => !cache[u]?.readable)
   let read = 0
-  await mapLimit(todo, 4, async (u) => {
+  await mapLimit(todo, 2, async (u) => {
     const a = await readArticle(u)
     if (a) texts.set(u, a)
-    else cache[u] = { readable: false, title: '', text: '', reader: false, events: [] }
     process.stdout.write(`\r  pages lues ${++read}/${todo.length}   `)
   })
   if (todo.length) console.log()
@@ -193,8 +192,7 @@ async function main() {
   const verdicts = rows.map((r) => {
     const c = cache[r.source_url]
     const school = r.schools as NonNullable<Row['schools']>
-    if (!c) return { r, outcome: 'illisible' as Outcome, found: undefined }
-    if (!c.readable) return { r, outcome: 'illisible' as Outcome, found: undefined }
+    if (!c?.readable) return { r, outcome: 'illisible' as Outcome, found: undefined }
     const mine = c.events.filter((e) => sameSchool(e, school))
     if (!mine.length) {
       // Texte de la passerelle qui ne parle pas de l'établissement : probablement une page d'erreur.

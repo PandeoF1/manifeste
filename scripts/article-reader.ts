@@ -29,6 +29,11 @@ async function readDirect(url: string): Promise<Article | null> {
 export async function readArticle(url: string): Promise<Article | null> {
   const direct = await readDirect(url)
   if (direct) return direct
-  const text = await fetchReadable(fetch, url)
-  return text.length >= MIN_JUDGE_CHARS ? { title: '', text, reader: true } : null
+  // La passerelle limite le débit (≈ 20 requêtes par minute sans clé) : on retente après une pause.
+  for (const wait of [0, 4000, 10_000]) {
+    if (wait) await new Promise((r) => setTimeout(r, wait))
+    const text = await fetchReadable(fetch, url)
+    if (text.length >= MIN_JUDGE_CHARS) return { title: '', text, reader: true }
+  }
+  return null
 }
