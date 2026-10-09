@@ -88,6 +88,18 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
           aria-label={`Établissements signalés ${ACTIVE_PHRASE}, jour par jour, du ${fmtDay(first.jour)} au ${fmtDay(last.jour)}. Pic : ${fmtInt(peak.etablissements)} le ${fmtDay(peak.jour)}.`}
           onPointerLeave={() => setHover(null)}
         >
+          <defs>
+            <pattern
+              id="mob-hatch"
+              width="6"
+              height="6"
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(45)"
+            >
+              <rect width="6" height="6" fill="var(--mobilisation)" fillOpacity="0.18" />
+              <rect width="2.5" height="6" fill="var(--mobilisation)" />
+            </pattern>
+          </defs>
           {ticks.map((t) => (
             <g key={t}>
               <line
@@ -131,7 +143,7 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
                     y={y(hl + hf + hm)}
                     width={bar}
                     height={Math.max(0, y(hl + hf) - y(hl + hf + hm))}
-                    fill="var(--mobilisation, #a3acba)"
+                    fill="url(#mob-hatch)"
                   />
                 )}
                 {i % labelEvery === 0 && (
@@ -169,8 +181,14 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
         </span>
         {hasMob && (
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-3 rounded-sm" style={{ background: '#a3acba' }} /> Mobilisation
-            signalée
+            <span
+              className="size-3 rounded-sm"
+              style={{
+                background:
+                  'repeating-linear-gradient(45deg, var(--mobilisation) 0 2px, color-mix(in srgb, var(--mobilisation) 18%, transparent) 2px 5px)',
+              }}
+            />{' '}
+            Mobilisation signalée
           </span>
         )}
       </figcaption>

@@ -366,7 +366,7 @@ export default function MapView({
         },
       })
 
-      // Mobilisations signalées : un point gris cerclé de blanc, assez grand pour se voir à l’échelle nationale.
+      // Mobilisations signalées : un anneau ocre translucide, assez grand pour se voir à l’échelle nationale.
       map.addSource(MOBILISATION_SOURCE, {
         type: 'geojson',
         data: mobilisationGeoJSON(latest.current.mobilisation),
@@ -377,11 +377,12 @@ export default function MapView({
           type: 'circle',
           source: MOBILISATION_SOURCE,
           paint: {
-            'circle-color': '#a3acba',
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(4), 9, scaled(8)],
-            'circle-opacity': 0.95,
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 2,
+            'circle-color': '#e6b93a',
+            'circle-opacity': 0.3,
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(2.6), 9, scaled(5.5)],
+            'circle-stroke-color': '#c99a1c',
+            'circle-stroke-width': 1.6,
+            'circle-stroke-opacity': 0.95,
           },
         },
         'selected',
