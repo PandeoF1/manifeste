@@ -219,7 +219,7 @@ const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)} %` : '�
 async function main() {
   const { all, rows: loaded, unreadable } = await loadRows()
   console.log(
-    `${all.length} signalements validés créés ${ALL ? 'au total' : `depuis ${HOURS} h`} ; ${unreadable} sans article relisible (Google Actualités, signalements sur place).`depuis ${HOURS} h`} ; ${unreadable} en lien Google Actualités (non relisibles).`,
+    `${all.length} signalements validés créés ${ALL ? 'au total' : `depuis ${HOURS} h`} ; ${unreadable} sans article relisible (Google Actualités, signalements sur place).`,
   )
   await loadArticles([...new Set(loaded.map((r) => r.url))])
   const rows = loaded.filter((r) => (cache.articles[r.url]?.text ?? '').length >= 300)
