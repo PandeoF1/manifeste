@@ -379,9 +379,9 @@ export default function MapView({
           paint: {
             'circle-color': '#e6b93a',
             'circle-opacity': 0.3,
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(4), 9, scaled(8)],
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, scaled(2.6), 9, scaled(5.5)],
             'circle-stroke-color': '#c99a1c',
-            'circle-stroke-width': 2,
+            'circle-stroke-width': 1.6,
             'circle-stroke-opacity': 0.95,
           },
         },
