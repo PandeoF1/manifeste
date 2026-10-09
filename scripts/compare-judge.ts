@@ -13,7 +13,10 @@
  * Options : --hours N (défaut 24, fenêtre sur la date de création), --group domain|day|status|level|
  * certainty (défaut domain), --keep 0.5 et --low 0.3 (seuils), --limit N, --model (défaut jev-1.13.0,
  * version fixée : « jev-latest » peut changer sans prévenir), --labels fichier.csv (audit manuel :
- * mesure alors précision et rappel sur les signalements déjà jugés), --out compare-judge-review.csv.
+ * mesure alors précision et rappel sur les signalements déjà jugés), --sample N (écrit
+ * compare-judge-sample.csv : N signalements à relire à la main, tirés dans chaque zone, au format de
+ * l'audit manuel ; une fois la colonne « blocage » remplie, relancer avec --labels dessus),
+ * --out compare-judge-review.csv.
  * Variables : TYPESAFE_API_KEY, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (.env.backfill, .env.prod,
  * .env). Les articles et les réponses sont gardés dans .compare-judge-cache.json : relancer ne
  * rappelle rien. Les liens Google Actualités et les sites qui bloquent la lecture sont comptés à part.
@@ -52,6 +55,8 @@ const LIMIT = arg('limit') ? Number(arg('limit')) : Infinity
 const MODEL = arg('model') ?? 'jev-1.13.0'
 const LABELS = arg('labels')
 const OUT = arg('out') ?? 'compare-judge-review.csv'
+const SAMPLE = arg('sample') ? Number(arg('sample')) : 0
+const SAMPLE_OUT = 'compare-judge-sample.csv'
 const CACHE_FILE = '.compare-judge-cache.json'
 const ENDPOINT = 'https://api.typesafe.ai/v1/systemone'
 const env = (name: string) => {
@@ -167,7 +172,9 @@ const stateOf = (r: Row) => {
 }
 const keyOf = (r: Row) =>
   createHash('sha1')
-    .update(`${MODEL}|${JSON.stringify(buildQuestions(r.school))}|${stateOf(r)}`)
+    .update(
+      `${MODEL}|${JSON.stringify(buildQuestions(r.school, r.status as 'bloque' | 'filtrant' | 'leve'))}|${stateOf(r)}`,
+    )
     .digest('hex')
     .slice(0, 20)
 
@@ -178,7 +185,11 @@ async function ask(r: Row, showRaw: boolean): Promise<JudgeAnswer> {
       authorization: `Bearer ${env('TYPESAFE_API_KEY')}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ state: stateOf(r), model: MODEL, questions: buildQuestions(r.school) }),
+    body: JSON.stringify({
+      state: stateOf(r),
+      model: MODEL,
+      questions: buildQuestions(r.school, r.status as 'bloque' | 'filtrant' | 'leve'),
+    }),
     signal: AbortSignal.timeout(30_000),
   })
   if (!res.ok) throw new Error(`Jev HTTP ${res.status} : ${(await res.text()).slice(0, 200)}`)
@@ -283,6 +294,51 @@ async function main() {
     const good = (rs: typeof known) => rs.filter((r) => labels.get(r.id) === 'oui').length
     console.log(
       `\nSur ${known.length} signalements déjà jugés à la main : ${pct(good(known), known.length)} vrais avant le juge, ${pct(good(kept), kept.length)} après (${kept.length} gardés, ${good(known) - good(kept)} vrais perdus).`,
+    )
+    console.log('Par zone (vrais / faux selon la relecture) :')
+    for (const z of ['garde', 'incertain', 'retire'] as const) {
+      const inZone = known.filter((r) => zoneOf(r, KEEP, LOW) === z)
+      console.log(`  ${z.padEnd(9)} ${good(inZone)} vrais, ${inZone.length - good(inZone)} faux`)
+    }
+  }
+
+  if (SAMPLE > 0) {
+    const zones = ['retire', 'incertain', 'garde'] as const
+    const pick: typeof report = []
+    for (const z of zones) {
+      const inZone = report
+        .filter((r) => zoneOf(r, KEEP, LOW) === z)
+        .sort((a, b) => (a.id < b.id ? -1 : 1))
+      const step = Math.max(1, Math.floor(inZone.length / Math.ceil(SAMPLE / 3)))
+      pick.push(...inZone.filter((_, i) => i % step === 0).slice(0, Math.ceil(SAMPLE / 3)))
+    }
+    const head =
+      'id,url_finale,blocage,type_erreur,citation,zone_jev,proba_jev,nature_jev,ecole,ville,statut_gemini'
+    writeFileSync(
+      SAMPLE_OUT,
+      [
+        head,
+        ...pick.map((r) =>
+          [
+            r.id,
+            r.row.url,
+            '',
+            '',
+            '',
+            zoneOf(r, KEEP, LOW),
+            r.probability ?? '',
+            r.nature ?? '',
+            r.row.school.name,
+            r.row.school.city,
+            r.status,
+          ]
+            .map(csv)
+            .join(','),
+        ),
+      ].join('\n'),
+    )
+    console.log(
+      `\n${pick.length} signalements à relire (retirés, incertains et gardés mélangés) : ${SAMPLE_OUT}. Remplis « blocage » (oui/non), puis relance avec --labels ${SAMPLE_OUT}.`,
     )
   }
 

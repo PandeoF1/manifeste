@@ -9,6 +9,8 @@
  *   npm run eval:judge -- --run --limit 5   # essai sur 5 signalements, affiche la réponse brute
  *   npm run eval:judge -- --run             # tous les signalements jugés
  *
+ * Option --focus : n'envoie que le titre et les phrases sur l'établissement (comme compare:judge) au lieu
+ * de l'article entier, pour comparer les deux façons de présenter le texte à Jev.
  * Options : --csv (défaut audit-manuel.csv), --cache-texts (défaut .eval-prompt-cache.json),
  * --out (défaut eval-judge-report.json), --model (défaut jev-latest), --limit N.
  * Variables : TYPESAFE_API_KEY, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (chargées depuis
@@ -19,6 +21,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { parseLabels } from './eval-prompt-lib.ts'
+import { focusState } from './eval-judge-lib.ts'
 import {
   JEV_USD_PER_INPUT_TOKEN,
   bestThreshold,
@@ -42,6 +45,7 @@ const TEXTS_FILE = arg('cache-texts') ?? '.eval-prompt-cache.json'
 const CACHE_FILE = '.eval-judge-cache.json'
 const OUT_FILE = arg('out') ?? 'eval-judge-report.json'
 const MODEL = arg('model') ?? 'jev-latest'
+const FOCUS = process.argv.includes('--focus')
 const LIMIT = arg('limit') ? Number(arg('limit')) : Infinity
 const ENDPOINT = 'https://api.typesafe.ai/v1/systemone'
 const env = (name: string) => {
@@ -105,10 +109,12 @@ async function loadTargets(): Promise<Target[]> {
 }
 
 const stateOf = (t: Target) =>
-  `Article publié le ${t.observedAt.slice(0, 10)} :\n${texts[t.url] ?? ''}`
+  FOCUS
+    ? focusState({ title: '', text: texts[t.url] ?? '' }, t.school, t.observedAt.slice(0, 10))
+    : `Article publié le ${t.observedAt.slice(0, 10)} :\n${texts[t.url] ?? ''}`
 const keyOf = (t: Target) =>
   createHash('sha1')
-    .update(`${MODEL}|${t.school.name}|${t.school.city}|${stateOf(t)}`)
+    .update(`${MODEL}|${JSON.stringify(buildQuestions(t.school))}|${stateOf(t)}`)
     .digest('hex')
     .slice(0, 20)
 

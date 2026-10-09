@@ -63,6 +63,15 @@ describe('Jev : questions et réponse', () => {
       'autre',
     ])
   })
+  it('pour un statut « levé », demande si le blocage est terminé (pas s’il est en cours)', () => {
+    const school = { name: 'Lycée Vincent Auriol', city: 'Revel' }
+    const levee = buildQuestions(school, 'leve').bloque?.instructions ?? ''
+    expect(levee).toContain('est terminé')
+    expect(levee).not.toContain('est bloqué par des élèves')
+    expect(buildQuestions(school, 'bloque').bloque?.instructions).toContain(
+      'est bloqué par des élèves',
+    )
+  })
   it('lit la probabilité et la nature de la réponse', () => {
     const a = parseJevResponse({
       model: 'jev-1.13.0',

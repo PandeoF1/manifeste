@@ -81,19 +81,22 @@ export interface JevQuestion {
   criteria?: Record<string, string>
 }
 
-/** Questions posées pour un établissement cité dans un article. */
-export function buildQuestions(school: {
-  name: string
-  city: string
-}): Record<string, JevQuestion> {
+/** Questions posées pour un établissement cité dans un article, selon le statut publié par Gemini. */
+export function buildQuestions(
+  school: { name: string; city: string },
+  status: 'bloque' | 'filtrant' | 'leve' = 'bloque',
+): Record<string, JevQuestion> {
   const who = `« ${school.name} » (${school.city})`
   return {
     bloque: {
       type: 'noul',
       instructions:
-        `À la date de publication de l'article, le texte dit-il que ${who} est bloqué par des élèves ou des étudiants, ` +
-        `ou fermé ou passé à distance à cause de la mobilisation ? Réponds non s'il s'agit seulement d'un rassemblement, ` +
-        `d'un incident, d'un récit passé, d'un aperçu de ce qui pourrait arriver ou d'une opinion.`,
+        status === 'leve'
+          ? `À la date de publication de l'article, le texte dit-il que le blocage ou la fermeture de ${who} est terminé ` +
+            `(blocus levé, élèves repris les cours, établissement rouvert) ? Réponds non s'il n'en est pas question pour cet établissement.`
+          : `À la date de publication de l'article, le texte dit-il que ${who} est bloqué par des élèves ou des étudiants, ` +
+            `ou fermé ou passé à distance à cause de la mobilisation ? Réponds non s'il s'agit seulement d'un rassemblement, ` +
+            `d'un incident, d'un récit passé, d'un aperçu de ce qui pourrait arriver ou d'une opinion.`,
     },
     nature: {
       type: 'choice',
