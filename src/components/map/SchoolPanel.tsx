@@ -17,7 +17,16 @@ const SOURCE_TYPE_LABEL = {
 
 const timeFmt = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
-export function SchoolPanel({ school, onClose }: { school: SchoolStatus; onClose: () => void }) {
+export function SchoolPanel({
+  school,
+  onClose,
+  mobilisation = false,
+}: {
+  school: SchoolStatus
+  onClose: () => void
+  /** Niveaux du juge : les articles parlent d'une mobilisation sans dire « bloqué ou fermé ». */
+  mobilisation?: boolean
+}) {
   const reports = useQuery(schoolReportsQuery(school.uai))
   const last = new Date(school.last_signal_at)
 
@@ -48,12 +57,27 @@ export function SchoolPanel({ school, onClose }: { school: SchoolStatus; onClose
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <StatusBadge status={school.status} />
+        {mobilisation ? (
+          <span className="inline-flex items-center gap-1.5 font-semibold text-muted">
+            <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" />
+            Mobilisation signalée
+          </span>
+        ) : (
+          <StatusBadge status={school.status} />
+        )}
         <span className="text-sm text-muted">
           dernier signal à {timeFmt.format(last)} ({formatRelative(last)})
         </span>
         <SourceConfidence count={school.source_count} />
       </div>
+
+      {mobilisation && (
+        <p className="mt-2 text-sm text-muted">
+          Les articles parlent d'une mobilisation (rassemblement, incident…) mais ne disent pas que
+          l'entrée est bloquée ni que l'établissement est fermé. Ce n'est pas compté dans les
+          établissements bloqués ou fermés.
+        </p>
+      )}
 
       <h3 className="mt-4 text-sm font-semibold">Sources (24 h)</h3>
       {reports.isPending && (

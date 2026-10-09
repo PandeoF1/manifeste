@@ -7,9 +7,15 @@ export interface PublicSettings {
   statusTtlHours: number
   /** AAAA-MM-JJ */
   movementStart: string
+  /** Niveaux du juge allumés : la carte montre à part les mobilisations « pas claires ». */
+  judgeTiers: boolean
 }
 
-export const DEFAULT_SETTINGS: PublicSettings = { statusTtlHours: 5, movementStart: '2026-09-14' }
+export const DEFAULT_SETTINGS: PublicSettings = {
+  statusTtlHours: 5,
+  movementStart: '2026-09-14',
+  judgeTiers: false,
+}
 
 export const PERIOD_SHORT_LABELS: Record<Period, string> = {
   direct: 'Direct',
@@ -66,5 +72,6 @@ export function parseSettings(rows: ReadonlyArray<{ key: string; value: string }
     statusTtlHours: Number.isInteger(ttl) && ttl > 0 ? ttl : DEFAULT_SETTINGS.statusTtlHours,
     movementStart:
       start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : DEFAULT_SETTINGS.movementStart,
+    judgeTiers: get('judge_tiers') === 'on',
   }
 }

@@ -16,6 +16,8 @@ interface Props {
   history?: string
   /** Sélecteur de période, affiché sous l'en-tête. */
   picker?: ReactNode
+  /** Établissements avec une mobilisation « pas claire » (niveaux du juge) : non comptés ci-dessus. */
+  mobilises?: number
 }
 
 export function LiveIndicator({ updatedAt, isError }: { updatedAt: number; isError: boolean }) {
@@ -46,7 +48,15 @@ function HistoryIndicator({ label }: { label: string }) {
   )
 }
 
-export function HeroStats({ stats, updatedAt, isError, compact = false, history, picker }: Props) {
+export function HeroStats({
+  stats,
+  updatedAt,
+  isError,
+  compact = false,
+  history,
+  picker,
+  mobilises = 0,
+}: Props) {
   const bloque = useCountUp(stats.bloque)
   const filtrant = useCountUp(stats.filtrant)
   const plural = (n: number) => (n > 1 ? 's' : '')
@@ -87,6 +97,18 @@ export function HeroStats({ stats, updatedAt, isError, compact = false, history,
           <StatusIcon status="filtrant" size={compact ? 14 : 18} />
           <strong className="tabular-nums text-filtrant">{filtrant}</strong> en barrage filtrant
         </p>
+        {mobilises > 0 && (
+          <p
+            className={`flex items-center gap-2 text-muted ${compact ? 'mt-0.5 text-xs' : 'mt-2 text-sm'}`}
+          >
+            <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" />
+            <span>
+              <strong className="tabular-nums text-fg">+{mobilises}</strong> mobilisation
+              {plural(mobilises)} signalée{plural(mobilises)}, pas claire{plural(mobilises)} (non
+              comptée{plural(mobilises)})
+            </span>
+          </p>
+        )}
         <p className={`text-muted ${compact ? 'text-xs' : 'mt-1 text-sm'}`}>
           dans <strong className="text-fg">{stats.departments}</strong> département
           {plural(stats.departments)}
@@ -102,7 +124,7 @@ export function HeroStats({ stats, updatedAt, isError, compact = false, history,
   )
 }
 
-export function Legend() {
+export function Legend({ mobilisation = false }: { mobilisation?: boolean }) {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted" aria-label="Légende">
       <li className="flex items-center gap-1.5">
@@ -114,6 +136,12 @@ export function Legend() {
       <li className="flex items-center gap-1.5">
         <StatusIcon status="leve" size={14} /> Levé
       </li>
+      {mobilisation && (
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="size-2.5 rounded-full bg-muted" /> Mobilisation, pas
+          claire
+        </li>
+      )}
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="size-3 rounded-full border-2 border-bloque" /> Signal de
         moins de 30 min

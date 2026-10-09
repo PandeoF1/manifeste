@@ -397,6 +397,7 @@ async function main() {
       {
         probability: v?.probability ?? null,
         nature: v?.nature ?? null,
+        status: r.status,
         levelConflict: v?.levelConflict ?? false,
         userReport: r.sourceType === 'utilisateur',
       },

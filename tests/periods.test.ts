@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, parseSettings, periodDescription, periodSince } from '../src/lib/periods'
 
-const settings = { statusTtlHours: 5, movementStart: '2026-09-14' }
+const settings = { statusTtlHours: 5, movementStart: '2026-09-14', judgeTiers: false }
 const now = Date.parse('2026-10-05T12:00:00Z')
 
 describe('periodSince', () => {
@@ -39,7 +39,9 @@ describe('parseSettings', () => {
         { key: 'status_ttl_hours', value: '12' },
         { key: 'movement_start', value: '2026-09-10' },
       ]),
-    ).toEqual({ statusTtlHours: 12, movementStart: '2026-09-10' })
+    ).toEqual({ statusTtlHours: 12, movementStart: '2026-09-10', judgeTiers: false })
+    expect(parseSettings([{ key: 'judge_tiers', value: 'on' }]).judgeTiers).toBe(true)
+    expect(parseSettings([{ key: 'judge_tiers', value: 'oui' }]).judgeTiers).toBe(false)
     expect(
       parseSettings([
         { key: 'status_ttl_hours', value: 'abc' },

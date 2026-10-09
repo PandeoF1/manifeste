@@ -13,6 +13,8 @@ export interface Resume {
   departements: number
   facs: number
   sites_sources: number
+  /** Établissements avec seulement une mobilisation signalée (niveaux du juge allumés), sinon 0. */
+  mobilises?: number
   pic: { jour: string; etablissements: number; departements: number } | null
   en_ce_moment: { bloques: number; filtrants: number }
   origines: Array<{ origine: Origine; signalements: number; etablissements: number }>

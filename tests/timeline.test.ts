@@ -154,7 +154,7 @@ describe('bucketSize', () => {
 })
 
 describe('rangeStart', () => {
-  const settings = { statusTtlHours: 5, movementStart: '2026-09-14' }
+  const settings = { statusTtlHours: 5, movementStart: '2026-09-14', judgeTiers: false }
   const now = Date.parse('2026-10-05T12:00:00Z')
   it('remonte de la durée choisie', () => {
     expect(new Date(rangeStart('24h', settings, now)).toISOString()).toBe(

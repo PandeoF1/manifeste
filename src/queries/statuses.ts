@@ -47,6 +47,24 @@ async function fetchCurrentStatuses(): Promise<SchoolStatus[]> {
   return data
 }
 
+/**
+ * Mobilisations signalées sans que le texte dise « bloqué ou fermé » (rassemblement, incident, cas pas
+ * clair). Vide tant que les niveaux du juge sont coupés ; demandée seulement quand ils sont allumés.
+ */
+export const mobilisationQuery = queryOptions({
+  queryKey: [...queryKeys.statuses.all, 'mobilisation'],
+  queryFn: async (): Promise<SchoolStatus[]> => {
+    const { data, error } = await supabase
+      .from('school_mobilisation_status')
+      .select('*')
+      .order('last_signal_at', { ascending: false })
+    if (error) throw error
+    return data
+  },
+  staleTime: REFRESH_MS,
+  refetchInterval: REFRESH_MS,
+})
+
 export const statusesQuery = queryOptions({
   queryKey: queryKeys.statuses.list(),
   queryFn: fetchCurrentStatuses,
