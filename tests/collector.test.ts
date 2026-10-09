@@ -599,6 +599,81 @@ describe('juge (mode observation)', () => {
       judge_model: 'jev-1.13.0',
     })
   })
+  it('page fermée aux robots : le juge reçoit le texte lu par la passerelle', async () => {
+    const judge = fakeJudge(0.9)
+    const { db, reports } = fakeDb({
+      'Lycée Test': [
+        {
+          uai: '0590010A',
+          name: 'Lycée Test',
+          city: 'Lille',
+          name_score: 1,
+          city_score: 1,
+          score: 1,
+        },
+      ],
+    })
+    const article =
+      'Le lycée Test de Lille est bloqué depuis ce matin par des élèves mobilisés. '.repeat(8)
+    const fetchFn = vi.fn(async (url: string) =>
+      url.startsWith('https://r.jina.ai/') ? new Response(article) : new Response(html),
+    )
+    await collectSource(source, {
+      db,
+      fetchFn,
+      extract: async (batch) =>
+        batch.slice(0, 1).map((b) => ({
+          item_id: b.id,
+          school_name: 'Lycée Test',
+          city: 'Lille',
+          status: 'bloque' as const,
+          observed_at: null,
+          certainty: 'haute' as const,
+        })),
+      now,
+      judge,
+    })
+    expect(reports).toHaveLength(1)
+    const input = (judge.mock.calls[0] as unknown as [{ text: string }])[0]
+    expect(input.text).toContain('Le lycée Test de Lille est bloqué')
+  })
+  it('texte de la passerelle sans rapport avec l’établissement : ignoré', async () => {
+    const judge = fakeJudge(0.9)
+    const { db } = fakeDb({
+      'Lycée Test': [
+        {
+          uai: '0590010A',
+          name: 'Lycée Test',
+          city: 'Lille',
+          name_score: 1,
+          city_score: 1,
+          score: 1,
+        },
+      ],
+    })
+    const fetchFn = vi.fn(async (url: string) =>
+      url.startsWith('https://r.jina.ai/')
+        ? new Response('Erreur 404 page non trouvée. '.repeat(30))
+        : new Response(html),
+    )
+    await collectSource(source, {
+      db,
+      fetchFn,
+      extract: async (batch) =>
+        batch.slice(0, 1).map((b) => ({
+          item_id: b.id,
+          school_name: 'Lycée Test',
+          city: 'Lille',
+          status: 'bloque' as const,
+          observed_at: null,
+          certainty: 'haute' as const,
+        })),
+      now,
+      judge,
+    })
+    const input = (judge.mock.calls[0] as unknown as [{ text: string }])[0]
+    expect(input.text).not.toContain('Erreur 404')
+  })
   it('sans juge, aucun champ judge_*', async () => {
     const reports = await run(undefined, 'x')
     expect(reports[0]).not.toHaveProperty('judge_score')

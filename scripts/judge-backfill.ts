@@ -24,6 +24,8 @@ import {
   createJevJudge,
   createJudgeMeter,
 } from '../supabase/functions/_shared/judge.ts'
+import { fetchReadable } from '../supabase/functions/_shared/page.ts'
+import { sentencesAbout } from '../supabase/functions/_shared/school-text.ts'
 import { recordAiUsage } from '../supabase/functions/_shared/ai-usage.ts'
 import { JEV_USD_PER_INPUT_TOKEN, estimateTokens } from './eval-judge-lib.ts'
 import { parseArticle } from './audit-reports-lib.ts'
@@ -97,7 +99,17 @@ async function loadRows(): Promise<Row[]> {
 const parisDay = (iso: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(iso))
 
-async function readArticle(url: string): Promise<{ title: string; text: string } | null> {
+type Article = { title: string; text: string; reader?: boolean }
+
+async function readArticle(url: string): Promise<Article | null> {
+  const direct = await readDirect(url)
+  if (direct) return direct
+  // Site fermé aux robots : texte lu par la passerelle (vérifié ensuite, pour chaque établissement).
+  const text = await fetchReadable(fetch, url)
+  return text.length >= MIN_JUDGE_CHARS ? { title: '', text, reader: true } : null
+}
+
+async function readDirect(url: string): Promise<{ title: string; text: string } | null> {
   try {
     const res = await fetch(url, {
       redirect: 'follow',
@@ -133,7 +145,7 @@ async function main() {
     timeoutMs: 30_000,
     onUsage: (u) => meter.onUsage(u),
   })
-  const cache = new Map<string, Promise<{ title: string; text: string } | null>>()
+  const cache = new Map<string, Promise<Article | null>>()
   let next = 0
   const done = { judged: 0, unreadable: 0, failed: 0 }
   let consecutiveFailures = 0
@@ -141,7 +153,13 @@ async function main() {
     while (next < rows.length && consecutiveFailures < 8) {
       const r = rows[next++] as Row
       if (!cache.has(r.source_url)) cache.set(r.source_url, readArticle(r.source_url))
-      const article = await cache.get(r.source_url)
+      let article = await cache.get(r.source_url)
+      // Texte venu de la passerelle : à garder seulement s'il parle de cet établissement (sinon page d'erreur).
+      if (
+        article?.reader &&
+        !sentencesAbout(article.text, r.schools as NonNullable<Row['schools']>).length
+      )
+        article = null
       let patch: Record<string, unknown>
       if (!article) {
         patch = { judged_at: new Date().toISOString(), judge_chars: 0, judge_score: null }

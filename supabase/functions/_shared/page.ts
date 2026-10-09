@@ -132,6 +132,28 @@ export async function fetchPageInfo(fetchFn: FetchLike, url: string): Promise<Pa
   }
 }
 
+/** Passerelle de lecture publique (rend le texte d'une page, sans cookies ni menus compliqués). */
+const READER_URL = 'https://r.jina.ai/'
+
+/**
+ * Dernier recours pour un article que le site refuse de servir à un robot (403) : on demande le texte
+ * à une passerelle de lecture. Seul le lien d'un article public lui est envoyé, jamais de donnée
+ * personnelle. Vide en cas d'échec. Sert au juge uniquement, jamais à l'extraction.
+ */
+export async function fetchReadable(fetchFn: FetchLike, url: string, max = 8000): Promise<string> {
+  if (!/^https?:\/\//i.test(url)) return ''
+  try {
+    const res = await fetchFn(READER_URL + url, {
+      headers: { accept: 'text/plain', 'x-return-format': 'text' },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return ''
+    return (await readText(res, 300_000)).trim().slice(0, max)
+  } catch {
+    return ''
+  }
+}
+
 export async function fetchPageContext(fetchFn: FetchLike, url: string): Promise<string> {
   return (await fetchPageInfo(fetchFn, url)).context
 }
