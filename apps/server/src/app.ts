@@ -3,6 +3,7 @@
  * `App` is the type the web client imports for Eden Treaty.
  */
 import { opentelemetry } from '@elysiajs/opentelemetry'
+import { join } from 'node:path'
 import { Elysia } from 'elysia'
 import type { AppContext } from './context.ts'
 import { authRoutes } from './auth/plugin.ts'
@@ -12,6 +13,8 @@ import { analyticsModule } from './modules/analytics/index.ts'
 import { AnalyticsService } from './modules/analytics/service.ts'
 import { openDataModule } from './modules/open-data/index.ts'
 import { OpenDataService } from './modules/open-data/service.ts'
+import { shareModule, sharePage } from './modules/share/index.ts'
+import { ShareService } from './modules/share/service.ts'
 import { reportsModule } from './modules/reports/index.ts'
 import { ReportsService } from './modules/reports/service.ts'
 import { schoolsModule } from './modules/schools/index.ts'
@@ -34,6 +37,10 @@ export function createApp(ctx: AppContext) {
   const settings = new SettingsService(db)
   const statuses = new StatusesService(db, settings)
   const analytics = new AnalyticsService(db)
+  const schools = new SchoolsService(db)
+  const openData = new OpenDataService(db, settings, statuses)
+  const share = new ShareService(statuses, schools, openData)
+  const webDist = config.WEB_DIST
   // HTTP spans only when an exporter is configured (startTelemetry registered the provider).
   const tracing = config.OTEL_EXPORTER_OTLP_ENDPOINT
     ? opentelemetry({
@@ -53,8 +60,8 @@ export function createApp(ctx: AppContext) {
     .use(healthModule(new HealthService(db, queue, config.ROLE, version)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))
-    .use(openDataModule(new OpenDataService(db, settings, statuses)))
-    .use(schoolsModule(new SchoolsService(db)))
+    .use(openDataModule(openData))
+    .use(schoolsModule(schools))
     .use(analyticsModule(analytics))
     .use(
       reportsModule(
@@ -70,9 +77,17 @@ export function createApp(ctx: AppContext) {
     )
     .use(realtimeModule(ctx.bus, auth))
     .use(timelineModule(new TimelineService(db, settings)))
+    .use(
+      shareModule(share, config.PUBLIC_URL, {
+        fontsDir: join(webDist || '.', 'fonts'),
+        wasmPath: config.RESVG_WASM,
+      }),
+    )
     .use(staffModule(auth, new StaffService(db, auth, config.PUBLIC_URL)))
 
-  return config.WEB_DIST ? app.use(spa(config.WEB_DIST)) : app
+  return webDist
+    ? app.use(spa(webDist, (request) => sharePage(request, share, config.PUBLIC_URL, webDist)))
+    : app
 }
 
 export type App = ReturnType<typeof createApp>

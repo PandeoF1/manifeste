@@ -31,6 +31,8 @@ const Env = t.Object({
   WEB_DIST: t.String({ default: '../web/dist' }),
   /** Where photos are stored (a volume shared by the api and the worker). */
   DATA_DIR: t.String({ default: './data' }),
+  /** The resvg WebAssembly file (the image ships it next to the bundle); default: from node_modules. */
+  RESVG_WASM: t.Optional(t.String()),
   /** Cloudflare Turnstile secret. Without it the check is skipped only outside production. */
   TURNSTILE_SECRET_KEY: t.Optional(t.String()),
   LOG_LEVEL: t.Union(

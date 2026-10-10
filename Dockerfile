@@ -23,7 +23,8 @@ ARG VITE_TURNSTILE_SITE_KEY=
 ARG VITE_MAP_STYLE_URL=
 RUN cd apps/web && bunx vite build
 RUN cd apps/server && bun run build \
- && cp "$(dirname "$(bun -e "console.log(Bun.resolveSync('@scalar/api-reference', process.cwd()))")")/browser/standalone.js" dist/scalar.js
+ && cp "$(dirname "$(bun -e "console.log(Bun.resolveSync('@scalar/api-reference', process.cwd()))")")/browser/standalone.js" dist/scalar.js \
+ && cp "$(bun -e "console.log(Bun.resolveSync('@resvg/resvg-wasm/index_bg.wasm', process.cwd()))")" dist/resvg.wasm
 
 FROM oven/bun:${BUN_VERSION}-slim AS runtime
 WORKDIR /app
@@ -37,6 +38,7 @@ ENV NODE_ENV=production \
     WEB_DIST=/app/web \
     MIGRATIONS_DIR=/app/migrations \
     SCALAR_BUNDLE=/app/scalar.js \
+    RESVG_WASM=/app/resvg.wasm \
     DATA_DIR=/data
 # Photos (private originals and published blurred versions) live on a volume shared by the api
 # and the worker, so the retention sweeper sees what the api wrote.

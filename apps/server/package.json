@@ -19,11 +19,13 @@
     "@elysiajs/openapi": "1.4.16",
     "@elysiajs/opentelemetry": "1.4.11",
     "@elysiajs/static": "1.4.10",
+    "@manifeste/core": "workspace:*",
     "@manifeste/db": "workspace:*",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/exporter-trace-otlp-proto": "0.200.0",
     "@opentelemetry/sdk-node": "0.200.0",
     "@opentelemetry/sdk-trace-base": "2.0.0",
+    "@resvg/resvg-wasm": "2.6.2",
     "@sinclair/typebox": "0.34.52",
     "better-auth": "1.7.7",
     "drizzle-orm": "0.45.4",
@@ -31,7 +33,7 @@
     "pg": "^8.23.1",
     "pg-boss": "12.37.1",
     "pino": "10.4.0",
-    "@manifeste/core": "workspace:*"
+    "satori": "0.47.1"
   },
   "devDependencies": {
     "@elysiajs/eden": "1.4.9",

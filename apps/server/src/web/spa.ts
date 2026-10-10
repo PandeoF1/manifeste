@@ -9,7 +9,10 @@ import { Elysia } from 'elysia'
 const IMMUTABLE = 'public, max-age=31536000, immutable'
 const REVALIDATE = 'public, max-age=0, must-revalidate'
 
-export function spa(distDir: string) {
+/** Lets a caller answer some navigations itself (robots get a rendered page): null = not handled. */
+export type Intercept = (request: Request) => Promise<Response | null>
+
+export function spa(distDir: string, intercept?: Intercept) {
   const root = resolve(distDir)
   const index = Bun.file(`${root}/index.html`)
 
@@ -18,6 +21,8 @@ export function spa(distDir: string) {
     async ({ request, set, status }) => {
       const { pathname } = new URL(request.url)
       if (pathname.startsWith('/api/')) return status(404, 'Not Found')
+      const handled = await intercept?.(request)
+      if (handled) return handled
 
       const path = resolve(root, `.${decodeURIComponent(pathname)}`)
       if (path !== root && !path.startsWith(root + sep)) return status(404, 'Not Found')
