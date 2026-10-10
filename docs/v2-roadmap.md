@@ -4,14 +4,14 @@ Phases of the rework described in [ADR 0001](adr/0001-v2-architecture.md).
 
 ## Phased plan (each phase: tests + CI green, small English commits ending with the Co-Authored-By line)
 
-### Phase 0: Branch and housekeeping
+### Phase 0: Branch and housekeeping (done)
 
 - Move the corpus **out of the repo first** (`cache/`, `urls.json`, `parser-compare.json`, `bench-*.json` → `~/manifest-corpus/`).
   Then `git stash push -u -m "pre-rework leftovers"` for the rest (recoverable, not deleted).
   Then `git switch -c rework/elysia-backend develop`.
 - Commit `docs/adr/0001-v2-architecture.md` (the ADR above).
 
-### Phase 1: Walking skeleton (deployable on day 1)
+### Phase 1: Walking skeleton (deployable on day 1) (done)
 
 - Bun workspaces. Move the SPA to `apps/web` unchanged. Create `packages/{core,db,parser}`.
 - `apps/server`: `src/index.ts` (role switch), plugins `db`, `telemetry`, `auth` (better-auth mount + role macro),
@@ -23,7 +23,7 @@ Phases of the rework described in [ADR 0001](adr/0001-v2-architecture.md).
   (prod, staging, preview envs, R2 backups, Cloudflare, Grafana Cloud OTLP).
 - **Done when**: staging URL serves the SPA, `/api/health/ready`, `/api/docs`. Admin login works with TOTP. A PR opens a preview.
 
-### Phase 2: Domain, schema, public API
+### Phase 2: Domain, schema, public API (done, except the staff-side endpoints)
 
 - Full schema v2 + `docs/database.md`. `packages/core` gets ported pure logic (`resolveObservation`, tiers, statuses,
   periods, validation, matching rules from `_shared/{extraction,matching,judge-tiers,status}.ts`,
