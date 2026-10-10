@@ -1,0 +1,39 @@
+{
+  "name": "@manifeste/server",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Manifeste API, WebSocket and ingestion worker (Elysia on Bun).",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "bun test",
+    "staff": "bun src/cli/staff.ts"
+  },
+  "dependencies": {
+    "@elysiajs/openapi": "1.4.16",
+    "@elysiajs/opentelemetry": "1.4.11",
+    "@elysiajs/static": "1.4.10",
+    "@manifeste/db": "workspace:*",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/exporter-trace-otlp-proto": "0.200.0",
+    "@opentelemetry/sdk-node": "0.200.0",
+    "@opentelemetry/sdk-trace-base": "2.0.0",
+    "@scalar/api-reference": "1.73.1",
+    "@sinclair/typebox": "0.34.52",
+    "better-auth": "1.7.7",
+    "drizzle-orm": "0.45.4",
+    "elysia": "1.4.30",
+    "pg": "^8.23.1",
+    "pg-boss": "12.37.1",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@elysiajs/eden": "1.4.9",
+    "@types/pg": "^8.15.6"
+  }
+}
