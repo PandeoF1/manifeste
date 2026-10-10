@@ -5,9 +5,8 @@ import { join } from 'node:path'
 import { treaty } from '@elysiajs/eden'
 import { eq } from 'drizzle-orm'
 import { schema } from '@manifeste/db'
-import { StaffService } from '../src/modules/staff/service.ts'
 import { spa } from '../src/web/spa.ts'
-import { cookieFrom, startTestServer, type TestServer } from './helpers.ts'
+import { signInStaff, startTestServer, type TestServer } from './helpers.ts'
 
 let s: TestServer
 beforeAll(async () => {
@@ -53,24 +52,6 @@ describe('API docs', () => {
 describe('staff accounts', () => {
   const password = 'correct horse battery staple'
 
-  async function inviteAndSignIn(email: string, role: 'admin' | 'moderator') {
-    const service = new StaffService(s.ctx.db, s.ctx.auth, s.ctx.config.PUBLIC_URL)
-    const invitation = await service.invite({ email, name: role, role })
-    if (!('passwordLink' in invitation)) throw new Error('invite failed')
-    const token = new URL(invitation.passwordLink).pathname.split('/').at(-1)
-    const reset = await s.request('/api/auth/reset-password', {
-      method: 'POST',
-      json: { token, newPassword: password },
-    })
-    expect(reset.status).toBe(200)
-    const signIn = await s.request('/api/auth/sign-in/email', {
-      method: 'POST',
-      json: { email, password },
-    })
-    expect(signIn.status).toBe(200)
-    return cookieFrom(signIn)
-  }
-
   test('public sign-up is disabled', async () => {
     const res = await s.request('/api/auth/sign-up/email', {
       method: 'POST',
@@ -85,13 +66,13 @@ describe('staff accounts', () => {
   })
 
   test('moderators cannot manage staff', async () => {
-    const cookie = await inviteAndSignIn('mod@example.org', 'moderator')
+    const cookie = await signInStaff(s, 'mod@example.org', 'moderator')
     const res = await s.request('/api/staff/members', { headers: { cookie } })
     expect(res.status).toBe(403)
   })
 
   test('admins must enable TOTP, then can list and invite', async () => {
-    const cookie = await inviteAndSignIn('admin@example.org', 'admin')
+    const cookie = await signInStaff(s, 'admin@example.org', 'admin', { twoFactor: false })
     const before = await s.request('/api/staff/members', { headers: { cookie } })
     expect(before.status).toBe(403)
     expect(await before.text()).toContain('Two-factor')

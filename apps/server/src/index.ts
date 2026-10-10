@@ -28,6 +28,8 @@ if (config.MIGRATE_ON_BOOT) {
 }
 
 await ctx.queue.start()
+// Only API instances hold WebSocket clients, so only they listen for events.
+if (config.ROLE !== 'worker') await ctx.bus.start()
 
 const server =
   config.ROLE === 'worker'

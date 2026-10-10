@@ -6,6 +6,7 @@ import { createDb, type Database, type DbHandle } from '@manifeste/db'
 import { createAuth, type Auth } from './auth/auth.ts'
 import type { Config } from './config.ts'
 import { createLogger, type Logger } from './logger.ts'
+import { EventBus } from './realtime/bus.ts'
 import { PgBossQueue, type JobQueue } from './queue/queue.ts'
 import { FsBlobStore, type BlobStore } from './storage/blob-store.ts'
 
@@ -16,6 +17,7 @@ export interface AppContext {
   auth: Auth
   queue: JobQueue
   blobs: BlobStore
+  bus: EventBus
   /** Build id (git sha in images), shown by the health endpoints. */
   version: string
   close(): Promise<void>
@@ -38,6 +40,7 @@ export function createContext(
     new PgBossQueue(config.DATABASE_URL, log.child({ component: 'queue' }), {
       supervise: runsJobs,
     })
+  const bus = new EventBus(config.DATABASE_URL, dbHandle.db, log.child({ component: 'bus' }))
   const auth = createAuth({ db: dbHandle.db, config, log: log.child({ component: 'auth' }) })
   return {
     config,
@@ -45,9 +48,11 @@ export function createContext(
     db: dbHandle.db,
     auth,
     queue,
+    bus,
     blobs: overrides.blobs ?? new FsBlobStore(config.DATA_DIR),
     version: process.env.APP_VERSION ?? 'dev',
     async close() {
+      await bus.stop()
       await queue.stop()
       await dbHandle.close()
     },

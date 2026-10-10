@@ -24,6 +24,7 @@ import { timelineModule } from './modules/timeline/index.ts'
 import { TimelineService } from './modules/timeline/service.ts'
 import { staffModule } from './modules/staff/index.ts'
 import { StaffService } from './modules/staff/service.ts'
+import { realtimeModule } from './realtime/ws.ts'
 import { requestLog } from './plugins/request-log.ts'
 import { apiDocs } from './web/docs.ts'
 import { spa } from './web/spa.ts'
@@ -67,6 +68,7 @@ export function createApp(ctx: AppContext) {
         ctx.blobs,
       ),
     )
+    .use(realtimeModule(ctx.bus, auth))
     .use(timelineModule(new TimelineService(db, settings)))
     .use(staffModule(auth, new StaffService(db, auth, config.PUBLIC_URL)))
 

@@ -4,6 +4,8 @@ services:
   app:
     image: ${IMAGE:-ghcr.io/pandeof1/manifest:staging}
     restart: unless-stopped
+    volumes:
+      - photos:/data
     environment:
       NODE_ENV: production
       ROLE: all
@@ -15,8 +17,12 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       OTEL_SERVICE_NAME: manifeste-staging
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     expose:
       - '3000'
     deploy:
       resources:
         limits: { memory: 512m }
+
+volumes:
+  photos:

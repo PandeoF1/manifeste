@@ -36,7 +36,12 @@ ENV NODE_ENV=production \
     PORT=3000 \
     WEB_DIST=/app/web \
     MIGRATIONS_DIR=/app/migrations \
-    SCALAR_BUNDLE=/app/scalar.js
+    SCALAR_BUNDLE=/app/scalar.js \
+    DATA_DIR=/data
+# Photos (private originals and published blurred versions) live on a volume shared by the api
+# and the worker, so the retention sweeper sees what the api wrote.
+RUN mkdir -p /data && chown bun:bun /data
+VOLUME /data
 USER bun
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
