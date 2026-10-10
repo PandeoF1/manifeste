@@ -1,0 +1,71 @@
+# ADR 0001: Manifeste v2 architecture (Supabase → Elysia on Bun)
+
+- Status: accepted (2026-10-10)
+- Scope: backend rework, ingestion pipeline, AI layer, hosting, CI/CD
+
+## Context
+
+Manifeste (a PWA mapping blocked lycées and facs) runs on Supabase (Postgres/PostGIS, RLS, triggers, pg_cron,
+Realtime, Storage, Auth) plus Deno edge functions and Vercel functions. The collector is squeezed into 2 s CPU
+budgets with fan-out hacks. Config is spread over 30+ env vars, and history cleanup lives in ad-hoc scripts. The goal
+is a total backend rework on **Bun + Elysia**: an inspectable, retryable, benchmarked ingestion pipeline, a
+provider-agnostic AI layer, end-to-end types (Eden), real observability and CI/CD from day one. It must stay
+**cheap but reliable**, and the public site's behaviour must not change.
+
+Measured facts that drive the decisions:
+- Prod DB is under 100 MB: 4,044 reports, 5,605 schools, 120 sources, 222 unmatched, 2,323 media analyses, **2 staff accounts**, 4 photos.
+- AI costs about $6/month (Gemini Flash-Lite), plus Jev at ~$42 per billion input tokens.
+- Parser corpus: 1,951 real pages (680 MB) in `cache/` and 2,113 URLs in `urls.json`.
+
+### Owner decisions
+Coolify on your existing server (≥8 GB, Coolify not yet installed) · full-stack PR previews · pg-boss, no Redis ·
+better-auth · Grafana Cloud free · corpus and backups on **Cloudflare R2** (cheaper than OVH: the free tier covers
+10 GB and egress is free, so €0 at our size).
+
+---
+
+## ADR: decisions
+
+| # | Topic | Decision | Not now / rejected (why) |
+|---|---|---|---|
+| D1 | Layout | **Bun workspaces**: `apps/server`, `apps/web`, `packages/core` (pure domain, shared with web), `packages/parser`, `packages/db`, plus `bench/` | Turborepo/Nx (`bun --filter` is enough); microservices |
+| D2 | API | Elysia, official conventions: feature modules `modules/<x>/{index.ts controller, service.ts, model.ts}`, **TypeBox `t`** models registered with `.model()` and namespaced, named plugin instances (`db`, `auth`, `queue`, `telemetry`, `realtime`), `derive`/`resolve`, auth **macro** `{ auth: 'admin' \| 'moderator' }`, services return `status()` rather than throwing. `@elysiajs/openapi`: public Scalar page at `/api/docs` (open-data tag only), full spec staff-only. Eden Treaty for the web. | Controller classes; zod on the backend (TypeBox emits JSON Schema natively, which also feeds Gemini `responseSchema`) |
+| D3 | DB/ORM | Postgres 17 + PostGIS + pg_trgm + unaccent. **Drizzle** (postgres.js) with **drizzle-typebox** → Elysia models. Generated SQL migrations reviewed and committed; triggers and functions go in custom SQL migrations. Pin `@sinclair/typebox` via `overrides`. | Kysely (schema written twice), Prisma (weak PostGIS), raw SQL only (no typed models) |
+| D4 | Business rules | **Move from triggers to TS** (validation, judge tiers, date rules): pure functions in `packages/core`, called in the write transaction. Set-based work (trigram/geo matching, status periods, aggregates) **stays SQL** behind typed functions. **No RLS**. DB roles are `app` and `readonly` (open data). | Logic in triggers (hard to test and version) |
+| D5 | Queue | **pg-boss** behind a small `JobQueue` port (swappable): cron, retry/backoff, DLQ, singleton keys, per-queue concurrency, stats, and transactional enqueue in the same DB | Redis/BullMQ (a second stateful service with no gain at ~100 users); Graphile Worker |
+| D6 | Caching / SQL | Same 5-min CDN cache as today: `Cache-Control: public, s-maxage=300, stale-while-revalidate=600` behind Cloudflare. In-process SWR memo on the hot `statuses` endpoint (≤1 query per 30 s whatever the traffic). Indexes designed up front. Aggregates computed on the fly. | Materialized views (4k reports aggregate in ms; revisit if p95 > 50 ms); Redis cache |
+| D7 | Abuse | Public report endpoint keeps **Turnstile + salted daily hash (5/day)** stored in Postgres, plus a per-IP in-memory token bucket on public routes (IP never stored) and one free Cloudflare rate-limit rule on `POST /api/reports` | WAF paid rules |
+| D8 | Realtime | Elysia WS, fed by worker `pg_notify`. API `LISTEN` → typed topics `public:statuses`, `staff:pipeline`, `staff:moderation`. Works with N instances later. | Redis pub/sub |
+| D9 | Observability | OTel (`@elysiajs/opentelemetry` + manual spans per stage) → **Grafana Cloud free** (traces, logs, metrics, alerting). Structured JSON logs carry trace ids. `/health/live` and `/health/ready` (DB, queue, migration version). **Admin views read our own `pipeline_events`** and work with OTel off. Free external uptime check. | Self-hosted LGTM/SigNoz (RAM); Sentry; continuous profiling (Bun support weak; `bun --inspect` on demand) |
+| D10 | Auth | **better-auth**: email+password, sign-up disabled, `admin` plugin with access control (`admin` = all; `moderator` = approve/reject/link unmatched, as today, every action audited). **TOTP mandatory for admin**, passkeys optional. Sessions in Postgres, httpOnly same-origin cookies, built-in rate limiting. Accounts created via admin page or CLI one-time link (no email provider). **Re-invite the 2 accounts.** No hash port. | Hand-rolled (2FA/passkeys by hand); Keycloak/Authentik (overkill) |
+| D11 | Files | `BlobStore` port with `fs` (now) and `s3` (Bun S3 client, R2-ready) adapters. Private originals stay on a local volume. Blurred photos are served by the API and cached by Cloudflare. **Two-layer purge**: DB `expires_at` with an hourly job, **plus** an FS sweeper that deletes any private file older than 48 h | Object storage for photos now (4 photos; local is more private) |
+| D12 | Hosting | **Coolify on your server**, Cloudflare (free) in front, Coolify dashboard behind Cloudflare Access or an IP allowlist. **One image** (`bun build` web + server, `ROLE=api\|worker\|all`); the server also serves the SPA (`@elysiajs/static`, bot-UA share rewrites and CSP move from `vercel.json` into Elysia), so one origin and no CORS. **Prod**: api + worker + postgis. **Staging** (develop): `ROLE=all` + its own postgis. **PR previews**: Coolify GitHub-App preview app with `ROLE=all` on a **shared preview Postgres**. On boot it creates `pr_<n>` from a sanitized template DB and migrates. AI runs on the **replay adapter**, so previews cost $0 and are isolated from prod. A nightly job drops `pr_*` DBs of closed PRs. Backups: Coolify scheduled `pg_dump` **hourly → R2** (RPO ≤ 1 h, 30-day retention), with a weekly **automated restore test** in GitHub Actions. | Fly/Railway (cost), WAL-G PITR (custom image; add only if RPO 1 h is not enough), k8s/Kamal. Path to redundancy later: stateless containers + idempotent jobs, so add a 2nd node and a managed/replicated PG without a rewrite |
+| D13 | Tests/CI | **`bun test`** as the single runner (the ~350 Vitest tests port mechanically). Integration tests against real PostGIS (CI service and local compose) with **one template DB cloned per test file**. Eden `treaty(app)` in-process contract tests. pg-boss tests on the test DB. GitHub Actions: lint, typecheck, unit, integration, build, **migration check** (fresh DB + prod-schema snapshot + Drizzle drift), **benchmark job (non-blocking, offline replay, artifact + PR comment)**, image → GHCR. CD: develop → staging, main → prod (manual approval), via Coolify webhooks. | Testcontainers (shaky on Bun) |
+| D14 | AI | Own thin ports: `Task` (extract, judge, media-analysis, rematch) × `Provider` (gemini, openai-compatible, anthropic, **jev** as a judge adapter returning calibrated probabilities, **replay** for offline). **`ai.config.ts`** validated with TypeBox at boot (a bad config refuses to start): per task provider/model/fallbacks/params/prompt ref/budget/enabled, plus a price table. Secrets only in env. DB settings can only **disable** a task or **force a configured fallback** (kill switch, budget stop). `ai_calls` records every call (task, model, `prompt_ref`, tokens in/out/thinking, cost, latency, outcome, item), rolled up daily. Prompts versioned as modules. **Keep Flash-Lite + Jev** unless the benchmark says otherwise. | Vercel AI SDK (churn, no Jev, we only need JSON + usage) |
+| D15 | Parser | Pure `packages/parser`: `parse(html,url) → {title, text, blocks, publishedAt, dateSource, jsonLd, blocked, lang}`. Order: JSON-LD → site rules **as data** (absorbing the `dev/better-html-parser` blocklists) → generic density scoring on a linkedom DOM → fallback. Paywall and bot-block detection. Corpus: gzipped pages in a **private R2 bucket**; labels JSONL plus ~30 synthetic pages in git. | Headless browser worker (only if the benchmark shows the direct fetch and r.jina.ai both failing on a material share; then an optional Playwright container behind the same `Fetcher` port) |
+| D16 | Front | Keep Vite SPA, React 18, TanStack Router/Query and the French UI. Eden replaces `@supabase/supabase-js`. better-auth client. Eden WS. | React 19, SSR, UI kit swap |
+| D17 | Retention | Partitioning **not worth it** (<100 MB). Nightly retention jobs: item contents/extraction context **7 d** (privacy invariant), pipeline events 30 d, raw `ai_calls` 90 d (daily rollup kept), unmatched 7 d | pg_partman |
+
+### Schema v2 (English, documented in `docs/database.md`)
+`schools` (uai PK, kind, level, name, city, department, academy, `location geography(Point)`, trigram + GiST indexes,
+aliases) · `sources` (kind, identifier, label, source_type, trusted, config jsonb, health: state, consecutive_failures,
+next_attempt_at, last_success_at) · `trusted_domains` · `ingest_items` (source_id, external_id unique per source,
+url, canonical_url, published_at, title, content_hash, stage, status, lane, attempts, next_attempt_at, last_error) ·
+`item_contents` (item_id, text, expires_at = 7 days, purged) · `extractions` (item_id, event index, school text,
+city, status, certainty, observed_at, date_basis, prompt_ref, match_status, school_uai) · `judgements` (report_id,
+provider, model, probability, nature, level, raw probs, chars, prompt_ref) · `reports` (school_uai, status, origin
+press/syndicate/collector/on_site, source url/domain/source_id, observed_at, published_at, extracted_observed_at,
+date_basis, certainty, moderation, hidden, legacy_id) · `report_submissions` + `photos` (blob_key, state,
+expires_at) · `school_proposals` · `settings` (typed key → TypeBox-validated value) · `ai_calls`, `ai_usage_daily`,
+`media_analyses` · `moderation_audit` · `pipeline_events` (run_id, item_id, stage, outcome, duration_ms, cost,
+attrs) · `analytics_daily`, `analytics_vitals_daily`, live-visitor counters · `benchmark_runs`/`benchmark_results` ·
+better-auth tables · `pgboss.*`.
+
+### Invariants ported with tests
+Weekend/night/stale/>7-day date rules (Paris TZ) · tier semantics (on-site reports always confirmed; unjudged counts as
+confirmed until judged; mobilisation never counted as blocked; `judge_tiers` setting reversible) · validation (trusted
+source/domain publishes; 2 independent sources within 2 h; otherwise pending) · privacy (no article text beyond 7 days, photos
+purged, no IP stored, no personal data) · only staff have accounts · public reads cheap and cacheable.
+
+---
+
