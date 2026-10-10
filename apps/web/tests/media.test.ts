@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { articleTitle, isPressItem, parseMediaAnalyses } from '@shared/media.ts'
 import { aggregate, badgesFor, outletOf, topDemands, type MediaRow } from '@/lib/mediaStats'
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { formatMetric, parseSiteStats, rate } from '@/lib/siteStats'
 import { pageGroup } from '@/lib/pageGroup'
 

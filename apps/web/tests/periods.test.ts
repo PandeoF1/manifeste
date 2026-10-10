@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { DEFAULT_SETTINGS, parseSettings, periodDescription, periodSince } from '../src/lib/periods'
 
 const settings = { statusTtlHours: 5, movementStart: '2026-09-14', judgeTiers: false }

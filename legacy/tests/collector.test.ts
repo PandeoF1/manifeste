@@ -347,6 +347,8 @@ describe('crédit Gemini épuisé (402)', () => {
 
 describe('carte My Maps dans la collecte', () => {
   it('rattache un point par sa position, même sans mot-clé', async () => {
+    // The My Maps fetcher dates points with the wall clock: pin it to a weekday.
+    vi.useFakeTimers({ now, toFake: ['Date'] })
     const kml = readFileSync(new URL('./fixtures/mymaps.kml', import.meta.url), 'utf8')
     const { db, reports } = fakeDb({})
     const mapsFetch = vi.fn(async () => new Response(kml))
@@ -366,7 +368,8 @@ describe('carte My Maps dans la collecte', () => {
       identifier: 'MID123456789',
       label: 'Carte',
     }
-    const r = await collectSource(mapSource, { db, fetchFn: mapsFetch, extract, now: new Date() })
+    const r = await collectSource(mapSource, { db, fetchFn: mapsFetch, extract, now })
+    vi.useRealTimers()
     // 3 points : Pasteur (rattaché par position), Gambetta (hors zone simulée), Lemonnier (par adresse, inconnu ici).
     expect(r).toMatchObject({ relevant: 3, events: 3, reports: 1, unmatched: 2 })
     expect(reports[0]).toMatchObject({

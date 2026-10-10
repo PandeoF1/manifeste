@@ -19,9 +19,9 @@
     "types": ["vite/client"],
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["./supabase/functions/_shared/*"]
+      "@shared/*": ["../../legacy/supabase/functions/_shared/*"]
     }
   },
-  "include": ["src", "supabase/functions/_shared"],
-  "exclude": ["supabase/functions/_shared/service.ts"]
+  "include": ["src", "../../legacy/supabase/functions/_shared"],
+  "exclude": ["../../legacy/supabase/functions/_shared/service.ts"]
 }

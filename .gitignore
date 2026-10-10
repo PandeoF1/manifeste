@@ -7,8 +7,13 @@ node_modules
 dist
 dev-dist
 *.local
-supabase/.temp
-supabase/.branches
+legacy/supabase/.temp
+legacy/supabase/.branches
+.data/
+cache/
+bench/.cache/
+bench/corpus/
+bench/results/local/
 .DS_Store
 .eval-truncation-cache.json
 .audit-reports-cache.json

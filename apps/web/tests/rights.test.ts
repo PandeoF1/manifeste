@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { RIGHTS_LINKS, RIGHTS_SECTIONS } from '../src/content/rights'
 
 describe('fenêtre « Tes droits »', () => {

@@ -1,4 +1,7 @@
 dist
+dev-dist
 node_modules
-src/routeTree.gen.ts
-supabase/.temp
+apps/web/src/routeTree.gen.ts
+legacy/supabase/.temp
+packages/db/migrations
+bun.lock

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { computeStats } from '@/queries/stats'
 
 const now = Date.parse('2026-10-05T10:00:00Z')

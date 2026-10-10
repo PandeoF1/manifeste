@@ -16,12 +16,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "types": ["node", "vite/client"],
+    "types": ["bun", "vite/client"],
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["./supabase/functions/_shared/*"]
+      "@shared/*": ["../../legacy/supabase/functions/_shared/*"]
     }
   },
-  "include": ["tests", "supabase/functions/_shared", "api"],
-  "exclude": ["supabase/functions/_shared/service.ts"]
+  "include": ["tests", "../../legacy/supabase/functions/_shared"],
+  "exclude": ["../../legacy/supabase/functions/_shared/service.ts"]
 }

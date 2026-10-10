@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [rework/elysia-backend]
   # Also called by deploy.yml, so nothing is deployed unless the checks pass.
   workflow_call:
 
@@ -9,24 +11,25 @@ permissions:
   contents: read
 
 jobs:
-  web:
+  checks:
+    name: lint · typecheck · unit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder
 
-  database:
+  legacy-database:
+    name: legacy SQL tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -46,4 +49,4 @@ jobs:
       PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
-      - run: bash supabase/tests/run-local.sh
+      - run: bash legacy/supabase/tests/run-local.sh

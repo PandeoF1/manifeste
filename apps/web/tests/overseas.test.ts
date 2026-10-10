@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { activeTerritories, territoryOf } from '@/lib/overseas'
 
 const pt = (department: string | null, lat: number, lng: number) => ({ department, lat, lng })

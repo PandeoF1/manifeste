@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { initialQuery } from '@/lib/unmatched'
 
 describe('recherche pré-remplie pour le rattachement manuel', () => {
