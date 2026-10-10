@@ -13,6 +13,8 @@ export interface JobPayloads {
   'analytics.snapshot-online': Record<string, never>
   /** Nightly: roll up visitors, delete salts and apply retention windows. */
   'analytics.rollup': Record<string, never>
+  /** Hourly: delete decided or stale photos, reject undecided on-site reports. */
+  'privacy.purge-submissions': Record<string, never>
 }
 export type JobName = keyof JobPayloads
 

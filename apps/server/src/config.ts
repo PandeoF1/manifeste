@@ -29,6 +29,10 @@ const Env = t.Object({
   AUTH_SECRET: t.String({ minLength: 32 }),
   /** Built SPA served by the API (one origin). Empty disables static serving (tests). */
   WEB_DIST: t.String({ default: '../web/dist' }),
+  /** Where photos are stored (a volume shared by the api and the worker). */
+  DATA_DIR: t.String({ default: './data' }),
+  /** Cloudflare Turnstile secret. Without it the check is skipped only outside production. */
+  TURNSTILE_SECRET_KEY: t.Optional(t.String()),
   LOG_LEVEL: t.Union(
     ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'].map((l) => t.Literal(l)),
     { default: 'info' },

@@ -12,6 +12,8 @@ import { analyticsModule } from './modules/analytics/index.ts'
 import { AnalyticsService } from './modules/analytics/service.ts'
 import { openDataModule } from './modules/open-data/index.ts'
 import { OpenDataService } from './modules/open-data/service.ts'
+import { reportsModule } from './modules/reports/index.ts'
+import { ReportsService } from './modules/reports/service.ts'
 import { schoolsModule } from './modules/schools/index.ts'
 import { SchoolsService } from './modules/schools/service.ts'
 import { settingsModule } from './modules/settings/index.ts'
@@ -30,6 +32,7 @@ export function createApp(ctx: AppContext) {
   const { config, db, auth, queue, log, version } = ctx
   const settings = new SettingsService(db)
   const statuses = new StatusesService(db, settings)
+  const analytics = new AnalyticsService(db)
   // HTTP spans only when an exporter is configured (startTelemetry registered the provider).
   const tracing = config.OTEL_EXPORTER_OTLP_ENDPOINT
     ? opentelemetry({
@@ -51,7 +54,19 @@ export function createApp(ctx: AppContext) {
     .use(statusesModule(statuses))
     .use(openDataModule(new OpenDataService(db, settings, statuses)))
     .use(schoolsModule(new SchoolsService(db)))
-    .use(analyticsModule(new AnalyticsService(db)))
+    .use(analyticsModule(analytics))
+    .use(
+      reportsModule(
+        new ReportsService(
+          db,
+          ctx.blobs,
+          analytics,
+          { secret: config.TURNSTILE_SECRET_KEY, production: config.NODE_ENV === 'production' },
+          log,
+        ),
+        ctx.blobs,
+      ),
+    )
     .use(timelineModule(new TimelineService(db, settings)))
     .use(staffModule(auth, new StaffService(db, auth, config.PUBLIC_URL)))
 

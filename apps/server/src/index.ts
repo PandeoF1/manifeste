@@ -32,7 +32,12 @@ await ctx.queue.start()
 const server =
   config.ROLE === 'worker'
     ? null
-    : createApp(ctx).listen({ port: config.PORT, hostname: '0.0.0.0' })
+    : createApp(ctx).listen({
+        port: config.PORT,
+        hostname: '0.0.0.0',
+        // A report is a form and a 5 MB photo at most.
+        maxRequestBodySize: 8 * 1024 * 1024,
+      })
 if (server) log.info({ port: config.PORT, version: ctx.version }, 'api listening')
 
 if (config.ROLE !== 'api') await startWorker(ctx)

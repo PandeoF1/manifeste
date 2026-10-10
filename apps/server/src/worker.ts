@@ -4,10 +4,12 @@
  */
 import type { AppContext } from './context.ts'
 import { AnalyticsService } from './modules/analytics/service.ts'
+import { PurgeService } from './modules/reports/purge.ts'
 
 export async function startWorker(ctx: AppContext): Promise<void> {
   const { queue, log } = ctx
   const analytics = new AnalyticsService(ctx.db)
+  const purge = new PurgeService(ctx.db, ctx.blobs)
   await queue.define('system.heartbeat', {
     retryLimit: 0,
     expireInSeconds: 60,
@@ -30,5 +32,11 @@ export async function startWorker(ctx: AppContext): Promise<void> {
   await queue.define('analytics.rollup', { retryLimit: 5, policy: 'exclusive' })
   await queue.work('analytics.rollup', () => analytics.rollup())
   await queue.schedule('analytics.rollup', '5 0 * * *', {})
+  await queue.define('privacy.purge-submissions', { retryLimit: 5, policy: 'exclusive' })
+  await queue.work('privacy.purge-submissions', async () => {
+    log.info(await purge.run(), 'submissions purged')
+  })
+  await queue.schedule('privacy.purge-submissions', '17 * * * *', {})
+
   log.info('worker started')
 }
