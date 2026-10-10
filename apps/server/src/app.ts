@@ -8,6 +8,12 @@ import type { AppContext } from './context.ts'
 import { authRoutes } from './auth/plugin.ts'
 import { healthModule } from './modules/health/index.ts'
 import { HealthService } from './modules/health/service.ts'
+import { schoolsModule } from './modules/schools/index.ts'
+import { SchoolsService } from './modules/schools/service.ts'
+import { settingsModule } from './modules/settings/index.ts'
+import { SettingsService } from './modules/settings/service.ts'
+import { statusesModule } from './modules/statuses/index.ts'
+import { StatusesService } from './modules/statuses/service.ts'
 import { staffModule } from './modules/staff/index.ts'
 import { StaffService } from './modules/staff/service.ts'
 import { requestLog } from './plugins/request-log.ts'
@@ -16,6 +22,7 @@ import { spa } from './web/spa.ts'
 
 export function createApp(ctx: AppContext) {
   const { config, db, auth, queue, log, version } = ctx
+  const settings = new SettingsService(db)
   // HTTP spans only when an exporter is configured (startTelemetry registered the provider).
   const tracing = config.OTEL_EXPORTER_OTLP_ENDPOINT
     ? opentelemetry({
@@ -33,6 +40,9 @@ export function createApp(ctx: AppContext) {
     .use(apiDocs(version))
     .use(authRoutes(auth))
     .use(healthModule(new HealthService(db, queue, config.ROLE, version)))
+    .use(settingsModule(settings))
+    .use(statusesModule(new StatusesService(db, settings)))
+    .use(schoolsModule(new SchoolsService(db)))
     .use(staffModule(auth, new StaffService(db, auth, config.PUBLIC_URL)))
 
   return config.WEB_DIST ? app.use(spa(config.WEB_DIST)) : app

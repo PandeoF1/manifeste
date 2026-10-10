@@ -23,6 +23,7 @@
         "@elysiajs/openapi": "1.4.16",
         "@elysiajs/opentelemetry": "1.4.11",
         "@elysiajs/static": "1.4.10",
+        "@manifeste/core": "workspace:*",
         "@manifeste/db": "workspace:*",
         "@opentelemetry/api": "1.9.1",
         "@opentelemetry/exporter-trace-otlp-proto": "0.200.0",
