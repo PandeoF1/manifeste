@@ -197,3 +197,37 @@ describe('schools', () => {
     expect(week.data).toHaveLength(1)
   })
 })
+
+describe('timeline', () => {
+  test('every visible report with the schools it mentions, oldest first', async () => {
+    const res = await s.request('/api/timeline?period=all')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      schools: Array<{ uai: string; name: string }>
+      events: Array<{
+        uai: string
+        status: string
+        at: number
+        sourceKey: string
+        mobilisation: boolean
+      }>
+    }
+    // Pasteur (2), Curie (1), Nanterre (1) and the 30 h old report of the quiet school: all visible.
+    expect(body.events).toHaveLength(5)
+    expect(body.schools.map((x) => x.uai).sort()).toEqual(
+      [uais.pasteur, uais.curie, uais.fac, uais.quiet].sort(),
+    )
+    const times = body.events.map((e) => e.at)
+    expect(times).toEqual([...times].sort((a, b) => a - b))
+    expect(body.events[0]).toMatchObject({ mobilisation: false })
+    expect(body.events.every((e) => e.sourceKey.startsWith('dom:'))).toBe(true)
+    // The hidden, pending and future reports of the quiet school never appear.
+    expect(body.events.filter((e) => e.uai === uais.quiet)).toHaveLength(1)
+  })
+
+  test('a shorter period leaves the older reports out', async () => {
+    const res = await s.request('/api/timeline?period=24h')
+    const body = (await res.json()) as { events: unknown[] }
+    expect(body.events).toHaveLength(4)
+  })
+})
