@@ -106,6 +106,7 @@
       "name": "@manifeste/db",
       "version": "0.2.0",
       "dependencies": {
+        "@manifeste/core": "workspace:*",
         "drizzle-orm": "0.45.4",
         "pg": "^8.23.1",
       },
