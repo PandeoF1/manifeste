@@ -1,0 +1,52 @@
+# Production stack for Coolify ("Docker Compose" resource). Postgres is a separate Coolify
+# database resource (PostGIS image, scheduled backups to R2): DATABASE_URL points at it.
+# The deploy workflow pushes the tested image as :production; set IMAGE to a sha tag to roll back.
+x-app: &app
+  image: ${IMAGE:-ghcr.io/pandeof1/manifest:production}
+  restart: unless-stopped
+  environment: &env
+    NODE_ENV: production
+    DATABASE_URL: ${DATABASE_URL:?}
+    AUTH_SECRET: ${AUTH_SECRET:?}
+    PUBLIC_URL: ${PUBLIC_URL:?}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+    OTEL_SERVICE_NAME: manifeste
+
+services:
+  # One-shot: applies migrations before the new api/worker start.
+  migrate:
+    <<: *app
+    restart: 'no'
+    command: ['bun', 'migrate.js']
+    healthcheck:
+      disable: true
+
+  api:
+    <<: *app
+    environment:
+      <<: *env
+      ROLE: api
+      DATABASE_POOL_MAX: '10'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    expose:
+      - '3000'
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+  worker:
+    <<: *app
+    environment:
+      <<: *env
+      ROLE: worker
+      DATABASE_POOL_MAX: '5'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits: { memory: 512m }

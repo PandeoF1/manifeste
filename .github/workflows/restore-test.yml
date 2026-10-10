@@ -1,0 +1,58 @@
+name: Backup restore test
+
+# Weekly: restore the latest production dump from R2 into a throwaway Postgres and check it.
+# A backup that was never restored is not a backup. Secrets (environment "Backups"):
+# R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BACKUP_BUCKET, R2_BACKUP_PREFIX.
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    environment: Backups
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      PGHOST: localhost
+      PGUSER: postgres
+      BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+      PREFIX: ${{ secrets.R2_BACKUP_PREFIX }}
+      ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - name: Skip when backups are not configured
+        if: ${{ env.BUCKET == '' }}
+        run: echo "::warning::R2 backup secrets are missing, nothing was tested."
+      - name: Download the latest dump
+        if: ${{ env.BUCKET != '' }}
+        run: |
+          latest=$(aws s3 ls "s3://$BUCKET/$PREFIX" --recursive --endpoint-url "$ENDPOINT" | sort | tail -n 1 | awk '{print $4}')
+          test -n "$latest" || { echo "::error::no dump found"; exit 1; }
+          echo "Restoring $latest"
+          aws s3 cp "s3://$BUCKET/$latest" dump --endpoint-url "$ENDPOINT"
+      - name: Restore and check invariants
+        if: ${{ env.BUCKET != '' }}
+        run: |
+          createdb restored
+          if gzip -t dump 2>/dev/null; then gunzip -c dump > dump.restore; else mv dump dump.restore; fi
+          pg_restore --no-owner --no-acl -d restored dump.restore || psql -v ON_ERROR_STOP=1 -q -d restored -f dump.restore
+          psql -v ON_ERROR_STOP=1 -d restored -c "select count(*) as migrations from drizzle.__drizzle_migrations" \
+            -c "select count(*) as staff from auth_user"
