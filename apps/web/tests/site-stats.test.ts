@@ -2,8 +2,8 @@ import { describe, expect, it } from 'bun:test'
 import { formatMetric, parseSiteStats, rate } from '@/lib/siteStats'
 import { pageGroup } from '@/lib/pageGroup'
 
-describe('statistiques du site', () => {
-  it('note les mesures selon les seuils Web Vitals', () => {
+describe('site statistics', () => {
+  it('rates measurements against the Web Vitals thresholds', () => {
     expect(rate('LCP', 2400)).toBe('good')
     expect(rate('LCP', 3000)).toBe('warn')
     expect(rate('LCP', 4100)).toBe('poor')
@@ -14,7 +14,7 @@ describe('statistiques du site', () => {
     expect(formatMetric('API', null)).toBe('-')
   })
 
-  it("n'envoie que le type de page, jamais l'adresse", () => {
+  it('only sends the page type, never the address', () => {
     expect(pageGroup('/')).toBe('carte')
     expect(pageGroup('/lycee/0750001A')).toBe('lycee')
     expect(pageGroup('/liste')).toBe('liste')
@@ -23,7 +23,7 @@ describe('statistiques du site', () => {
     expect(pageGroup('/xyz')).toBe('autre')
   })
 
-  it('lit la réponse de admin_analytics', () => {
+  it('reads the admin_analytics response', () => {
     const s = parseSiteStats({
       live: 3,
       live_pages: { carte: '2' },
@@ -44,8 +44,8 @@ describe('statistiques du site', () => {
   })
 })
 
-describe('zoom des statistiques', () => {
-  it('lit une série et garde les trous (null)', async () => {
+describe('statistics zoom', () => {
+  it('reads a series and keeps the gaps (null)', async () => {
     const { parseSeries } = await import('@/lib/siteStats')
     const s = parseSeries({
       range: '2h',
@@ -75,7 +75,7 @@ describe('zoom des statistiques', () => {
     expect(parseSeries({ range: 'xx' }).range).toBe('24h')
   })
 
-  it('formate les tranches en heure de Paris', async () => {
+  it('formats slots in Paris time', async () => {
     const { formatBucket } = await import('@/lib/siteStats')
     expect(formatBucket('2026-10-06T15:05:00Z', 300)).toBe('17:05')
     expect(formatBucket('2026-10-06T22:00:00Z', 86_400)).toBe('7 oct.')

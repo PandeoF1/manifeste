@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react'
 import { Check, Share2 } from 'lucide-react'
 
-/** Partage natif (téléphone) ou copie du lien (ordinateur). */
+/** Native share (phone) or copy the link (desktop). */
 export function ShareButton({
   url,
   title,
@@ -25,7 +25,7 @@ export function ShareButton({
         await navigator.share({ url: absolute, title, text })
         return
       } catch {
-        // partage annulé : on ne fait rien
+        // share cancelled: do nothing
         return
       }
     }

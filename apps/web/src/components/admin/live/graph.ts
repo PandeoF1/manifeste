@@ -1,4 +1,4 @@
-// Géométrie du diagramme de la collecte en direct et agrégation des événements de trace.
+// Geometry of the live collection diagram and aggregation of trace events.
 import type { TraceNode } from '@shared/trace.ts'
 
 export interface TraceRow {
@@ -24,7 +24,7 @@ export interface NodeDef {
   color: string
 }
 
-/** viewBox 1000 x 600 : services à gauche, lecteurs et collecteur au centre, IA et base à droite. */
+/** viewBox 1000 x 600: services on the left, readers and collector in the centre, AI and database on the right. */
 export const VIEW = { w: 1000, h: 600 }
 const LEFT_X = 118
 const leftY = (i: number) => 66 + i * 78
@@ -131,7 +131,7 @@ export interface EdgeDef {
   from: TraceNode
   to: TraceNode
   path: string
-  /** Point d'ancrage du libellé. */
+  /** Anchor point of the label. */
   lx: number
   ly: number
   anchor: 'start' | 'middle' | 'end'
@@ -148,7 +148,7 @@ const SERVICES: TraceNode[] = [
 ]
 
 function curve(from: NodeDef, to: NodeDef): { path: string; lx: number; ly: number } {
-  // Sortie par le bord le plus proche, courbe de Bézier horizontale.
+  // Exit through the nearest edge, horizontal Bézier curve.
   const dir = to.x >= from.x ? 1 : -1
   const x1 = from.x + (dir * NODE_W) / 2
   const x2 = to.x - (dir * NODE_W) / 2
@@ -164,8 +164,8 @@ function edge(from: TraceNode, to: TraceNode): EdgeDef {
   const a = NODE_BY_ID.get(from) as NodeDef
   const b = NODE_BY_ID.get(to) as NodeDef
   const { path, lx, ly } = curve(a, b)
-  // Compteur près du service (les arêtes convergent vers les lecteurs : au milieu, ils se
-  // chevaucheraient) ; au-dessus pour l'arête courte collecteur → lecteurs.
+  // Counter near the service (the edges converge towards the readers: in the middle, they would
+  // overlap); above for the short collector → readers edge.
   const dir = b.x >= a.x ? 1 : -1
   const nearTarget = {
     lx: b.x - (dir * NODE_W) / 2 - dir * 10,
@@ -190,8 +190,8 @@ export const EDGES: EdgeDef[] = [
 export const EDGE_BY_KEY = new Map(EDGES.map((e) => [e.key, e]))
 
 /**
- * Arête d'un événement. Une collecte d'une seule source lit elle-même ses services
- * (acteur « collecteur ») : on la dessine sur l'arête des lecteurs.
+ * Edge of an event. A single-source collection reads its services itself
+ * (actor "collecteur"): it is drawn on the readers' edge.
  */
 export function edgeFor(actor: string, target: string): EdgeDef | null {
   return EDGE_BY_KEY.get(`${actor}>${target}`) ?? EDGE_BY_KEY.get(`lecteurs>${target}`) ?? null
@@ -241,7 +241,7 @@ export function emptyStats(): RunStats {
   }
 }
 
-/** Intègre un événement dans les statistiques (mutation en place : appelé à chaque image). */
+/** Folds an event into the statistics (mutates in place: called on every frame). */
 export function applyEvent(stats: RunStats, e: TraceRow, at: number): void {
   const t = Date.parse(e.t)
   if (e.phase === 'start') {

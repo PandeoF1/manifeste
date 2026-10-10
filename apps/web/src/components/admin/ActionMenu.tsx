@@ -10,7 +10,7 @@ export interface MenuAction {
   hint?: string
 }
 
-/** Menu d'actions (bouton ⋮) : clavier (flèches, Échap), fermeture au clic extérieur. */
+/** Actions menu (⋮ button): keyboard (arrows, Esc), closes on outside click. */
 export function ActionMenu({ label, actions }: { label: string; actions: MenuAction[] }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)

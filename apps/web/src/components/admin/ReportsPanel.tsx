@@ -35,7 +35,7 @@ const SOURCE_TYPE_LABELS: Record<AdminReport['source_type'], string> = {
   collecteur: 'Collecte',
 }
 
-/** Valeur pour <input type="datetime-local"> (heure locale du navigateur). */
+/** Value for <input type="datetime-local"> (browser local time). */
 function toLocalInput(iso: string): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -46,7 +46,7 @@ function normalize(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
-/** Tous les signaux : recherche, filtre par état, menu d'actions par ligne. */
+/** All signals: search, filter by state, actions menu per row. */
 export function ReportsPanel() {
   const queryClient = useQueryClient()
   const reports = useQuery(reportsQuery)

@@ -1,8 +1,8 @@
 /**
- * Traitement des photos dans le navigateur, avant tout envoi :
- * - redimensionnement (1600 px max) ;
- * - réencodage via canvas, ce qui supprime TOUTES les métadonnées (GPS, appareil, date) ;
- * - floutage irréversible des zones choisies (pixellisation forte + flou).
+ * Photo processing in the browser, before anything is sent:
+ * - resizing (1600 px max);
+ * - re-encoding through a canvas, which removes ALL metadata (GPS, device, date);
+ * - irreversible blurring of the chosen areas (strong pixelation + blur).
  */
 
 export const MAX_SIDE = 1600
@@ -14,7 +14,7 @@ export interface Rect {
   h: number
 }
 
-/** Charge une image en respectant l'orientation EXIF (sans conserver l'EXIF lui-même). */
+/** Loads an image honouring its EXIF orientation (without keeping the EXIF itself). */
 export async function loadImage(file: Blob): Promise<HTMLCanvasElement> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
@@ -28,7 +28,7 @@ export async function loadImage(file: Blob): Promise<HTMLCanvasElement> {
   return canvas
 }
 
-/** Applique un floutage irréversible sur chaque zone (coordonnées en pixels de l'image). */
+/** Applies an irreversible blur on each area (coordinates in image pixels). */
 export function redact(source: HTMLCanvasElement, rects: ReadonlyArray<Rect>): HTMLCanvasElement {
   const out = document.createElement('canvas')
   out.width = source.width
@@ -43,7 +43,7 @@ export function redact(source: HTMLCanvasElement, rects: ReadonlyArray<Rect>): H
     const w = Math.min(out.width - x, Math.ceil(r.w))
     const h = Math.min(out.height - y, Math.ceil(r.h))
     if (w < 2 || h < 2) continue
-    // 1. Pixellisation très grossière (6 blocs max sur le plus grand côté).
+    // 1. Very coarse pixelation (6 blocks max along the longest side).
     const blocks = 6
     const small = document.createElement('canvas')
     small.width = Math.max(1, Math.round((w / Math.max(w, h)) * blocks))
@@ -54,7 +54,7 @@ export function redact(source: HTMLCanvasElement, rects: ReadonlyArray<Rect>): H
     ctx.save()
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(small, 0, 0, small.width, small.height, x, y, w, h)
-    // 2. Flou par-dessus pour casser les arêtes des blocs.
+    // 2. Blur on top to break the block edges.
     ctx.beginPath()
     ctx.rect(x, y, w, h)
     ctx.clip()
@@ -65,7 +65,7 @@ export function redact(source: HTMLCanvasElement, rects: ReadonlyArray<Rect>): H
   return out
 }
 
-/** Encode en JPEG (le canvas n'écrit aucune métadonnée). */
+/** Encodes as JPEG (the canvas writes no metadata). */
 export function toJpeg(canvas: HTMLCanvasElement, quality = 0.85): Promise<Blob> {
   return new Promise((resolve, reject) =>
     canvas.toBlob(

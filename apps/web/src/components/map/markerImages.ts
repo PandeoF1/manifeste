@@ -5,8 +5,8 @@ import { MAP_STATUS_COLORS } from './palette'
 const SIZE = 28
 
 /**
- * Forme distincte par statut (jamais la couleur seule) :
- * bloqué = octogone barré, filtrant = triangle "!", levé = cercle coché.
+ * A distinct shape per status (never colour alone):
+ * blocked = crossed octagon, filtering = "!" triangle, lifted = ticked circle.
  */
 function draw(status: ReportStatus, ratio: number): ImageData {
   const px = SIZE * ratio

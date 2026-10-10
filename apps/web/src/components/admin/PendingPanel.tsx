@@ -18,8 +18,8 @@ import {
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
 /**
- * File de modération. L'admin valide ou rejette ; le modérateur ne peut que valider (la base
- * refuse tout le reste, ce mode sert seulement à ne pas proposer de boutons inutiles).
+ * Moderation queue. The admin validates or rejects; the moderator can only validate (the database
+ * refuses everything else; this mode only avoids offering useless buttons).
  */
 export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
   const queryClient = useQueryClient()
@@ -48,8 +48,8 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
     },
   })
 
-  // Raccourcis (hors signalements avec photo, qui demandent une vérification visuelle) :
-  // j/k naviguer, v valider, r rejeter, o ouvrir la source.
+  // Shortcuts (except reports with a photo, which need a visual check):
+  // j/k navigate, v validate, r reject, o open the source.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null
@@ -254,7 +254,7 @@ function PhotoReview({
   )
 }
 
-/** Avis du juge (Jev) sur le signalement : probabilité que le texte dise bien « bloqué » et nature. */
+/** The judge's (Jev) opinion on the report: probability that the text really says "blocked", and nature. */
 function JudgeOpinion({ r }: { r: PendingReport }) {
   if (r.judge_score === null)
     return (

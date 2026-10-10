@@ -61,7 +61,7 @@ export const pendingQuery = queryOptions({
   refetchInterval: 60_000,
 })
 
-/** Ligne renvoyée par moderator_pending_reports (aucune position, aucune source interne). */
+/** Row returned by moderator_pending_reports (no position, no internal source). */
 interface ModeratorRow {
   id: string
   school_uai: string
@@ -81,7 +81,7 @@ interface ModeratorRow {
   judged_at: string | null
 }
 
-/** File d'attente du modérateur : mêmes champs que l'admin, sans position ni détail des sources. */
+/** Moderator's queue: same fields as the admin's, without position or source details. */
 export const moderatorPendingQuery = queryOptions({
   queryKey: queryKeys.admin.moderatorPending(),
   queryFn: async (): Promise<PendingReport[]> => {
@@ -112,7 +112,7 @@ export const moderatorPendingQuery = queryOptions({
   refetchInterval: 60_000,
 })
 
-/** File d'attente selon le rôle (même forme de données ; le type de clé diffère seulement). */
+/** Queue according to the role (same data shape; only the key type differs). */
 export const pendingQueryFor = (moderator: boolean) =>
   (moderator ? moderatorPendingQuery : pendingQuery) as unknown as typeof pendingQuery
 
@@ -141,7 +141,7 @@ export const trustedDomainsQuery = queryOptions({
 export interface CollectRunResult {
   model: string
   gemini_calls?: number
-  /** Tokens du passage ; la réflexion est facturée comme de la sortie. */
+  /** Tokens of the run; thinking is billed as output. */
   tokens?: { prompt: number; output: number; thoughts: number }
   duration_ms: number
   results: Array<{
@@ -168,7 +168,7 @@ export async function runCollect(sourceId?: string): Promise<CollectRunResult> {
   return data
 }
 
-/** URL temporaire (5 min) d'une photo originale, lisible par le staff uniquement. */
+/** Temporary URL (5 min) of an original photo, readable by staff only. */
 export async function originalPhotoUrl(path: string): Promise<string> {
   const { data, error } = await supabase.storage.from('submissions').createSignedUrl(path, 300)
   if (error) throw error
@@ -178,16 +178,16 @@ export async function originalPhotoUrl(path: string): Promise<string> {
 export type Decision = { kind: 'validate'; photo?: Blob } | { kind: 'reject' }
 
 /**
- * Applique la décision du staff. Pour un signalement avec photo :
- * - la version floutée (si publiée) va dans le bucket public "photos" ;
- * - l'original est supprimé dans tous les cas.
+ * Applies the staff decision. For a report with a photo:
+ * - the blurred version (if published) goes to the public "photos" bucket;
+ * - the original is deleted in every case.
  */
 export async function moderate(report: PendingReport, decision: Decision): Promise<void> {
   let photoPublicPath: string | null = null
   if (decision.kind === 'validate' && decision.photo) {
     photoPublicPath = `${report.id}.jpg`
-    // Pas d'« upsert » : il exige des droits de lecture et de mise à jour sur le bucket, que le
-    // staff n'a pas (insertion et suppression seulement). On retire l'ancienne version, puis on publie.
+    // No "upsert": it requires read and update rights on the bucket, which staff
+    // do not have (insert and delete only). The old version is removed, then the new one published.
     await supabase.storage.from('photos').remove([photoPublicPath])
     const { error } = await supabase.storage
       .from('photos')
@@ -215,10 +215,10 @@ export async function moderate(report: PendingReport, decision: Decision): Promi
 }
 
 /**
- * Validation par un modérateur : seule action permise. La photo floutée, si elle est publiée, est
- * déposée sous le nom <id>.jpg (pas de remplacement ni de suppression : la base le refuse), puis le
- * signalement est validé par une fonction qui n'accepte que ce passage de « en attente » à « validé ».
- * L'original est retiré par la purge horaire.
+ * Validation by a moderator: the only allowed action. The blurred photo, if published, is
+ * stored as <id>.jpg (no replace or delete: the database refuses it), then the
+ * report is validated by a function that only accepts this "pending" to "validated" change.
+ * The original is removed by the hourly purge.
  */
 export async function approveAsModerator(report: PendingReport, photo?: Blob): Promise<void> {
   let photoPublicPath: string | null = null
@@ -249,7 +249,7 @@ export interface ReanalyzeResult {
   }>
 }
 
-/** Réanalyse par l'IA (Edge Function reanalyze) : toutes les extractions, ou une liste. */
+/** AI re-analysis (reanalyze Edge Function): all extractions, or a list. */
 export async function reanalyze(ids?: string[]): Promise<ReanalyzeResult> {
   const { data, error } = await supabase.functions.invoke<ReanalyzeResult>('reanalyze', {
     body: ids ? { ids } : {},
@@ -264,7 +264,7 @@ export type AdminReport = Tables<'reports'> & {
   scrape_sources: { label: string } | null
 }
 
-/** Tous les signaux récents (publiés, en attente, rejetés), pour l'onglet « Signaux ». */
+/** All recent signals (published, pending, rejected), for the "Signals" tab. */
 export const reportsQuery = queryOptions({
   queryKey: queryKeys.admin.reports(),
   queryFn: async (): Promise<AdminReport[]> => {
@@ -304,7 +304,7 @@ export async function deleteReport(report: AdminReport): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-/** Renvoie le signal en « Non rattachés » puis lance la réanalyse de l'IA dessus. */
+/** Sends the signal back to "Unmatched" then runs the AI re-analysis on it. */
 export async function sendBackToAi(id: string): Promise<ReanalyzeResult> {
   const { data, error } = await supabase.rpc('admin_report_to_unmatched', { p_id: id })
   if (error) throw new Error(error.message)
@@ -315,7 +315,7 @@ export type CollectorRun = Tables<'collector_runs'> & {
   collector_item_logs: Tables<'collector_item_logs'>[]
 }
 
-/** Derniers passages d'une source, avec le devenir de chaque élément (7 jours max). */
+/** Latest runs of a source, with what became of each item (7 days max). */
 export const sourceLogQuery = (sourceId: string) =>
   queryOptions({
     queryKey: [...queryKeys.admin.all, 'source-log', sourceId] as const,

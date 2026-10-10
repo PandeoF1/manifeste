@@ -5,7 +5,7 @@ import { Download, RefreshCw, WifiOff, X } from 'lucide-react'
 import { statusesQuery } from '@/queries/statuses'
 
 /**
- * Bandeaux du bas : au-dessus du bouton « Signaler » flottant sur téléphone, en bas sur ordinateur.
+ * Bottom banners: above the floating "Report" button on phones, at the bottom on desktop.
  */
 const NOTICE_CLASS =
   'fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-border p-3 shadow-2xl md:bottom-4'
@@ -45,7 +45,7 @@ export function OfflineBanner() {
   )
 }
 
-/** Nouvelle version disponible : l'utilisateur recharge quand il veut. */
+/** New version available: the user reloads when they want. */
 export function UpdatePrompt() {
   const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined)
   const [updating, setUpdating] = useState(false)
@@ -56,7 +56,7 @@ export function UpdatePrompt() {
     onRegisteredSW(_url, registration) {
       if (!registration) return
       registrationRef.current = registration
-      // Onglets restés ouverts et app réouverte depuis l'écran d'accueil : on revérifie.
+      // Tabs left open and app reopened from the home screen: check again.
       const check = () => {
         if (!registration.installing && navigator.onLine) void registration.update()
       }
@@ -69,9 +69,9 @@ export function UpdatePrompt() {
 
   async function reload() {
     setUpdating(true)
-    // workbox ne recharge la page que pour une mise à jour trouvée par cet onglet au chargement :
-    // trouvée plus tard (vérification périodique, autre onglet), la nouvelle version s'activait
-    // sans que la page se recharge. On recharge donc nous-mêmes dès qu'elle prend la main.
+    // workbox only reloads the page for an update found by this tab at load time:
+    // found later (periodic check, another tab), the new version would activate
+    // without the page reloading. So we reload ourselves as soon as it takes control.
     let done = false
     const go = () => {
       if (done) return
@@ -81,7 +81,7 @@ export function UpdatePrompt() {
     navigator.serviceWorker?.addEventListener('controllerchange', go, { once: true })
     registrationRef.current?.waiting?.postMessage({ type: 'SKIP_WAITING' })
     await updateServiceWorker(true)
-    // Filet de sécurité : rechargement même si l'événement ne vient pas.
+    // Safety net: reload even if the event does not come.
     window.setTimeout(go, 3000)
   }
 
@@ -133,8 +133,8 @@ function safeStorage<T>(fn: () => T, fallback: T): T {
 }
 
 /**
- * Invitation à installer l'app : jamais à la première visite, discrète, et plus jamais une fois
- * refusée. (Préférence stockée localement sur l'appareil, rien n'est envoyé.)
+ * Invitation to install the app: never on the first visit, discreet, and never again once
+ * declined. (Preference stored locally on the device, nothing is sent.)
  */
 export function InstallPrompt() {
   const [event, setEvent] = useState<BeforeInstallPromptEvent | null>(null)

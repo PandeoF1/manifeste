@@ -4,7 +4,7 @@ import { del, get, set } from 'idb-keyval'
 
 const KEY = 'manifest-cache-v1'
 
-/** Cache des données publiques dans IndexedDB : dernier état connu affiché hors ligne. */
+/** Cache of public data in IndexedDB: last known state shown offline. */
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister: createAsyncStoragePersister({
     storage: {
@@ -18,7 +18,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   maxAge: 24 * 3_600_000,
   buster: '1',
   dehydrateOptions: {
-    // Uniquement les données publiques (jamais l'admin ni la session).
+    // Public data only (never the admin nor the session).
     shouldDehydrateQuery: (q) =>
       q.state.status === 'success' && (q.queryKey[0] === 'statuses' || q.queryKey[0] === 'school'),
   },

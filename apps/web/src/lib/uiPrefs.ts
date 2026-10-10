@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react'
 
 /**
- * Panneaux de la carte que le visiteur peut replier (menu latéral sur ordinateur, encart des chiffres sur
- * téléphone, médaillons d'outre-mer). Mémorisé sur l'appareil uniquement ; tout est visible par défaut.
+ * Map panels the visitor can collapse (side menu on desktop, figures card on
+ * phone, overseas insets). Remembered on the device only; everything is visible by default.
  */
 export type PanelKey = 'side' | 'stats' | 'overseas'
 
@@ -23,7 +23,7 @@ export function createPanelPrefs(storage: () => KeyValueStorage | undefined) {
     const parsed: unknown = raw ? JSON.parse(raw) : []
     if (Array.isArray(parsed)) for (const k of parsed) if (ALL.includes(k)) hidden.add(k)
   } catch {
-    // stockage indisponible ou contenu illisible : tout reste visible
+    // storage unavailable or unreadable content: everything stays visible
   }
 
   return {
@@ -34,7 +34,7 @@ export function createPanelPrefs(storage: () => KeyValueStorage | undefined) {
       try {
         storage()?.setItem(STORAGE_KEY, JSON.stringify([...hidden]))
       } catch {
-        // navigation privée : le choix vaut pour la session
+        // private browsing: the choice lasts for the session
       }
       listeners.forEach((l) => l())
     },
@@ -47,7 +47,7 @@ export function createPanelPrefs(storage: () => KeyValueStorage | undefined) {
 
 const prefs = createPanelPrefs(() => (typeof window === 'undefined' ? undefined : localStorage))
 
-/** [replié ?, bascule] pour un panneau de la carte. */
+/** [collapsed?, toggle] for a map panel. */
 export function usePanelHidden(key: PanelKey): [boolean, () => void] {
   const hidden = useSyncExternalStore(
     prefs.subscribe,

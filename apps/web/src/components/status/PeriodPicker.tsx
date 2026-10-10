@@ -2,8 +2,8 @@ import { History } from 'lucide-react'
 import { PERIODS, PERIOD_SHORT_LABELS, type Period } from '@/lib/periods'
 
 /**
- * Choix de la période : barre segmentée de boutons bascule. Avec `history`, un dernier bouton
- * « Historique » ouvre la frise pour rejouer la carte ; il remplace alors le choix de période.
+ * Period choice: segmented bar of toggle buttons. With `history`, a last button
+ * "Historique" opens the timeline to replay the map; it then replaces the period choice.
  */
 export function PeriodPicker({
   value,

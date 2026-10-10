@@ -16,11 +16,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 function RootLayout() {
-  // Partie publique : thème choisi (sombre par défaut) ; l'admin suit le thème système.
-  // Le thème est posé sur <html> : le fond de la page entière suit, jamais de bande claire.
+  // Public side: chosen theme (dark by default); the admin follows the system theme.
+  // The theme is set on <html>: the whole page background follows, never a light band.
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const theme = useTheme()
-  // Pages intégrées (iframe) : sombre par défaut, clair avec ?theme=clair ; sans menus.
+  // Embedded pages (iframe): dark by default, light with ?theme=clair; no menus.
   const embed = pathname.startsWith('/embed')
   const embedTheme: Theme =
     embed && new URLSearchParams(window.location.search).get('theme') === 'clair' ? 'light' : 'dark'
@@ -55,8 +55,8 @@ function RootLayout() {
 }
 
 /**
- * Téléphone : à la fermeture du clavier, certains navigateurs laissent la fenêtre défilée
- * (elle l'a été pour montrer le champ). On la remet en place.
+ * Phone: when the keyboard closes, some browsers leave the window scrolled
+ * (it was scrolled to show the field). Put it back.
  */
 function useKeyboardScrollReset() {
   useEffect(() => {

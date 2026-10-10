@@ -16,7 +16,7 @@ export const Route = createFileRoute('/embed/carte')({
 
 const VIEW: MapViewState = { lat: 46.6, lng: 2.4, z: 4.6 }
 
-/** La carte seule, à intégrer sur un autre site (iframe). Un clic ouvre la fiche dans un onglet. */
+/** The map alone, to embed on another site (iframe). A click opens the school page in a tab. */
 function EmbedCarte() {
   const { data: statuses = [] } = useQuery(statusesQuery)
   const theme = useTheme()

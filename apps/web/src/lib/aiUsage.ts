@@ -1,4 +1,4 @@
-// Onglet « Coût IA » : lecture de admin_ai_usage et agrégation pour les graphiques.
+// "AI cost" tab: reads admin_ai_usage and aggregates it for the charts.
 
 export type AiTask = 'extraction' | 'media' | 'reanalyse' | 'backfill' | 'judge'
 
@@ -11,13 +11,13 @@ export const TASK_LABEL: Record<AiTask, string> = {
 }
 
 export interface UsageRow {
-  /** Jour calendaire (heure de Paris), « 2026-10-06 ». */
+  /** Calendar day (Paris time), "2026-10-06". */
   day: string
   task: AiTask
   model: string
   calls: number
   prompt: number
-  /** Sortie, réflexion comprise (facturée au même tarif). */
+  /** Output, thinking included (billed at the same rate). */
   output: number
   thoughts: number
 }
@@ -40,7 +40,7 @@ export function parseAiUsage(raw: unknown): UsageRow[] {
     }))
 }
 
-/** Modèles connus, du moins cher au plus cher : une couleur fixe par modèle, jamais décalée. */
+/** Known models, cheapest first: one fixed colour per model, never shifted. */
 const KNOWN_MODELS = [
   'gemini-3.5-flash-lite',
   'gemini-3.5-flash',
@@ -51,14 +51,14 @@ const KNOWN_MODELS = [
 export interface ModelSeries {
   key: string
   label: string
-  /** Variable CSS de la série ; les modèles au-delà de 4 sont regroupés dans « Autres ». */
+  /** CSS variable of the series; models beyond the 4th are grouped under "Others". */
   color: string
 }
 
 const SERIES_VARS = ['--series-1', '--series-2', '--series-3', '--series-4'] as const
 export const OTHER_MODELS = 'autres'
 
-/** « gemini-3.5-flash-lite » -> « Gemini 3.5 Flash Lite ». */
+/** "gemini-3.5-flash-lite" -> "Gemini 3.5 Flash Lite". */
 export function modelLabel(model: string): string {
   if (model === OTHER_MODELS) return 'Autres modèles'
   return model
@@ -68,8 +68,8 @@ export function modelLabel(model: string): string {
 }
 
 /**
- * Séries du graphique : les modèles utilisés sur la période, dans l'ordre fixe des modèles
- * connus puis les inconnus par nom ; au-delà de 4, le reste est regroupé dans « Autres ».
+ * Chart series: the models used over the period, in the fixed order of known models
+ * then unknown ones by name; beyond 4, the rest is grouped under "Others".
  */
 export function seriesFor(models: Iterable<string>): ModelSeries[] {
   const used = [...new Set(models)].sort((a, b) => {
@@ -77,7 +77,7 @@ export function seriesFor(models: Iterable<string>): ModelSeries[] {
     const ib = KNOWN_MODELS.indexOf(b)
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b)
   })
-  // La couleur suit le modèle (sa place dans l'ordre connu), pas son rang dans la période.
+  // The colour follows the model (its place in the known order), not its rank in the period.
   const colorOf = (m: string, i: number) => {
     const k = KNOWN_MODELS.indexOf(m)
     return SERIES_VARS[k >= 0 && k < SERIES_VARS.length ? k : Math.min(i, SERIES_VARS.length - 1)]
@@ -98,12 +98,12 @@ export function seriesFor(models: Iterable<string>): ModelSeries[] {
 
 export interface DayBucket {
   day: string
-  /** Valeur par série (même ordre que `series`). */
+  /** Value per series (same order as `series`). */
   values: number[]
   total: number
 }
 
-/** Un compteur par jour (zéro les jours sans appel) et par série, sur les `days` derniers jours. */
+/** One counter per day (zero on days without calls) and per series, over the last `days` days. */
 export function dailyBuckets(
   rows: ReadonlyArray<UsageRow>,
   series: ReadonlyArray<ModelSeries>,
@@ -153,7 +153,7 @@ export function totals(rows: ReadonlyArray<UsageRow>): Totals {
   )
 }
 
-/** Totaux par tâche, de la plus gourmande (entrée + sortie) à la moins gourmande. */
+/** Totals per task, from the most to the least token-hungry (input + output). */
 export function byTask(rows: ReadonlyArray<UsageRow>): Array<{ task: AiTask } & Totals> {
   const map = new Map<AiTask, UsageRow[]>()
   for (const r of rows) map.set(r.task, [...(map.get(r.task) ?? []), r])
@@ -162,7 +162,7 @@ export function byTask(rows: ReadonlyArray<UsageRow>): Array<{ task: AiTask } & 
     .sort((a, b) => b.prompt + b.output - (a.prompt + a.output))
 }
 
-/** « 1 234 » ; au-delà d'un million « 1,2 M », pour les valeurs de l'axe et des tuiles. */
+/** "1 234"; above a million "1,2 M", for axis and tile values. */
 export function compactTokens(n: number): string {
   if (n >= 1_000_000)
     return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace('.', ',')} M`

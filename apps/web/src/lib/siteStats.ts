@@ -1,4 +1,4 @@
-// Tableau de bord « Stats » : lecture de admin_analytics et seuils des Web Vitals.
+// "Stats" dashboard: reads admin_analytics and the Web Vitals thresholds.
 
 export interface DailyPoint {
   day: string
@@ -30,7 +30,7 @@ export interface SiteStats {
 export type Metric = 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB' | 'API'
 export type Rating = 'good' | 'warn' | 'poor'
 
-/** Seuils « bon » / « à améliorer » de Google (Web Vitals) ; API : les nôtres. */
+/** Google's "good" / "needs improvement" thresholds (Web Vitals); API: our own. */
 export const METRIC_INFO: Record<
   Metric,
   { label: string; help: string; good: number; poor: number; unit: 'ms' | '' }
@@ -112,7 +112,7 @@ export const PAGE_LABEL: Record<string, string> = {
 const num = (v: unknown) => (typeof v === 'number' ? v : Number(v ?? 0) || 0)
 const numOrNull = (v: unknown) => (v == null ? null : Number(v))
 
-/** Valide la réponse JSON (types souples côté base : nombres parfois en texte). */
+/** Validates the JSON response (loose types on the database side: numbers sometimes as text). */
 export function parseSiteStats(raw: unknown): SiteStats {
   const r = (raw ?? {}) as Record<string, unknown>
   const arr = (v: unknown) => (Array.isArray(v) ? (v as Record<string, unknown>[]) : [])
@@ -142,7 +142,7 @@ export function parseSiteStats(raw: unknown): SiteStats {
   }
 }
 
-/** Périodes du zoom (tranches : 5 min, 15 min, 1 h, 1 jour). */
+/** Zoom periods (slots: 5 min, 15 min, 1 h, 1 day). */
 export const RANGES = [
   { id: '2h', label: '2 h' },
   { id: '24h', label: '24 h' },
@@ -155,7 +155,7 @@ export type RangeId = (typeof RANGES)[number]['id']
 export interface SeriesPoint {
   t: string
   views: number
-  /** Nouveaux visiteurs de la tranche (infra-journalier) ou uniques du jour ; null = inconnu. */
+  /** New visitors of the slot (intraday) or unique visitors of the day; null = unknown. */
   visitors: number | null
   online: number | null
   lcp: number | null
@@ -204,7 +204,7 @@ export function parseSeries(raw: unknown): Series {
   }
 }
 
-/** Libellé d'une tranche selon sa durée (heure de Paris). */
+/** Label of a slot according to its duration (Paris time). */
 export function formatBucket(iso: string, stepSeconds: number, long = false): string {
   const d = new Date(iso)
   const tz = 'Europe/Paris'
@@ -231,7 +231,7 @@ export function formatBucket(iso: string, stepSeconds: number, long = false): st
   return time
 }
 
-/** Libellé court pour l'axe : heure (infra-horaire), jour (horaire ou journalier). */
+/** Short axis label: hour (sub-hourly), day (hourly or daily). */
 export function formatAxis(iso: string, stepSeconds: number): string {
   const d = new Date(iso)
   const tz = 'Europe/Paris'

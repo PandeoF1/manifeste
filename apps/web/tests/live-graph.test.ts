@@ -24,19 +24,19 @@ const row = (o: Partial<TraceRow>): TraceRow => ({
 })
 
 describe('edgeFor', () => {
-  it('trouve l’arête de chaque service, y compris depuis le collecteur (une seule source)', () => {
+  it('finds the edge of each service, including from the collector (single source)', () => {
     expect(edgeFor('lecteurs', 'telegram')?.key).toBe('lecteurs>telegram')
     expect(edgeFor('collecteur', 'telegram')?.key).toBe('lecteurs>telegram')
     expect(edgeFor('collecteur', 'gemini')?.key).toBe('collecteur>gemini')
     expect(edgeFor('collecteur', 'inconnu')).toBeNull()
   })
-  it('chaque arête a un tracé', () => {
+  it('every edge has a path', () => {
     expect(EDGES.every((e) => e.path.startsWith('M '))).toBe(true)
   })
 })
 
 describe('applyEvent', () => {
-  it('compte requêtes en vol, erreurs, durées et issues en base', () => {
+  it('counts in-flight requests, errors, durations and database outcomes', () => {
     const s = emptyStats()
     applyEvent(s, row({ actor: 'collecteur', target: 'collecteur', phase: 'start', n: 100 }), 0)
     applyEvent(s, row({ phase: 'req', label: 'ladepeche.fr/rss.xml' }), 1)

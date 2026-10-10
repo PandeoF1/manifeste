@@ -49,8 +49,8 @@ const raw = [
   },
 ]
 
-describe('lecture de admin_ai_usage', () => {
-  it('compte la réflexion dans la sortie et ignore les tâches inconnues', () => {
+describe('reading admin_ai_usage', () => {
+  it('counts thinking as output and ignores unknown tasks', () => {
     const rows = parseAiUsage(raw)
     expect(rows).toHaveLength(3)
     expect(rows[0]).toMatchObject({ prompt: 20000, output: 5000, thoughts: 1000 })
@@ -58,8 +58,8 @@ describe('lecture de admin_ai_usage', () => {
   })
 })
 
-describe('séries par modèle', () => {
-  it('ordonne les modèles connus et garde leur couleur, même si un autre manque', () => {
+describe('series per model', () => {
+  it('orders known models and keeps their colour, even if another is missing', () => {
     expect(
       seriesFor(['gemini-3.8-flash', 'gemini-3.5-flash-lite']).map((s) => [s.key, s.color]),
     ).toEqual([
@@ -67,7 +67,7 @@ describe('séries par modèle', () => {
       ['gemini-3.8-flash', 'var(--series-4)'],
     ])
   })
-  it('regroupe au-delà de 4 modèles dans « Autres »', () => {
+  it('groups models beyond 4 under "Autres"', () => {
     const s = seriesFor([
       'gemini-3.5-flash-lite',
       'gemini-3.5-flash',
@@ -83,26 +83,26 @@ describe('séries par modèle', () => {
       'autres',
     ])
   })
-  it('met en forme le nom', () => {
+  it('formats the name', () => {
     expect(modelLabel('gemini-3.5-flash-lite')).toBe('Gemini 3.5 Flash Lite')
   })
 })
 
-describe('agrégation', () => {
+describe('aggregation', () => {
   const rows = parseAiUsage(raw)
   const series = seriesFor(rows.map((r) => r.model))
-  it('un compteur par jour, zéro les jours sans appel', () => {
+  it('one counter per day, zero on days without calls', () => {
     const b = dailyBuckets(rows, series, 'prompt', 3, '2026-10-08')
     expect(b.map((d) => d.day)).toEqual(['2026-10-06', '2026-10-07', '2026-10-08'])
     expect(b.map((d) => d.total)).toEqual([0, 20000, 39000])
-    // série 0 : Flash-Lite ; série 1 : 3.8 Flash
+    // series 0: Flash-Lite; series 1: 3.8 Flash
     expect(b[2]?.values).toEqual([39000, 0])
   })
-  it('totaux et classement des tâches', () => {
+  it('totals and ranking of tasks', () => {
     expect(totals(rows)).toMatchObject({ calls: 6, prompt: 59000, output: 14000 })
     expect(byTask(rows).map((t) => t.task)).toEqual(['extraction', 'media'])
   })
-  it('abrège les grands nombres', () => {
+  it('abbreviates large numbers', () => {
     expect(compactTokens(950)).toBe('950')
     expect(compactTokens(1500)).toBe('1,5 k')
     expect(compactTokens(42000)).toBe('42 k')
@@ -110,12 +110,12 @@ describe('agrégation', () => {
   })
 })
 
-describe('enregistrement', () => {
+describe('recording', () => {
   const usage = {
     a: { calls: 2, promptTokens: 10, outputTokens: 3, thoughtsTokens: 1 },
     b: { calls: 0, promptTokens: 0, outputTokens: 0, thoughtsTokens: 0 },
   }
-  it("n'enregistre que les modèles qui ont répondu", () => {
+  it('only records the models that answered', () => {
     expect(usageRows('media', usage)).toEqual([
       {
         task: 'media',
@@ -127,7 +127,7 @@ describe('enregistrement', () => {
       },
     ])
   })
-  it('ne fait jamais échouer la collecte', async () => {
+  it('never makes the collection fail', async () => {
     const calls: unknown[] = []
     await recordAiUsage(
       { rpc: async (fn, args) => (calls.push([fn, args]), { error: { message: 'absente' } }) },

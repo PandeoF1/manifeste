@@ -38,7 +38,7 @@ export class SubmitError extends Error {
   }
 }
 
-/** Envoie le signalement à l'Edge Function submit-report (multipart). */
+/** Sends the report to the submit-report Edge Function (multipart). */
 export async function submitReport(form: FormData): Promise<void> {
   let res: Response
   try {

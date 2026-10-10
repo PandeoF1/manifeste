@@ -10,13 +10,13 @@ interface Props {
   stats: NationalStats
   updatedAt: number
   isError: boolean
-  /** Variante compacte (overlay mobile). */
+  /** Compact variant (mobile overlay). */
   compact?: boolean
-  /** Période passée : « ces 7 derniers jours »… (absent en direct). */
+  /** Past period: "ces 7 derniers jours"… (absent when live). */
   history?: string
-  /** Sélecteur de période, affiché sous l'en-tête. */
+  /** Period selector, shown under the header. */
   picker?: ReactNode
-  /** Établissements avec une mobilisation signalée (niveaux du juge) : en plus des comptes ci-dessus. */
+  /** Schools with a reported mobilisation (judge tiers): in addition to the counts above. */
   mobilises?: number
 }
 
@@ -72,7 +72,7 @@ export function HeroStats({
       <h2 id="hero-title" className={compact ? 'sr-only' : 'text-sm font-semibold text-muted'}>
         Partout en France, les lycéens et les étudiants se font entendre.
       </h2>
-      {/* Lecteurs d'écran : une phrase complète, mise à jour sans annoncer l'animation. */}
+      {/* Screen readers: one full sentence, updated without announcing the animation. */}
       <p className="sr-only" aria-live="polite">
         {history ? `${history[0]?.toUpperCase()}${history.slice(1)}, ` : ''}
         {stats.bloque} établissement{plural(stats.bloque)} {history ? 'ont été ' : ''}

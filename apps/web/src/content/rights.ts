@@ -1,6 +1,6 @@
-// Repères juridiques et sanitaires affichés dans la fenêtre « Tes droits ». Rédigés d'après
-// justice.fr, service-public.fr, le Défenseur des droits, la LDH et des sources médicales ;
-// informations générales, pas un conseil juridique.
+// Legal and health guidance shown in the "Tes droits" window. Written from
+// justice.fr, service-public.fr, the Défenseur des droits, the LDH and medical sources;
+// general information, not legal advice.
 
 export interface RightsSection {
   id: string
@@ -11,7 +11,7 @@ export interface RightsSection {
 export interface RightsLink {
   label: string
   href: string
-  /** Numéro de téléphone à côté du lien, s'il y en a un. */
+  /** Phone number next to the link, if there is one. */
   phone?: string
 }
 

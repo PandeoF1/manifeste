@@ -9,7 +9,7 @@ export const Route = createFileRoute('/embed/chiffres')({
   component: EmbedChiffres,
 })
 
-/** Chiffres à intégrer sur un autre site (iframe) : compteur en direct et courbe jour par jour. */
+/** Figures to embed on another site (iframe): live counter and day-by-day curve. */
 function EmbedChiffres() {
   const resume = useQuery(resumeQuery)
   const jours = useQuery(joursQuery)

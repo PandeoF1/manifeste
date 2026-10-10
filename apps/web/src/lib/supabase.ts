@@ -12,7 +12,7 @@ if (!url || !anonKey) {
 
 export const supabase = createClient<Database>(url, anonKey, {
   auth: {
-    // La session n'existe que pour l'admin ; le public n'a jamais de session.
+    // A session only exists for the admin; the public never has one.
     persistSession: true,
     autoRefreshToken: true,
   },

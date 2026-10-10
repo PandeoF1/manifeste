@@ -24,7 +24,7 @@ export interface JudgedReport {
 const PAGE = 1000
 const MAX_PAGES = 10
 
-/** Signalements publiés avec l'avis du juge (lecture seule, pour la page « Juge » de l'admin). */
+/** Published reports with the judge's opinion (read only, for the admin "Judge" page). */
 export const judgedReportsQuery = queryOptions({
   queryKey: [...queryKeys.admin.all, 'judge'],
   queryFn: async (): Promise<JudgedReport[]> => {

@@ -4,12 +4,12 @@ import { supabase } from './supabase'
 import { queryKeys } from './queryKeys'
 import { debounce } from './debounce'
 
-/** Une rafale d'insertions (collecteur) ne déclenche qu'un seul rechargement. */
+/** A burst of inserts (collector) triggers a single refetch. */
 const REFETCH_DELAY_MS = 3000
 
 /**
- * Écoute les reports (la RLS limite le public aux reports validés)
- * et invalide les queries concernées.
+ * Listens to reports (RLS limits the public to validated reports)
+ * and invalidates the relevant queries.
  */
 export function useReportsRealtime() {
   const queryClient = useQueryClient()

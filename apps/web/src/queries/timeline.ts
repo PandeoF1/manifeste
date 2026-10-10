@@ -5,9 +5,9 @@ import { periodSince, type PublicSettings } from '@/lib/periods'
 import { parseTimeline, type TimelineData } from '@/lib/timeline'
 
 /**
- * Tous les signalements validés depuis le début du mouvement, pour rejouer la carte.
- * Chargé seulement en mode « Historique » ; rafraîchi toutes les 5 minutes (pas à chaque
- * signalement : la réponse est lourde).
+ * All validated reports since the start of the movement, to replay the map.
+ * Loaded only in "History" mode; refreshed every 5 minutes (not on every
+ * report: the response is heavy).
  */
 export const timelineQuery = (settings: PublicSettings) =>
   queryOptions<TimelineData>({

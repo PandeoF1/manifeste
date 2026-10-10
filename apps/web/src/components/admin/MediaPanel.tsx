@@ -37,7 +37,7 @@ const mediaQuery = (days: number) => ({
   },
 })
 
-/** Choix du seuil d'affichage et d'export (articles minimum par média). */
+/** Choice of the display and export threshold (minimum articles per outlet). */
 const MIN_OPTIONS = [1, 5, 10, 15, 30] as const
 
 const pct = (x: number) => `${Math.round(x * 100)} %`
@@ -64,7 +64,7 @@ const TONE_CLASS: Record<MediaRow['tone'], string> = {
   defavorable: 'text-poor',
 }
 
-/** Traitement médiatique de la mobilisation : chiffres par média ou propriétaire, articles. */
+/** Media treatment of the mobilisation: figures per outlet or owner, articles. */
 export function MediaPanel() {
   const [days, setDays] = useState<number>(30)
   const [by, setBy] = useState<'outlet' | 'owner'>('outlet')
@@ -393,7 +393,7 @@ function Th({ title, children }: { title: string; children: React.ReactNode }) {
   )
 }
 
-/** Part en % avec une petite barre (vert si « plus c'est haut, mieux c'est »). */
+/** Share in % with a small bar (green if "higher is better"). */
 function Bar({ value, good = false }: { value: number; good?: boolean }) {
   return (
     <td className="p-3">

@@ -93,7 +93,7 @@ interface View {
   now: number
 }
 
-/** Copie des statistiques pour le rendu (les refs, elles, sont mises à jour à chaque événement). */
+/** Copy of the statistics for rendering (the refs are updated on every event). */
 function snapshot(st: RunStats): RunStats {
   return {
     ...st,
@@ -153,7 +153,7 @@ function LiveCollect() {
   }, [])
   const stream = useTraceStream(onEvent)
 
-  // Rafraîchit compteurs et terminal ~7 fois par seconde (les particules, elles, vont à 60 i/s).
+  // Refreshes counters and terminal ~7 times per second (the particles run at 60 fps).
   useEffect(() => {
     const id = window.setInterval(() => {
       setView({
@@ -180,7 +180,7 @@ function LiveCollect() {
       const { error } = await supabase.functions.invoke('collect', {
         body: sourceId ? { source_id: sourceId, run_id: runId } : { run_id: runId },
       })
-      // La collecte peut dépasser le délai de réponse : les traces, elles, continuent d'arriver.
+      // The collection may exceed the response time limit: the traces keep arriving.
       if (error) setInvokeError(error.message)
     })
   }

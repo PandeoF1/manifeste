@@ -1,4 +1,4 @@
-// Factory centralisée des query keys.
+// Central factory of query keys.
 export const queryKeys = {
   statuses: {
     all: ['statuses'] as const,
@@ -8,7 +8,7 @@ export const queryKeys = {
       [...queryKeys.statuses.all, 'period', period, start] as const,
   },
   settings: ['settings'] as const,
-  // Hors de `statuses` : l'historique est lourd, il ne se recharge pas à chaque signalement.
+  // Outside `statuses`: history is heavy, it does not reload on every report.
   timeline: (start: string) => ['timeline', start] as const,
   donnees: (vue: string) => ['donnees', vue] as const,
   school: (uai: string) => ['school', uai] as const,

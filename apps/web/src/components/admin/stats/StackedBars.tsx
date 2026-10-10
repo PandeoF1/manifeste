@@ -8,7 +8,7 @@ const PAD_BOTTOM = 26
 const PAD_LEFT = 40
 const H = 170
 
-/** Largeur réelle du conteneur : le graphique est dessiné en pixels, le texte garde sa taille. */
+/** Real width of the container: the chart is drawn in pixels, the text keeps its size. */
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -25,9 +25,9 @@ function useWidth() {
 }
 
 /**
- * Une barre par jour, empilée par série (ici : un modèle). Le détail du jour s'affiche au-dessus
- * (survol ou toucher, par défaut le jour le plus chargé) ; la légende nomme chaque couleur et le
- * tableau complet est proposé pour les lecteurs d'écran.
+ * One bar per day, stacked by series (here: a model). The day's detail is shown above
+ * (hover or touch, by default the busiest day); the legend names each colour and the
+ * full table is offered for screen readers.
  */
 export function StackedBars({
   days,
@@ -37,7 +37,7 @@ export function StackedBars({
 }: {
   days: DayBucket[]
   series: ModelSeries[]
-  /** Ce que mesure le graphique, pour le texte alternatif (« tokens d'entrée »). */
+  /** What the chart measures, for the alternative text ("tokens d'entrée"). */
   unit: string
   title: string
 }) {
@@ -60,7 +60,7 @@ export function StackedBars({
   const peak = days[peakIndex] ?? first
   const shownIndex = hover ?? peakIndex
   const shown = days[shownIndex] ?? peak
-  // Une étiquette tous les ~70 px : jamais de dates qui se chevauchent sur un téléphone.
+  // One label every ~70 px: never overlapping dates on a phone.
   const labelEvery = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(plotW / 70))))
   const ticks = [0, top / 2, top]
 
@@ -129,7 +129,7 @@ export function StackedBars({
                   const y1 = y(acc)
                   acc += v
                   const y2 = y(acc)
-                  // Un filet de la couleur du fond sépare les segments empilés.
+                  // A hairline in the background colour separates the stacked segments.
                   return v > 0 ? (
                     <rect
                       key={s.key}

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Check, Search } from 'lucide-react'
 import { searchSchoolsQuery } from '@/queries/report'
 
-/** Recherche d'un établissement du référentiel (nom, ville) avec choix en un clic. */
+/** Search of a school in the directory (name, city) with one-click choice. */
 export function SchoolSearch({
   initial,
   busy,

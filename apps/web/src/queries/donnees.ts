@@ -13,7 +13,7 @@ export interface Resume {
   departements: number
   facs: number
   sites_sources: number
-  /** Établissements avec seulement une mobilisation signalée (niveaux du juge allumés), sinon 0. */
+  /** Schools with only a reported mobilisation (judge tiers on), else 0. */
   mobilises?: number
   pic: { jour: string; etablissements: number; departements: number } | null
   en_ce_moment: { bloques: number; filtrants: number }
@@ -34,7 +34,7 @@ export interface Jour {
   via_organisations: number
   via_autres_sources: number
   via_signalements_sur_place: number
-  /** Mobilisations signalées ce jour-là (niveaux du juge allumés), en plus des établissements. */
+  /** Mobilisations reported that day (judge tiers on), in addition to the schools. */
   mobilises?: number
   mobilises_lycees?: number
   mobilises_facs?: number
@@ -60,7 +60,7 @@ interface Vues {
   academies: Zone[]
 }
 
-/** L'API nomme la colonne « departement » ou « academie » ; la page utilise « zone » partout. */
+/** The API names the column "departement" or "academie"; the page uses "zone" everywhere. */
 function normalize<K extends keyof Vues>(vue: K, data: Vues[K]): Vues[K] {
   if ((vue !== 'departements' && vue !== 'academies') || !Array.isArray(data)) return data
   const key = vue === 'departements' ? 'departement' : 'academie'
@@ -71,8 +71,8 @@ function normalize<K extends keyof Vues>(vue: K, data: Vues[K]): Vues[K] {
 }
 
 /**
- * Les données ouvertes sont servies par /api/donnees (cache de 5 minutes au CDN, ouvert à
- * tous). Si la route est absente (développement) ou en panne, on interroge la base.
+ * Open data is served by /api/donnees (5-minute CDN cache, open to
+ * everyone). If the route is missing (development) or down, the database is queried.
  */
 async function fetchVue<K extends keyof Vues>(vue: K): Promise<Vues[K]> {
   try {
@@ -82,7 +82,7 @@ async function fetchVue<K extends keyof Vues>(vue: K): Promise<Vues[K]> {
       if (body.donnees != null) return normalize(vue, body.donnees)
     }
   } catch {
-    // repli ci-dessous
+    // fallback below
   }
   const { data, error } = await supabase.rpc('open_data', { p_view: vue })
   if (error) throw error

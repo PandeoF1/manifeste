@@ -51,7 +51,7 @@ export const Route = createFileRoute('/admin')({
   head: () => ({ meta: [{ name: 'robots', content: 'noindex' }] }),
 })
 
-/** Onglets d'un modérateur : valider, traiter les établissements proposés, lire stats et médias. */
+/** Moderator's tabs: validate, handle proposed schools, read stats and media. */
 const MODERATOR_TABS: readonly Tab[] = ['moderation', 'lycees', 'non-rattaches', 'stats', 'medias']
 
 function AdminPage() {

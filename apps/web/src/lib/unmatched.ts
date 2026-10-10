@@ -1,4 +1,4 @@
-/** Recherche de départ : le nom sans le mot « lycée », plus la ville. */
+/** Starting search: the name without the word "lycée", plus the city. */
 export function initialQuery(u: { school_name: string; city: string | null }): string {
   const name = u.school_name
     .replace(

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-/** Horloge partagée par les libellés "il y a X min" (rafraîchie toutes les 30 s). */
+/** Clock shared by the "il y a X min" labels (refreshed every 30 s). */
 export function useNow(intervalMs = 30_000): Date {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {

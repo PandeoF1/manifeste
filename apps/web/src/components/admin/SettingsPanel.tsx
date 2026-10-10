@@ -59,7 +59,7 @@ const rawSettingsQuery = {
   },
 }
 
-/** Réglages du site, modifiables sans redéploiement (validés côté base). */
+/** Site settings, editable without a redeploy (validated on the database side). */
 export function SettingsPanel() {
   const queryClient = useQueryClient()
   const settings = useQuery(rawSettingsQuery)

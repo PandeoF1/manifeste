@@ -5,9 +5,9 @@ import type { Tables, Views } from '@/lib/database.types'
 import { periodSince, type Period, type PublicSettings } from '@/lib/periods'
 
 export type SchoolStatus = Views<'school_current_status'> & {
-  /** Périodes passées : nombre de jours avec un signal bloqué ou filtrant. */
+  /** Past periods: number of days with a blocked or filtering signal. */
   signal_days?: number
-  /** Niveaux du juge : simple mobilisation signalée (ajoutée par l'appli aux listes, jamais par la base). */
+  /** Judge tiers: a mere reported mobilisation (added by the app to lists, never by the database). */
   mobilisation?: boolean
 }
 export type PublicReport = Pick<
@@ -24,8 +24,8 @@ export type PublicReport = Pick<
 const REFRESH_MS = 60_000
 
 /**
- * Liste servie par Vercel avec un cache de 30 s (moins de latence, moins de charge sur la base).
- * Toute réponse inattendue (route absente en développement, panne) : on interroge la base.
+ * List served by Vercel with a 30 s cache (less latency, less load on the database).
+ * Any unexpected response (route missing in development, outage): the database is queried.
  */
 async function fetchViaEdge(): Promise<SchoolStatus[] | null> {
   try {
@@ -50,8 +50,8 @@ async function fetchCurrentStatuses(): Promise<SchoolStatus[]> {
 }
 
 /**
- * Mobilisations signalées sans que le texte dise « bloqué » ni « fermé » (rassemblement, incident, cas
- * clair). Vide tant que les niveaux du juge sont coupés ; demandée seulement quand ils sont allumés.
+ * Reported mobilisations where the text does not say "blocked" or "closed" (gathering, incident, unclear
+ * case). Empty while judge tiers are off; only requested when they are on.
  */
 async function mobilisationFetch(): Promise<SchoolStatus[]> {
   const { data, error } = await supabase
@@ -69,7 +69,7 @@ export const mobilisationQuery = queryOptions({
   refetchInterval: REFRESH_MS,
 })
 
-/** Mobilisations signalées sur une période (direct : la vue ; autres : fonction SQL). */
+/** Reported mobilisations over a period (live: the view; others: SQL function). */
 export const periodMobilisationQuery = (period: Period, settings: PublicSettings) =>
   queryOptions<SchoolStatus[], Error, SchoolStatus[], readonly unknown[]>(
     period === 'direct'
@@ -97,13 +97,13 @@ export const statusesQuery = queryOptions({
   queryKey: queryKeys.statuses.list(),
   queryFn: fetchCurrentStatuses,
   staleTime: REFRESH_MS,
-  // Le polling est suspendu quand l'onglet est masqué (comportement par défaut).
+  // Polling is suspended when the tab is hidden (default behaviour).
   refetchInterval: REFRESH_MS,
 })
 
 /**
- * Lycées mobilisés sur une période. Le direct reprend la vue (et le cache) de la carte ;
- * les périodes passées agrègent les signaux validés depuis leur début.
+ * Mobilised schools over a period. Live reuses the map's view (and cache);
+ * past periods aggregate the validated signals since their start.
  */
 export const periodStatusesQuery = (period: Period, settings: PublicSettings) =>
   queryOptions<SchoolStatus[], Error, SchoolStatus[], readonly unknown[]>(

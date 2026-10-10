@@ -37,7 +37,7 @@ function ReportPage() {
   const [geoError, setGeoError] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
   const [school, setSchool] = useState<School | null>(null)
-  /** Lycée absent de la liste : nom et ville saisis (vérifiés par l'équipe). */
+  /** School missing from the list: name and city typed (checked by the team). */
   const [customSchool, setCustomSchool] = useState<{ name: string; city: string } | null>(null)
   const [status, setStatus] = useState<ReportStatus | null>(null)
   const [photo, setPhoto] = useState<HTMLCanvasElement | null>(null)
@@ -121,7 +121,7 @@ function ReportPage() {
     if (fields.data.new_school_name) form.set('new_school_name', fields.data.new_school_name)
     if (fields.data.new_school_city) form.set('new_school_city', fields.data.new_school_city)
     form.set('status', fields.data.status)
-    // Arrondi à ~100 m dès le téléphone : la position exacte ne quitte jamais l'appareil.
+    // Rounded to ~100 m on the phone: the exact position never leaves the device.
     form.set('lat', String(roundCoord(fields.data.lat)))
     form.set('lng', String(roundCoord(fields.data.lng)))
     if (fields.data.source_url) form.set('source_url', fields.data.source_url)
@@ -321,10 +321,10 @@ function SchoolPicker({
   const nearby = useQuery(nearbySchoolsQuery(position.lat, position.lng))
   const [query, setQuery] = useState('')
   const search = useQuery(searchSchoolsQuery(query))
-  // Lycée venu de la carte s'il est à portée, sinon le plus proche.
+  // School coming from the map if in range, otherwise the nearest.
   const nearest = nearby.data?.find((s) => s.uai === preferredUai) ?? nearby.data?.[0]
 
-  // Pré-sélection.
+  // Pre-selection.
   useEffect(() => {
     if (!selected && !custom && nearest) onSelect(nearest)
   }, [nearest, selected, custom, onSelect])

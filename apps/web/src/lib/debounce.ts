@@ -1,4 +1,4 @@
-/** Regroupe les appels rapprochés : `fn` part une fois, `wait` ms après le dernier appel. */
+/** Groups close calls: `fn` fires once, `wait` ms after the last call. */
 export function debounce<A extends unknown[]>(fn: (...args: A) => void, wait: number) {
   let timer: ReturnType<typeof setTimeout> | undefined
   const debounced = (...args: A) => {

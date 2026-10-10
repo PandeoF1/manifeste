@@ -12,7 +12,7 @@ function memory(initial?: string) {
 }
 
 describe('createPanelPrefs', () => {
-  it('affiche tout par défaut', () => {
+  it('shows everything by default', () => {
     const p = createPanelPrefs(() => memory())
     expect(['side', 'stats', 'overseas'].map((k) => p.isHidden(k as 'side'))).toEqual([
       false,
@@ -21,7 +21,7 @@ describe('createPanelPrefs', () => {
     ])
   })
 
-  it('bascule, mémorise et prévient les abonnés', () => {
+  it('toggles, remembers and notifies subscribers', () => {
     const store = memory()
     const p = createPanelPrefs(() => store)
     const listener = vi.fn()
@@ -34,14 +34,14 @@ describe('createPanelPrefs', () => {
     expect(p.isHidden('side')).toBe(false)
   })
 
-  it('ignore un contenu illisible ou inconnu', () => {
+  it('ignores unreadable or unknown content', () => {
     expect(createPanelPrefs(() => memory('pas du json')).isHidden('stats')).toBe(false)
     expect(createPanelPrefs(() => memory('{"a":1}')).isHidden('stats')).toBe(false)
     const p = createPanelPrefs(() => memory('["stats","autre"]'))
     expect(p.isHidden('stats')).toBe(true)
   })
 
-  it('fonctionne sans stockage (navigation privée)', () => {
+  it('works without storage (private browsing)', () => {
     const p = createPanelPrefs(() => undefined)
     p.toggle('overseas')
     expect(p.isHidden('overseas')).toBe(true)

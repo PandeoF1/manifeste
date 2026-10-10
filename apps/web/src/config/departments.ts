@@ -1,4 +1,4 @@
-/** Départements et collectivités d'outre-mer : code -> nom (codes du référentiel des établissements). */
+/** Departments and overseas collectivities: code -> name (codes of the school directory). */
 const NAMES: Record<string, string> = {
   '01': 'Ain',
   '02': 'Aisne',

@@ -1,18 +1,18 @@
 /**
- * Outre-mer : territoires affichés en médaillons sur la vue nationale de la carte, quand au moins
- * un établissement y a un signal. La métropole occupe tout le cadrage ; sans médaillon, ces points
- * seraient hors champ (ou minuscules et perdus dans l'océan).
+ * Overseas: territories shown as insets on the national map view, when at least
+ * one school there has a signal. Metropolitan France fills the whole frame; without an inset, these points
+ * would be out of view (or tiny and lost in the ocean).
  */
 
-/** [ouest, sud, est, nord] */
+/** [west, south, east, north] */
 export type Bbox = [number, number, number, number]
 
 export interface Territory {
   id: string
   label: string
-  /** Codes département (champ `department`) rattachés au territoire. */
+  /** Department codes (`department` field) belonging to the territory. */
   departments: readonly string[]
-  /** Cadrage de base du médaillon. */
+  /** Base framing of the inset. */
   bbox: Bbox
 }
 
@@ -79,11 +79,11 @@ interface Located {
 export interface ActiveTerritory {
   territory: Territory
   count: number
-  /** Cadrage : celui du territoire, élargi aux points qui en sortent (îles éloignées). */
+  /** Framing: the territory's, widened to points outside it (remote islands). */
   bounds: Bbox
 }
 
-/** Territoires qui ont au moins un point, dans l'ordre d'affichage (le plus fourni d'abord). */
+/** Territories with at least one point, in display order (the busiest first). */
 export function activeTerritories(points: ReadonlyArray<Located>): ActiveTerritory[] {
   const found = new Map<string, ActiveTerritory>()
   for (const p of points) {
@@ -106,5 +106,5 @@ export function activeTerritories(points: ReadonlyArray<Located>): ActiveTerrito
   )
 }
 
-/** Vue nationale : assez dézoomé pour que la métropole entière soit à l'écran. */
+/** National view: zoomed out enough for all of metropolitan France to fit on screen. */
 export const NATIONAL_MAX_ZOOM = 7

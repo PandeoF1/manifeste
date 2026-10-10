@@ -1,17 +1,17 @@
 /**
- * Nombre de sources distinctes derrière un signalement. C'est une information, pas un label de
- * qualité : l'audit manuel de 200 signalements n'a montré aucun gain d'exactitude entre une
- * source unique et plusieurs sources (les articles reprennent souvent la même erreur : un
- * incident ou un rassemblement lu comme un blocage). On affiche donc le nombre, sans écrire
- * « confirmé ».
+ * Number of distinct sources behind a report. This is information, not a quality
+ * label: the manual audit of 200 reports showed no accuracy gain between a single
+ * source and several (articles often repeat the same mistake: an
+ * incident or a gathering read as a blockade). So we show the count, without writing
+ * "confirmed".
  */
 export type SourceCountLevel = 'plusieurs' | 'unique' | 'inconnu'
 
 export interface SourceCount {
   level: SourceCountLevel
-  /** Texte court (badge). */
+  /** Short text (badge). */
   label: string
-  /** Explication (infobulle). */
+  /** Explanation (tooltip). */
   detail: string
 }
 

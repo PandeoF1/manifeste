@@ -1,9 +1,9 @@
 import type { ReportStatus } from '@shared/status.ts'
 
 /**
- * Forme distincte par statut (jamais la couleur seule) :
- * bloqué = octogone, filtrant = triangle, levé = cercle.
- * Les mêmes formes sont dessinées sur la carte (voir markerImages.ts).
+ * A distinct shape per status (never colour alone):
+ * blocked = octagon, filtering = triangle, lifted = circle.
+ * The same shapes are drawn on the map (see markerImages.ts).
  */
 export function StatusIcon({ status, size = 16 }: { status: ReportStatus; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', 'aria-hidden': true } as const
@@ -50,7 +50,7 @@ export function StatusIcon({ status, size = 16 }: { status: ReportStatus; size?:
   }
 }
 
-/** Mobilisation signalée : anneau ocre translucide, comme sur la carte. */
+/** Reported mobilisation: translucent ochre ring, as on the map. */
 export function MobilisationIcon({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>

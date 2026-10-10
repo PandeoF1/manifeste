@@ -7,7 +7,7 @@ const PAD_TOP = 10
 const PAD_BOTTOM = 26
 const PAD_LEFT = 34
 
-/** Largeur réelle du conteneur : le graphique est dessiné en pixels, le texte garde sa taille. */
+/** Real width of the container: the chart is drawn in pixels, the text keeps its size. */
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -24,9 +24,9 @@ function useWidth() {
 }
 
 /**
- * Une barre par jour : établissements signalés (bloqués ou en barrage filtrant), lycées en bas,
- * facs au-dessus. Le détail du jour s'affiche sous le titre (survol ou toucher) ; le tableau
- * complet est proposé à côté pour les lecteurs d'écran.
+ * One bar per day: reported schools (blocked or filtering), lycées at the bottom,
+ * universities above. The day's detail is shown under the title (hover or touch); the full
+ * table is offered alongside for screen readers.
  */
 export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?: boolean }) {
   const [hover, setHover] = useState<number | null>(null)
@@ -52,7 +52,7 @@ export function DailyBars({ jours, compact = false }: { jours: Jour[]; compact?:
   })
   const peak = jours[peakIndex] ?? first
   const shown = jours[hover ?? peakIndex] ?? peak
-  // Une étiquette tous les ~70 px : jamais de dates qui se chevauchent sur un téléphone.
+  // One label every ~70 px: never overlapping dates on a phone.
   const labelEvery = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(plotW / 70))))
   const ticks = [0, top / 3, (2 * top) / 3, top].map(Math.round)
 

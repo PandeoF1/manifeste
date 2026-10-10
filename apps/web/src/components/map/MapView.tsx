@@ -8,8 +8,8 @@ import {
   type MapLayerMouseEvent,
   setWorkerUrl,
 } from 'maplibre-gl'
-// MapLibre v6 déduit l'URL de son worker de import.meta.url, ce que le bundling de Vite casse :
-// on lui fournit le worker bundlé par Vite.
+// MapLibre v6 derives its worker URL from import.meta.url, which Vite's bundling breaks:
+// we give it the worker bundled by Vite.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection, Point } from 'geojson'
 import type { SchoolStatus } from '@/queries/statuses'
@@ -25,21 +25,21 @@ setWorkerUrl(workerUrl)
 const STYLE_URL =
   import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/positron'
 const SOURCE_ID = 'schools'
-/** Un signal de moins de 30 min « pulse » sur la carte. */
+/** A signal under 30 min old "pulses" on the map. */
 const RECENT_MS = 30 * 60_000
-/** Durée d'une onde. */
+/** Duration of one wave. */
 const PULSE_MS = 2000
-/** Rafale : deux ondes, puis un temps de repos (la carte ne se redessine pas pendant le repos). */
+/** Burst: two waves, then a rest (the map does not redraw during the rest). */
 const BURST_MS = 2 * PULSE_MS
 const CYCLE_MS = 8000
 
-/** Apparition d'un point (avec un léger rebond) et disparition : durées en ms. */
+/** A point appearing (with a slight bounce) and disappearing: durations in ms. */
 const POP_MS = 600
 const DEPOP_MS = 320
-/** Au-delà, un saut dans le temps : les points changent d'un coup, sans animation. */
+/** Beyond this, a jump in time: points change at once, without animation. */
 const MAX_ANIMATED = 150
 
-/** Échelle d'un point animé (feature-state « pop ») : 1 au repos, 0 invisible, un peu plus de 1 au rebond. */
+/** Scale of an animated point ("pop" feature-state): 1 at rest, 0 invisible, a bit above 1 at the bounce. */
 const POP: ExpressionSpecification = ['coalesce', ['feature-state', 'pop'], 1]
 const POP_ALPHA: ExpressionSpecification = ['min', 1, POP]
 const RING: ExpressionSpecification = ['coalesce', ['feature-state', 'ring'], 1]
@@ -62,16 +62,16 @@ export interface MapViewState {
 
 interface Props {
   statuses: ReadonlyArray<SchoolStatus>
-  /** Mobilisations signalées (niveaux du juge) : points gris cerclés de blanc. */
+  /** Reported mobilisations (judge tiers): grey points ringed in white. */
   mobilisation?: ReadonlyArray<SchoolStatus>
   initialView: MapViewState
   selected: SchoolStatus | undefined
   onViewChange: (view: MapViewState) => void
   onSelect: (uai: string | undefined) => void
   theme: Theme
-  /** Change quand les données changent de nature (autre période, mode Historique) : pas d'animation à ce moment-là. */
+  /** Changes when the data changes nature (another period, History mode): no animation at that moment. */
   datasetKey?: string
-  /** Médaillons d'outre-mer (désactivés en mode Historique : chacun est une carte de plus à redessiner). */
+  /** Overseas insets (off in History mode: each one is one more map to redraw). */
   overseas?: boolean
 }
 
@@ -100,12 +100,12 @@ function glowOpacity(theme: Theme): ExpressionSpecification {
   return ['*', POP_ALPHA, ['match', ['get', 'status'], 'leve', 0.2, MAP_BASES[theme].glowOpacity]]
 }
 
-/** Lueur des mobilisations : celle des blocages, un peu plus discrète. */
+/** Glow of mobilisations: that of blockades, a bit more discreet. */
 function mobGlowOpacity(theme: Theme): ExpressionSpecification {
   return ['*', POP_ALPHA, MAP_BASES[theme].glowOpacity * 0.75]
 }
 
-/** Thème du fond et des calques dépendants, appliqué au chargement puis à chaque bascule. */
+/** Theme of the background and dependent layers, applied on load then on every switch. */
 function applyTheme(map: MapLibreMap, theme: Theme) {
   styleBase(map, MAP_BASES[theme])
   if (map.getLayer('heat')) map.setPaintProperty('heat', 'heatmap-color', heatColor(theme))
@@ -139,9 +139,9 @@ function toGeoJSON(
       properties: {
         uai: r.uai,
         status: r.status,
-        // Bloqué dessiné au-dessus des autres.
+        // Blocked drawn above the others.
         rank: r.status === 'bloque' ? 2 : r.status === 'filtrant' ? 1 : 0,
-        // Poids dans la carte de chaleur : un lycée levé ne compte pas.
+        // Weight in the heat map: a lifted school does not count.
         weight: r.status === 'bloque' ? 1 : r.status === 'filtrant' ? 0.6 : 0,
         recent:
           r.status !== 'leve' &&
@@ -184,12 +184,12 @@ export default function MapView({
   const mapRef = useRef<MapLibreMap | null>(null)
   const readyRef = useRef(false)
   const hasRecentRef = useRef(false)
-  // Points qui apparaissent ou disparaissent : ce qui est affiché, ce qui s'efface encore, les animations.
+  // Points appearing or disappearing: what is shown, what is still fading out, the animations.
   const pops = useRef({
     shown: new Map<string, SchoolStatus>(),
     dying: new Map<string, SchoolStatus>(),
     anims: new Map<string, Anim>(),
-    /** Points qui ont eu un état d'animation : à remettre à 1 s'ils reviennent sans animation. */
+    /** Points that had an animation state: reset to 1 if they come back without animation. */
     touched: new Set<string>(),
     key: datasetKey,
     data: undefined as FeatureCollection<Point> | undefined,
@@ -201,7 +201,7 @@ export default function MapView({
     latest.current = { statuses, mobilisation, onViewChange, onSelect, theme }
   })
 
-  // Création unique de la carte.
+  // One-time creation of the map.
   useEffect(() => {
     if (!containerRef.current) return
     const map = new MapLibreMap({
@@ -216,10 +216,10 @@ export default function MapView({
     })
     mapRef.current = map
     map.touchZoomRotate.disableRotation()
-    // Téléphone : zoom au doigt, pas de boutons +/- qui encombrent l'écran.
+    // Phone: pinch to zoom, no +/- buttons cluttering the screen.
     if (window.matchMedia('(min-width: 768px)').matches)
       map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
-    // Géolocalisation : calculée dans le navigateur, jamais envoyée au serveur.
+    // Geolocation: computed in the browser, never sent to the server.
     map.addControl(
       new GeolocateControl({
         positionOptions: { enableHighAccuracy: false },
@@ -234,12 +234,12 @@ export default function MapView({
       addMarkerImages(map)
       map.addSource(SOURCE_ID, {
         type: 'geojson',
-        // L'identifiant du point (feature-state) est l'UAI : on y accroche l'animation.
+        // The point id (feature-state) is the UAI: the animation hangs on it.
         promoteId: 'uai',
         data: pops.current.data ?? toGeoJSON(latest.current.statuses, Date.now()),
       })
 
-      // 1. Carte de chaleur à l'échelle nationale : rend visible l'ampleur.
+      // 1. National-scale heat map: shows the scale of the movement.
       map.addLayer({
         id: 'heat',
         type: 'heatmap',
@@ -254,7 +254,7 @@ export default function MapView({
         },
       })
 
-      // 2. Halo lumineux par lycée, puis noyau brillant (effet « foyer »).
+      // 2. Glowing halo per school, then a bright core ("hotspot" effect).
       map.addLayer({
         id: 'glow',
         type: 'circle',
@@ -296,7 +296,7 @@ export default function MapView({
         },
       })
 
-      // 3. Onde qui pulse sur les signaux de moins de 30 min.
+      // 3. Wave pulsing on signals under 30 min old.
       map.addLayer({
         id: 'pulse',
         type: 'circle',
@@ -308,14 +308,14 @@ export default function MapView({
           'circle-stroke-width': 2,
           'circle-radius': 6,
           'circle-stroke-opacity': 0,
-          // Animé image par image : sans ça, MapLibre lisse chaque changement sur 300 ms et
-          // l'onde, toujours en retard, se rétracte visiblement en repartant de zéro.
+          // Animated frame by frame: otherwise MapLibre smooths every change over 300 ms and
+          // the wave, always late, visibly shrinks back as it restarts from zero.
           'circle-radius-transition': { duration: 0, delay: 0 },
           'circle-stroke-opacity-transition': { duration: 0, delay: 0 },
         },
       })
 
-      // 3b. Onde d'apparition : un anneau qui part du point quand il arrive (invisible au repos).
+      // 3b. Appearance wave: a ring leaving the point when it arrives (invisible at rest).
       map.addLayer({
         id: 'spawn',
         type: 'circle',
@@ -341,7 +341,7 @@ export default function MapView({
         },
       })
 
-      // 4. Repère de sélection.
+      // 4. Selection marker.
       map.addLayer({
         id: 'selected',
         type: 'circle',
@@ -355,13 +355,13 @@ export default function MapView({
         },
       })
 
-      // 5. Forme du statut (accessibilité : pas la couleur seule).
+      // 5. Status shape (accessibility: not colour alone).
       map.addLayer({
         id: 'schools',
         type: 'symbol',
         source: SOURCE_ID,
-        // Vue nationale : seulement les foyers lumineux ; les formes apparaissent en zoomant
-        // (et restent toujours disponibles dans la liste et la légende).
+        // National view: only the glowing hotspots; shapes appear when zooming in
+        // (and are always available in the list and the legend).
         minzoom: 7,
         paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0, 8, POP_ALPHA] },
         layout: {
@@ -373,12 +373,12 @@ export default function MapView({
         },
       })
 
-      // Mobilisations signalées : un anneau ocre translucide, assez grand pour se voir à l’échelle nationale.
+      // Reported mobilisations: a translucent ochre ring, large enough to be seen at national scale.
       map.addSource(MOBILISATION_SOURCE, {
         type: 'geojson',
         data: mobilisationGeoJSON(latest.current.mobilisation),
       })
-      // Même effet de lueur que les blocages, en ocre et un peu plus discret.
+      // Same glow effect as blockades, in ochre and a bit more discreet.
       map.addLayer(
         {
           id: 'mobilisation-glow',
@@ -437,7 +437,7 @@ export default function MapView({
         let resting = false
         const animate = (t: number) => {
           frame = requestAnimationFrame(animate)
-          // Rien à animer (aucun signal récent, onglet masqué) : on ne redessine pas la carte.
+          // Nothing to animate (no recent signal, tab hidden): the map is not redrawn.
           if (!hasRecentRef.current || document.hidden) return
           const inCycle = t % CYCLE_MS
           if (inCycle >= BURST_MS) {
@@ -451,7 +451,7 @@ export default function MapView({
           if (t - last < 33) return // ~30 i/s suffit
           last = t
           const phase = (inCycle % PULSE_MS) / PULSE_MS
-          // Expansion rapide puis ralentie ; l'onde s'efface complètement avant de repartir.
+          // Fast expansion then slowing down; the wave fades out completely before restarting.
           const eased = 1 - (1 - phase) ** 3
           map.setPaintProperty('pulse', 'circle-radius', 6 + eased * 24)
           map.setPaintProperty('pulse', 'circle-stroke-opacity', 0.8 * (1 - phase) ** 2)
@@ -461,7 +461,7 @@ export default function MapView({
     })
 
     map.on('moveend', () => {
-      // Carte sans fin d'est en ouest : on ramène la longitude dans [-180, 180] pour l'adresse.
+      // The map wraps endlessly east to west: bring the longitude back into [-180, 180] for the address.
       const c = map.getCenter().wrap()
       latest.current.onViewChange({
         lat: Math.round(c.lat * 1e4) / 1e4,
@@ -478,25 +478,25 @@ export default function MapView({
       map.remove()
       mapRef.current = null
     }
-    // La vue initiale n'est lue qu'au montage ; ensuite la carte est la source de vérité.
+    // The initial view is only read on mount; after that the map is the source of truth.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Mobilisations signalées : simple mise à jour de la source (pas d'animation).
+  // Reported mobilisations: a plain source update (no animation).
   useEffect(() => {
     const map = mapRef.current
     if (!map || !readyRef.current) return
     map.getSource<GeoJSONSource>(MOBILISATION_SOURCE)?.setData(mobilisationGeoJSON(mobilisation))
   }, [mobilisation])
 
-  // Bascule de thème à chaud (sans recharger le style).
+  // Live theme switch (without reloading the style).
   useEffect(() => {
     const map = mapRef.current
     if (map && readyRef.current) applyTheme(map, theme)
   }, [theme])
 
-  // Mise à jour des données : les points qui arrivent apparaissent avec un rebond, ceux qui partent
-  // s'effacent (ils restent dans la source le temps de l'animation).
+  // Data update: points arriving appear with a bounce, those leaving
+  // fade out (they stay in the source for the duration of the animation).
   useEffect(() => {
     const a = pops.current
     const source = () => mapRef.current?.getSource<GeoJSONSource>(SOURCE_ID)
@@ -506,12 +506,12 @@ export default function MapView({
       hasRecentRef.current = data.features.some((f) => f.properties?.recent === true)
       source()?.setData(data)
     }
-    // `pop` : taille du point ; `ring` : avancement de l'onde d'apparition (1 = terminée, invisible).
+    // `pop`: size of the point; `ring`: progress of the appearance wave (1 = done, invisible).
     const setPop = (uai: string, pop: number, ring = 1) => {
       a.touched.add(uai)
       mapRef.current?.setFeatureState({ source: SOURCE_ID, id: uai }, { pop, ring })
     }
-    // Fin ou annulation d'une animation : le point retrouve sa taille normale.
+    // End or cancellation of an animation: the point returns to its normal size.
     const settle = (uai: string) => {
       a.anims.delete(uai)
       if (a.touched.has(uai) && source()) setPop(uai, 1)
@@ -529,8 +529,8 @@ export default function MapView({
         const p = (now - anim.start) / (anim.out ? DEPOP_MS : POP_MS)
         if (p >= 1) {
           if (anim.out) {
-            // Le point est déjà invisible : on le laisse à 0 jusqu'à ce qu'il ait quitté la source
-            // (le retrait part dans un worker), sinon il réapparaîtrait en grand une image.
+            // The point is already invisible: leave it at 0 until it has left the source
+            // (removal happens in a worker), otherwise it would reappear full-size for one frame.
             a.anims.delete(uai)
             setPop(uai, 0)
             a.dying.delete(uai)
@@ -538,7 +538,7 @@ export default function MapView({
           } else settle(uai)
           continue
         }
-        // « Réduire les animations » : le point grossit ou rétrécit en douceur, sans rebond ni onde.
+        // "Reduce motion": the point grows or shrinks smoothly, without bounce or wave.
         if (anim.out) setPop(uai, 1 - easeInCubic(p))
         else if (reduced) setPop(uai, easeOutCubic(p))
         else setPop(uai, easeOutBack(p), easeOutCubic(p))
@@ -550,8 +550,8 @@ export default function MapView({
     const next = new Map(statuses.map((s) => [s.uai, s]))
     const added = [...next.keys()].filter((uai) => !a.shown.has(uai))
     const removed = [...a.shown.values()].filter((s) => !next.has(s.uai))
-    // Le premier jeu de données (le défaut est vide tant que ça charge) et un changement de nature
-    // des données (autre période, Historique) s'affichent d'un coup : rien ne « naît » ni ne « meurt ».
+    // The first data set (the default is empty while loading) and a change in the nature
+    // of the data (another period, History) display at once: nothing is "born" or "dies".
     const switched = a.key !== datasetKey
     a.key = datasetKey
     const initial = a.first
@@ -567,7 +567,7 @@ export default function MapView({
       a.dying.delete(uai)
       settle(uai)
       if (animate) {
-        // Départ à zéro avant que le point n'entre dans la source : pas d'image à pleine taille.
+        // Start at zero before the point enters the source: no full-size frame.
         setPop(uai, 0, reduced ? 1 : 0)
         a.anims.set(uai, { start: now, out: false })
       }
@@ -583,20 +583,20 @@ export default function MapView({
     render()
     if (a.anims.size > 0 && !a.raf) a.raf = requestAnimationFrame(tick)
 
-    // Le caractère « récent » d'un signal change avec le temps : on redessine chaque minute.
+    // Whether a signal is "recent" changes with time: redraw every minute.
     const id = window.setInterval(render, 60_000)
     return () => window.clearInterval(id)
   }, [statuses, datasetKey])
 
-  // Sélection : repère + recentrage si le lycée est hors champ ou la vue trop large.
+  // Selection: marker + recentre if the school is out of view or the view too wide.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     const apply = () => {
       map.setFilter('selected', ['==', ['get', 'uai'], selected?.uai ?? ''])
       if (!selected) return
-      // Outre-mer : en vue nationale, le médaillon montre le point (le panneau s'ouvre) sans
-      // déplacer la carte.
+      // Overseas: in national view, the inset shows the point (the panel opens) without
+      // moving the map.
       if (territoryOf(selected.department) && map.getZoom() < NATIONAL_MAX_ZOOM) return
       const inView = map.getBounds().contains([selected.lng, selected.lat])
       if (!inView || map.getZoom() < 8) {
@@ -604,7 +604,7 @@ export default function MapView({
           center: [selected.lng, selected.lat],
           zoom: Math.max(map.getZoom(), 11),
           duration: prefersReducedMotion() ? 0 : 1200,
-          // Laisse la place au panneau en bas sur mobile.
+          // Leave room for the panel at the bottom on mobile.
           padding: window.innerWidth < 768 ? { bottom: window.innerHeight * 0.4 } : undefined,
         })
       }
@@ -614,7 +614,7 @@ export default function MapView({
   }, [selected])
 
   return (
-    // Conteneur positionné séparé : le CSS de MapLibre impose position: relative à .maplibregl-map.
+    // Separate positioned container: MapLibre's CSS forces position: relative on .maplibregl-map.
     <div className="absolute inset-0">
       <div
         ref={containerRef}

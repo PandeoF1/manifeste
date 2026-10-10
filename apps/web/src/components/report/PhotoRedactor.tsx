@@ -3,16 +3,16 @@ import { Undo2, Trash2 } from 'lucide-react'
 import { redact, type Rect } from '@/lib/photo'
 
 interface Props {
-  /** Image déjà réencodée (sans métadonnées). */
+  /** Image already re-encoded (no metadata). */
   image: HTMLCanvasElement
-  /** Appelé à chaque modification avec l'image floutée. */
+  /** Called on every change with the blurred image. */
   onChange: (redacted: HTMLCanvasElement) => void
   onRemove?: () => void
 }
 
 /**
- * Outil de floutage : on trace des rectangles au doigt ou à la souris sur les visages,
- * plaques, tatouages... Le floutage est appliqué dans l'image envoyée (irréversible).
+ * Blurring tool: draw rectangles with a finger or the mouse over faces,
+ * number plates, tattoos... The blur is applied in the image that gets sent (irreversible).
  */
 export function PhotoRedactor({ image, onChange, onRemove }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -20,7 +20,7 @@ export function PhotoRedactor({ image, onChange, onRemove }: Props) {
   const [draft, setDraft] = useState<Rect | null>(null)
   const start = useRef<{ x: number; y: number } | null>(null)
 
-  // Le floutage n'est recalculé qu'à l'ajout ou au retrait d'une zone (pas à chaque mouvement).
+  // The blur is only recomputed when an area is added or removed (not on every movement).
   const redacted = useMemo(() => redact(image, rects), [image, rects])
   useEffect(() => onChange(redacted), [redacted, onChange])
 
@@ -40,8 +40,8 @@ export function PhotoRedactor({ image, onChange, onRemove }: Props) {
     }
   }, [redacted, draft])
 
-  // Le canvas est affiché en « object-contain » : l'image peut être plus étroite que l'élément
-  // (bandes vides sur les côtés). Les coordonnées se calculent donc sur la zone réellement dessinée.
+  // The canvas is displayed as "object-contain": the image may be narrower than the element
+  // (empty bands on the sides). Coordinates are therefore computed on the area actually drawn.
   function toImage(e: PointerEvent<HTMLCanvasElement>) {
     const canvas = e.currentTarget
     const box = canvas.getBoundingClientRect()

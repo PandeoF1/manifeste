@@ -12,8 +12,8 @@ const MAX = 3
 const TTL_MS = 7000
 
 /**
- * Affiche une alerte quand un lycée passe en bloqué / filtrant pendant qu'on regarde la carte.
- * Rien au premier chargement (sinon tout s'afficherait d'un coup).
+ * Shows an alert when a school turns blocked / filtering while someone is watching the map.
+ * Nothing on first load (otherwise everything would pop up at once).
  */
 export function NewSignalToasts({
   statuses,

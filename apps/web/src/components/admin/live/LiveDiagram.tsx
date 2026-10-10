@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { EDGES, NODES, NODE_H, NODE_W, VIEW, type RunStats } from './graph'
 
 export interface DiagramHandle {
-  /** Lance une particule sur une arête : aller (req) ou retour (res / err). */
+  /** Launches a particle on an edge: outbound (req) or return (res / err). */
   spawn(edgeKey: string, back: boolean, color: string, big?: boolean): void
 }
 
@@ -19,7 +19,7 @@ interface Particle {
 const MAX_PARTICLES = 500
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
-/** Diagramme animé : nœuds, arêtes, compteurs et particules (animées hors React, à 60 i/s). */
+/** Animated diagram: nodes, edges, counters and particles (animated outside React, at 60 fps). */
 export const LiveDiagram = forwardRef<DiagramHandle, { stats: RunStats; now: number }>(
   function LiveDiagram({ stats, now }, ref) {
     const paths = useRef(new Map<string, SVGPathElement>())
@@ -111,7 +111,7 @@ export const LiveDiagram = forwardRef<DiagramHandle, { stats: RunStats; now: num
         </defs>
         <rect width={VIEW.w} height={VIEW.h} fill="url(#grid)" />
 
-        {/* Arêtes */}
+        {/* Edges */}
         {EDGES.map((e) => {
           const s = stats.edges.get(e.key)
           const inFlight = s ? s.req - s.done : 0
@@ -160,7 +160,7 @@ export const LiveDiagram = forwardRef<DiagramHandle, { stats: RunStats; now: num
           )
         })}
 
-        {/* Nœuds */}
+        {/* Nodes */}
         {NODES.map((n) => {
           const st = stats.nodes.get(n.id)
           const hot = st ? now - st.lastAt < 450 : false

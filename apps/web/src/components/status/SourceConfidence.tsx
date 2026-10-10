@@ -1,7 +1,7 @@
 import { Newspaper } from 'lucide-react'
 import { sourceCount } from '@/lib/confidence'
 
-/** Nombre de sources derrière un signalement (information neutre, pas un label de fiabilité). */
+/** Number of sources behind a report (neutral information, not a reliability label). */
 export function SourceConfidence({ count }: { count: number }) {
   const c = sourceCount(count)
   if (c.level === 'inconnu') return null
@@ -13,7 +13,7 @@ export function SourceConfidence({ count }: { count: number }) {
   )
 }
 
-/** Version compacte pour les lignes de liste. */
+/** Compact version for list rows. */
 export function SourceConfidenceInline({ count }: { count: number }) {
   const c = sourceCount(count)
   if (c.level === 'inconnu') return null

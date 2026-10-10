@@ -79,7 +79,7 @@ function SchoolPage() {
 
   if (!school) return null
 
-  // Regroupement de l'historique par jour.
+  // History grouped by day.
   const days = new Map<string, NonNullable<typeof history.data>>()
   for (const r of history.data ?? []) {
     const key = dayFmt.format(new Date(r.observed_at))

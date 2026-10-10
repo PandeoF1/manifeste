@@ -10,7 +10,7 @@ const TEXT: Record<SchoolStatus['status'], string> = {
   leve: 'text-leve',
 }
 
-/** Fil des derniers signaux. Sert aussi d'alternative textuelle complète à la carte. */
+/** Feed of the latest signals. Also serves as a full text alternative to the map. */
 export function LiveFeed({
   statuses,
   mobilisation = [],

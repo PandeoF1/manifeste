@@ -30,23 +30,23 @@ interface Props {
   data: TimelineData | undefined
   isPending: boolean
   isError: boolean
-  /** Début et fin de la frise (millisecondes). */
+  /** Start and end of the timeline (milliseconds). */
   from: number
   to: number
-  /** Instant affiché sur la carte. */
+  /** Moment shown on the map. */
   at: number
-  /** `commit` : le mouvement est fini (on peut l'écrire dans l'adresse). */
+  /** `commit`: the movement is over (it can be written to the address). */
   onAtChange: (ms: number, commit: boolean) => void
   range: TimelineRange
   onRangeChange: (range: TimelineRange) => void
-  /** Un signalement reste affiché cette durée (heures). */
+  /** A report stays shown for this long (hours). */
   hours: number
   hourOptions: number[]
   onHoursChange: (hours: number) => void
   onExit: () => void
 }
 
-/** Barres de l'histogramme : ne se redessinent que si les données changent (pas à chaque image de la lecture). */
+/** Histogram bars: only redrawn when the data changes (not on every playback frame). */
 const Bars = memo(function Bars({ buckets, max }: { buckets: Bucket[]; max: number }) {
   return (
     <svg
@@ -92,8 +92,8 @@ const Bars = memo(function Bars({ buckets, max }: { buckets: Bucket[]; max: numb
 })
 
 /**
- * Frise du mode « Historique » : histogramme des signalements dans le temps, curseur pour
- * remonter la carte à n'importe quel instant, et lecture automatique.
+ * Timeline of "History" mode: histogram of reports over time, a cursor to
+ * take the map back to any moment, and automatic playback.
  */
 export function Timeline({
   data,
@@ -112,8 +112,8 @@ export function Timeline({
 }: Props) {
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<number>(PLAY_SPEEDS[0])
-  // Pendant la lecture, la tête avance à chaque image (fluide) ; la carte, elle, n'est mise à jour
-  // que ~10 fois par seconde.
+  // During playback, the playhead advances every frame (smooth); the map is only updated
+  // ~10 times per second.
   const [pos, setPos] = useState(at)
   const shownAt = playing ? pos : at
   const trackRef = useRef<HTMLDivElement>(null)
@@ -121,7 +121,7 @@ export function Timeline({
   const span = Math.max(1, to - from)
   const size = bucketSize(span)
 
-  // Valeurs courantes pour la boucle de lecture (qui ne doit pas redémarrer à chaque image).
+  // Current values for the playback loop (which must not restart on every frame).
   const live = useRef({ at, pos, from, to, speed, onAtChange })
   useEffect(() => {
     live.current = { at, pos, from, to, speed, onAtChange }
@@ -154,7 +154,7 @@ export function Timeline({
     return () => cancelAnimationFrame(raf)
   }, [playing])
 
-  // Glisser le curseur : au plus un changement par image, même si la souris en envoie davantage.
+  // Dragging the cursor: at most one change per frame, even if the mouse sends more.
   const queued = useRef<{ ms: number; raf: number }>({ ms: 0, raf: 0 })
   const queueAt = (ms: number) => {
     const q = queued.current
@@ -169,7 +169,7 @@ export function Timeline({
     cancelAnimationFrame(queued.current.raf)
     queued.current.raf = 0
   }
-  // Pas de sélection de texte (ni d'image traînée) pendant le glissé, même hors de la frise.
+  // No text selection (nor dragged image) during the drag, even outside the timeline.
   const lockSelection = (on: boolean) => document.body.classList.toggle('select-none', on)
   useEffect(
     () => () => {
@@ -226,8 +226,8 @@ export function Timeline({
     cancelQueued()
     onAtChange(fromPointer(e), true)
   }
-  // Geste annulé par le navigateur (le téléphone reprend la main) : on garde la dernière position
-  // valide au lieu de lire des coordonnées qui n'en sont pas.
+  // Gesture cancelled by the browser (the phone takes over): keep the last valid position
+  // instead of reading coordinates that are not real.
   const onPointerCancel = () => {
     if (!dragging.current) return
     dragging.current = false
@@ -314,14 +314,14 @@ export function Timeline({
         onKeyDown={onKeyDown}
         className="relative mt-3 h-12 cursor-ew-resize touch-none overflow-hidden rounded-lg border border-border bg-bg/60 outline-offset-2 md:h-16"
       >
-        {/* Fenêtre des signalements pris en compte à l'instant affiché. */}
+        {/* Window of the reports taken into account at the displayed moment. */}
         <div
           aria-hidden="true"
           className="absolute inset-y-0 bg-accent/15"
           style={{ left: `${windowStart}%`, width: `${Math.max(0, atPct - windowStart)}%` }}
         />
         <Bars buckets={buckets} max={max} />
-        {/* Le futur par rapport à l'instant affiché est estompé. */}
+        {/* The future relative to the displayed moment is faded. */}
         <div
           aria-hidden="true"
           className="absolute inset-y-0 right-0 bg-bg/55"

@@ -2,8 +2,8 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 
 /**
- * Téléphone : bouton flottant « Signaler » en bas à droite, à portée de pouce. Masqué là où il
- * gênerait : page de signalement, admin, et fiche d'un lycée ouverte sur la carte.
+ * Phone: floating "Report" button at the bottom right, within thumb reach. Hidden where it
+ * would get in the way: report page, admin, and a school card open on the map.
  */
 export function ReportFab() {
   const { pathname, uai } = useRouterState({

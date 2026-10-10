@@ -1,6 +1,6 @@
 import type { ReportStatus } from '@shared/status.ts'
 
-/** Couleurs des signaux : identiques dans les deux thèmes (formes cerclées de noir). */
+/** Signal colours: identical in both themes (shapes outlined in black). */
 export const MAP_STATUS_COLORS: Record<ReportStatus, string> = {
   bloque: '#ff453a',
   filtrant: '#ff9f0a',
@@ -16,17 +16,17 @@ export interface MapBase {
   boundary: string
   label: string
   labelHalo: string
-  /** Carte de chaleur : du plus diffus au plus dense. */
+  /** Heat map: from the most diffuse to the densest. */
   heat: [string, string, string, string, string]
-  /** Anneau du lycée sélectionné. */
+  /** Ring of the selected school. */
   selection: string
-  /** Opacité du halo des lycées bloqués / filtrants (plus forte sur fond clair). */
+  /** Opacity of the halo of blocked / filtering schools (stronger on a light background). */
   glowOpacity: number
-  /** Luminosité maximale des fonds raster éventuels (styles personnalisés). */
+  /** Maximum brightness of any raster backgrounds (custom styles). */
   rasterBrightness: number
 }
 
-/** Fond de carte : sombre (les foyers « brûlent ») ou clair (lisible en plein jour). */
+/** Map background: dark (hotspots "burn") or light (readable in daylight). */
 export const MAP_BASES: Record<'dark' | 'light', MapBase> = {
   dark: {
     background: '#05070b',
@@ -51,7 +51,7 @@ export const MAP_BASES: Record<'dark' | 'light', MapBase> = {
     boundary: '#a7afbd',
     label: '#808898',
     labelHalo: '#f6f7f9',
-    // Sur fond clair, la densité monte vers le rouge sombre (le jaune y serait invisible).
+    // On a light background, density goes towards dark red (yellow would be invisible there).
     heat: ['rgba(255,69,58,0.18)', 'rgba(255,69,58,0.4)', '#ff453a', '#d0241a', '#8f0f08'],
     selection: '#16181d',
     rasterBrightness: 1,

@@ -33,7 +33,7 @@ export function SourcesPanel() {
   const [logOpen, setLogOpen] = useState<string | null>(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.all })
-  // Signaux validés par source (et combien sont masqués).
+  // Validated signals per source (and how many are hidden).
   const counts = useQuery({
     queryKey: [...queryKeys.admin.all, 'source-report-counts'],
     queryFn: async () => {
@@ -68,13 +68,13 @@ export function SourcesPanel() {
     },
     onSuccess: (_data, { patch }) => {
       void invalidate()
-      // Signaux masqués / réaffichés : la carte et la liste changent.
+      // Signals hidden / shown again: the map and the list change.
       if ('reports_hidden' in patch) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
       }
     },
   })
-  /** Confirmation avant de masquer les signaux publiés d'une source (réversible). */
+  /** Confirmation before hiding a source's published signals (reversible). */
   const askHide = (s: ScrapeSource, extra = '') => {
     const n = counts.data?.get(s.id)?.total ?? 0
     return window.confirm(
@@ -253,7 +253,7 @@ export function SourcesPanel() {
                     checked={s.enabled}
                     onChange={(e) => {
                       const enabled = e.target.checked
-                      // Désactiver : proposer de masquer aussi ce qu'elle a déjà publié.
+                      // Disable: offer to also hide what it has already published.
                       const hide =
                         !enabled &&
                         !s.reports_hidden &&
@@ -372,7 +372,7 @@ function RunSummary({ run }: { run: CollectRunResult }) {
   )
 }
 
-/** Sources recommandées, ajoutables en un clic (une par une ou toutes). */
+/** Recommended sources, addable in one click (one by one or all). */
 function Presets({
   existing,
   onAdd,

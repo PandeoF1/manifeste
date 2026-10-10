@@ -1,5 +1,5 @@
-// Onglet admin « Médias » : agrégation des analyses d'articles par média et par propriétaire,
-// et constats calculés par des règles explicites (pas par l'IA).
+// Admin "Media" tab: aggregates article analyses by outlet and by owner,
+// and findings computed by explicit rules (not by the AI).
 
 export interface MediaRow {
   url: string
@@ -17,29 +17,29 @@ export interface MediaRow {
   tone: 'favorable' | 'neutre' | 'defavorable'
   quote_demands: string | null
   quote_framing: string | null
-  /** Longueur du texte lu par l'IA ; null pour les analyses antérieures à cette mesure. */
+  /** Length of the text the AI read; null for analyses before this was measured. */
   text_chars?: number | null
 }
 
 /**
- * En dessous, l'IA n'a vu qu'un titre ou un court chapeau (articles payants, flash radio) : on ne
- * peut pas dire si les revendications sont exposées ni qui s'exprime. Sinon les médias qui
- * donnent peu de texte seraient pénalisés à tort.
+ * Below this, the AI only saw a title or a short standfirst (paywalled articles, radio flashes): we cannot
+ * tell whether the demands are presented or who speaks. Otherwise outlets that
+ * give little text would be unfairly penalised.
  */
 export const MIN_TEXT_CHARS = 500
 const readable = (r: MediaRow) => r.text_chars == null || r.text_chars >= MIN_TEXT_CHARS
 
 /**
- * Média et propriétaire. Vérifié sur le web le 6 octobre 2026 (CB News, The Media Leader,
- * Autorité de la concurrence, communiqués des groupes) ; les domaines absents s'affichent tels
- * quels, propriétaire « Non renseigné ». Les pourcentages d'actionnariat ne sont volontairement
- * pas affichés : plusieurs ne sont pas publics ou datés.
- * À surveiller (peuvent changer) : Sud Ouest (Rossel en négociation exclusive pour 80 %, fin
- * 2026), 20 Minutes (Rossel à 100 % annoncé en février 2026, clôture non confirmée), Le
- * Parisien (rumeur de vente démentie par LVMH), holding de l'audiovisuel public.
+ * Outlet and owner. Checked on the web on 6 October 2026 (CB News, The Media Leader,
+ * Autorité de la concurrence, group press releases); domains not listed are shown as is,
+ * owner "Non renseigné". Ownership percentages are deliberately
+ * not shown: several are not public or are dated.
+ * To watch (may change): Sud Ouest (Rossel in exclusive negotiation for 80%, end
+ * 2026), 20 Minutes (Rossel at 100% announced in February 2026, closing not confirmed), Le
+ * Parisien (sale rumour denied by LVMH), public broadcasting holding.
  */
 export const OUTLETS: Record<string, { name: string; owner: string }> = {
-  // Presse nationale
+  // National press
   'lemonde.fr': {
     name: 'Le Monde',
     owner: "Groupe Le Monde (Fonds pour l'indépendance de la presse)",
@@ -85,7 +85,7 @@ export const OUTLETS: Record<string, { name: string; owner: string }> = {
   'fr.news.yahoo.com': { name: 'Yahoo Actualités', owner: 'Agrégateur (Yahoo)' },
   'actu.orange.fr': { name: 'Orange Actualités', owner: 'Agrégateur (Orange)' },
 
-  // Indépendants, associations, fonds
+  // Independents, associations, funds
   'humanite.fr': { name: "L'Humanité", owner: "L'Humanité (PCF, lecteurs, salariés)" },
   'mediapart.fr': { name: 'Mediapart', owner: 'Fonds pour une presse libre' },
   'reporterre.net': { name: 'Reporterre', owner: 'Association La Pile' },
@@ -110,7 +110,7 @@ export const OUTLETS: Record<string, { name: string; owner: string }> = {
   'lcp.fr': { name: 'LCP', owner: 'Service public (Assemblée nationale)' },
   'publicsenat.fr': { name: 'Public Sénat', owner: 'Service public (Sénat)' },
 
-  // Presse régionale
+  // Regional press
   'ouest-france.fr': { name: 'Ouest-France', owner: 'Groupe Sipa Ouest-France' },
   'actu.fr': { name: 'Actu.fr', owner: 'Groupe Sipa Ouest-France' },
   'hitwest.ouest-france.fr': { name: 'Hit West', owner: 'Groupe 1981' },
@@ -160,7 +160,7 @@ export const OUTLETS: Record<string, { name: string; owner: string }> = {
 
 export const UNKNOWN_OWNER = 'Non renseigné'
 
-/** Sites régionaux d'un groupe (*.maville.com, *.ouest-france.fr) : même propriétaire. */
+/** A group's regional sites (*.maville.com, *.ouest-france.fr): same owner. */
 const FAMILIES: Array<[RegExp, string]> = [
   [/(^|\.)maville\.com$/, 'Groupe Sipa Ouest-France'],
   [/(^|\.)ouest-france\.fr$/, 'Groupe Sipa Ouest-France'],
@@ -180,9 +180,9 @@ export interface OutletStats {
   name: string
   owner: string
   articles: number
-  /** Parts (0 à 1) sur les articles qui parlent de la mobilisation. */
+  /** Shares (0 to 1) of the articles that talk about the mobilisation. */
   demands: number
-  /** Articles sur lesquels `demands` et les paroles sont calculées (texte lu suffisant). */
+  /** Articles on which `demands` and speakers are computed (enough text read). */
   demandsBase: number
   studentVoices: number
   officialVoices: number
@@ -191,7 +191,7 @@ export interface OutletStats {
   policeViolence: number
   favorable: number
   defavorable: number
-  /** Mots employés, du plus fréquent au moins fréquent. */
+  /** Words used, from most to least frequent. */
   terms: Array<[string, number]>
   badges: Badge[]
 }
@@ -200,14 +200,14 @@ export interface Badge {
   id: string
   label: string
   tone: 'good' | 'warn' | 'poor'
-  /** La règle, affichée au survol. */
+  /** The rule, shown on hover. */
   rule: string
 }
 
-/** Nombre d'articles minimal pour afficher un constat (en dessous, trop fragile). */
+/** Minimum number of articles to show a finding (below, too fragile). */
 export const MIN_ARTICLES_BADGE = 15
 
-/** Constats calculés par des règles simples, à partir de MIN_ARTICLES_BADGE articles. */
+/** Findings computed by simple rules, from MIN_ARTICLES_BADGE articles. */
 export function badgesFor(s: Omit<OutletStats, 'badges' | 'key'>): Badge[] {
   if (s.articles < MIN_ARTICLES_BADGE) return []
   const out: Badge[] = []
@@ -253,7 +253,7 @@ export function badgesFor(s: Omit<OutletStats, 'badges' | 'key'>): Badge[] {
 
 const OFFICIAL = new Set(['police_prefecture', 'direction_rectorat'])
 
-/** Regroupe par média (`by: 'outlet'`) ou par propriétaire (`by: 'owner'`). */
+/** Groups by outlet (`by: 'outlet'`) or by owner (`by: 'owner'`). */
 export function aggregate(rows: ReadonlyArray<MediaRow>, by: 'outlet' | 'owner'): OutletStats[] {
   const groups = new Map<string, MediaRow[]>()
   for (const r of rows) {
@@ -300,7 +300,7 @@ export function aggregate(rows: ReadonlyArray<MediaRow>, by: 'outlet' | 'owner')
     )
 }
 
-/** Revendications les plus citées, toutes sources confondues. */
+/** Most cited demands, all sources combined. */
 export function topDemands(rows: ReadonlyArray<MediaRow>, limit = 12): Array<[string, number]> {
   const count = new Map<string, number>()
   for (const r of rows) {

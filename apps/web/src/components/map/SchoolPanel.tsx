@@ -24,7 +24,7 @@ export function SchoolPanel({
 }: {
   school: SchoolStatus
   onClose: () => void
-  /** Niveaux du juge : les articles parlent d'une mobilisation sans dire « bloqué » ni « fermé ». */
+  /** Judge tiers: the articles talk about a mobilisation without saying "blocked" or "closed". */
   mobilisation?: boolean
 }) {
   const reports = useQuery(schoolReportsQuery(school.uai))

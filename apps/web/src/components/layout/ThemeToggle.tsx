@@ -1,7 +1,7 @@
 import { Moon, Sun } from 'lucide-react'
 import { setTheme, useTheme } from '@/lib/theme'
 
-/** Bascule thème sombre / clair (mémorisée sur l'appareil). */
+/** Dark / light theme switch (remembered on the device). */
 export function ThemeToggle({ className = '' }: { className?: string }) {
   const theme = useTheme()
   const next = theme === 'dark' ? 'light' : 'dark'

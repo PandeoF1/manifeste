@@ -13,7 +13,7 @@ const row = (
 })
 
 describe('computeStats', () => {
-  it('compte statuts, départements et signaux de la dernière heure', () => {
+  it('counts statuses, departments and signals of the last hour', () => {
     const stats = computeStats(
       [
         row('bloque', '75', 10),
@@ -27,7 +27,7 @@ describe('computeStats', () => {
     expect(stats).toEqual({ bloque: 3, filtrant: 1, leve: 1, departments: 2, lastHour: 2 })
   })
 
-  it('ignore les lycées levés pour les départements et la dernière heure', () => {
+  it('ignores lifted schools for departments and the last hour', () => {
     expect(computeStats([row('leve', '13', 1)], now)).toMatchObject({ departments: 0, lastHour: 0 })
   })
 })

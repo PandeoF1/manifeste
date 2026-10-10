@@ -24,7 +24,7 @@ const seriesQuery = (range: RangeId) => ({
     if (error) throw error
     return parseSeries(data)
   },
-  // Les périodes courtes bougent vite ; les longues presque pas.
+  // Short periods move fast; long ones hardly at all.
   refetchInterval: range === '2h' ? 15_000 : range === '24h' ? 60_000 : 300_000,
   placeholderData: keepPreviousData,
 })
@@ -37,7 +37,7 @@ const STEP_LABEL: Record<RangeId, string> = {
   '90d': 'par jour',
 }
 
-/** Zoom par période : courbes synchronisées (survol commun) et détail par page. */
+/** Zoom per period: synchronised curves (shared hover) and detail per page. */
 export function RangeExplorer() {
   const [range, setRange] = useState<RangeId>('24h')
   const [hover, setHover] = useState<number | null>(null)

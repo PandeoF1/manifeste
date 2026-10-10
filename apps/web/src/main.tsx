@@ -9,7 +9,7 @@ import { startTelemetry } from './lib/telemetry'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 
-// La CSP interdit eval : zod n'essaie pas de compiler ses validateurs (évite l'erreur console).
+// The CSP forbids eval: zod does not try to compile its validators (avoids the console error).
 z.config({ jitless: true })
 
 const router = createRouter({

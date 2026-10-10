@@ -3,8 +3,8 @@ import { ExternalLink, Phone, Scale, X } from 'lucide-react'
 import { RIGHTS_INTRO, RIGHTS_LINKS, RIGHTS_SECTIONS } from '@/content/rights'
 
 /**
- * Bouton « Tes droits » et sa fenêtre : gestes face aux forces de l'ordre, aux gaz et en garde à
- * vue. Le contenu est embarqué (disponible hors connexion) et rien n'est mesuré.
+ * "Your rights" button and its window: what to do facing police, tear gas and police
+ * custody. The content is embedded (available offline) and nothing is measured.
  */
 export function RightsButton({ className = '' }: { className?: string }) {
   const [open, setOpen] = useState(false)
@@ -37,7 +37,7 @@ export function RightsButton({ className = '' }: { className?: string }) {
         aria-labelledby={titleId}
         onClose={() => setOpen(false)}
         onClick={(e) => {
-          // Clic sur le fond : fermeture.
+          // Click on the backdrop: close.
           if (e.target === ref.current) setOpen(false)
         }}
         className="m-auto max-h-[88dvh] w-[min(36rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-border bg-bg p-0 text-fg backdrop:bg-black/60"

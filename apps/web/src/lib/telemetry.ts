@@ -1,15 +1,15 @@
-// Statistiques anonymes du site (migrations site_analytics et track_visit_rpc) : une page vue par
-// navigation, les Web Vitals et la latence de l'API à la fermeture de l'onglet, et un signal
-// « onglet ouvert » toutes les 45 s tant qu'il est visible. Aucun cookie, rien d'écrit dans
-// le navigateur, aucun service tiers. Désactivé avec « Do Not Track » / GPC, en admin et en dev.
+// Anonymous site statistics (site_analytics and track_visit_rpc migrations): one page view per
+// navigation, the Web Vitals and API latency when the tab closes, and an
+// "tab open" signal every 45 s while it is visible. No cookie, nothing written in
+// the browser, no third-party service. Disabled with "Do Not Track" / GPC, in admin and in dev.
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals'
 import { pageGroup, type PageGroup } from './pageGroup'
 import { supabase } from './supabase'
 
-// Fonction track_visit de la base (PostgREST) : pas d'appel de fonction Edge facturé.
+// The database's track_visit function (PostgREST): no billed Edge Function call.
 const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/track_visit`
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-/** Activé une fois la migration site_analytics et la fonction beacon en ligne. */
+/** Enabled once the site_analytics migration and the beacon function are live. */
 const ENABLED = true
 const PING_MS = 45_000
 const MAX_API_SAMPLES = 5
@@ -28,7 +28,7 @@ function optedOut(): boolean {
 }
 
 function send(body: { page: PageGroup; view: boolean; metrics: Sample[] }) {
-  // keepalive : l'envoi survit à la fermeture de l'onglet (mesures envoyées à ce moment-là).
+  // keepalive: the request survives the tab closing (measurements are sent then).
   void fetch(ENDPOINT, {
     method: 'POST',
     keepalive: true,
@@ -62,10 +62,10 @@ export function startTelemetry(router: {
   const firstPage = pageGroup(location.pathname)
   let current = firstPage
   let lastPath = location.pathname
-  // Identifiant de l'onglet (gardé au rechargement) : rafraîchir la page ne crée pas un « visiteur en ligne » de plus.
+  // Tab identifier (kept across reloads): refreshing the page does not create one more "visitor online".
   const session = tabSession()
 
-  // Pages vues : la première, puis chaque changement d'adresse (hors admin).
+  // Page views: the first, then every address change (outside admin).
   if (firstPage) send({ page: firstPage, view: true, metrics: [] })
   router.subscribe('onResolved', () => {
     const path = router.state.location.pathname
@@ -78,7 +78,7 @@ export function startTelemetry(router: {
     }
   })
 
-  // Mesures du chargement (rattachées à la première page), envoyées à la fermeture.
+  // Load measurements (attached to the first page), sent on close.
   const pending = new Map<string, number>()
   const keep = (m: Metric) => pending.set(m.name, m.value)
   onLCP(keep)
@@ -87,7 +87,7 @@ export function startTelemetry(router: {
   onFCP(keep)
   onTTFB(keep)
 
-  // Latence de l'API : temps jusqu'au premier octet des premières lectures Supabase.
+  // API latency: time to first byte of the first Supabase reads.
   const api: number[] = []
   try {
     const host = new URL(import.meta.env.VITE_SUPABASE_URL).host
@@ -100,7 +100,7 @@ export function startTelemetry(router: {
       }
     }).observe({ type: 'resource', buffered: true })
   } catch {
-    // navigateur sans PerformanceObserver
+    // browser without PerformanceObserver
   }
 
   let flushed = false
@@ -115,7 +115,7 @@ export function startTelemetry(router: {
     send({ page: firstPage, view: false, metrics })
   }
 
-  // « En ligne » : un signal toutes les 45 s tant que l'onglet est visible.
+  // "Online": a signal every 45 s while the tab is visible.
   let timer: number | undefined
   function ping() {
     if (!current || document.visibilityState !== 'visible') return

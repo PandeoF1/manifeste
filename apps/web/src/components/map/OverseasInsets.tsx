@@ -24,7 +24,7 @@ interface Props {
   statuses: ReadonlyArray<SchoolStatus>
   selectedUai: string | undefined
   onSelect: (uai: string) => void
-  /** Clic ailleurs que sur un point : la carte principale se place sur le territoire. */
+  /** Click elsewhere than on a point: the main map moves to the territory. */
   onGoto: (bounds: Bbox) => void
   theme: Theme
   styleUrl: string
@@ -49,9 +49,9 @@ interface InsetItem {
 }
 
 /**
- * Médaillons des territoires d'outre-mer ayant au moins un point. Chacun est une mini-carte fixe
- * (même fond, mêmes couleurs) ; un point reste cliquable, le reste du médaillon amène la carte
- * principale sur le territoire.
+ * Insets of overseas territories with at least one point. Each is a fixed mini-map
+ * (same background, same colours); a point stays clickable, the rest of the inset takes the
+ * main map to the territory.
  */
 export function OverseasInsets({
   statuses,
@@ -137,7 +137,7 @@ function Inset({ item, selectedUai, onSelect, onGoto, theme, styleUrl }: InsetPr
       dragRotate: false,
     })
     mapRef.current = map
-    // Mini-carte fixe : on ne déplace ni ne zoome, seul le clic sur un point reste actif.
+    // Fixed mini-map: no panning or zooming, only a click on a point stays active.
     map.dragPan.disable()
     map.scrollZoom.disable()
     map.boxZoom.disable()
@@ -181,7 +181,7 @@ function Inset({ item, selectedUai, onSelect, onGoto, theme, styleUrl }: InsetPr
           'circle-stroke-width': 2.5,
         },
       })
-      // Clic sur un point : sélection ; ailleurs sur le médaillon : la carte principale s'y place.
+      // Click on a point: selection; elsewhere on the inset: the main map moves there.
       map.on('click', (e: MapLayerMouseEvent) => {
         const hit = map.queryRenderedFeatures(e.point, { layers: ['glow', 'core'] })[0]
         const uai = hit?.properties?.uai
@@ -202,7 +202,7 @@ function Inset({ item, selectedUai, onSelect, onGoto, theme, styleUrl }: InsetPr
       map.remove()
       mapRef.current = null
     }
-    // Un médaillon est recréé seulement si son cadrage change (nouvelle île avec un signal).
+    // An inset is recreated only if its framing changes (a new island with a signal).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boundsKey, styleUrl])
 

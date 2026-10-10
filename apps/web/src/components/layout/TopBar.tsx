@@ -14,7 +14,7 @@ const NAV = [
   { to: '/a-propos', label: 'À propos' },
 ] as const
 
-/** Compteur national compact (barre du haut, ordinateur). */
+/** Compact national counter (top bar, desktop). */
 function MiniCounter() {
   const { data } = useQuery(statusesQuery)
   if (!data) return null
@@ -38,7 +38,7 @@ export function TopBar() {
       className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-bg px-2 md:px-4"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Téléphone : bascule carte / liste et droits, en haut à gauche. */}
+      {/* Phone: map / list switch and rights, top left. */}
       <div className="flex items-center md:hidden">
         <Link
           to={onList ? '/' : '/liste'}
@@ -62,7 +62,7 @@ export function TopBar() {
         <img src="/favicon.svg" alt="" width={28} height={28} className="rounded-md" />
         Manifeste
       </Link>
-      {/* Ordinateur : navigation au centre. */}
+      {/* Desktop: navigation in the centre. */}
       <nav aria-label="Navigation principale" className="hidden items-center gap-1 text-sm md:flex">
         {NAV.map((item) => (
           <Link

@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from 'react'
 
 /**
- * Thème de la partie publique : sombre par défaut (identité visuelle), clair au choix.
- * Préférence mémorisée sur l'appareil uniquement (rien n'est envoyé). Appliquée avant le
- * premier affichage par public/theme-init.js (même clé), sans flash.
+ * Public-side theme: dark by default (visual identity), light on request.
+ * Preference remembered on the device only (nothing is sent). Applied before the
+ * first paint by public/theme-init.js (same key), without a flash.
  */
 export type Theme = 'dark' | 'light'
 export const THEME_KEY = 'manifeste-theme'
@@ -26,7 +26,7 @@ export function setTheme(theme: Theme) {
   try {
     localStorage.setItem(THEME_KEY, theme)
   } catch {
-    // navigation privée : le choix vaut pour la session
+    // private browsing: the choice lasts for the session
   }
   listeners.forEach((l) => l())
 }
@@ -42,7 +42,7 @@ export function useTheme(): Theme {
   )
 }
 
-/** Pose la classe de thème sur <html> (null = l'admin, qui suit le thème système). */
+/** Sets the theme class on <html> (null = the admin, which follows the system theme). */
 export function applyThemeClass(theme: Theme | null) {
   const root = document.documentElement
   root.classList.toggle('theme-dark', theme === 'dark')

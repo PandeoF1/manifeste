@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-/** Vrai tant que la requête média correspond (ex. « (max-width: 767px) » = téléphone). */
+/** True while the media query matches (e.g. "(max-width: 767px)" = phone). */
 export function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
     (onChange) => {

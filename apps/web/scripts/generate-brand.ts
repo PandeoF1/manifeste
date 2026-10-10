@@ -1,7 +1,7 @@
 /**
- * Génère toutes les déclinaisons du logo à partir de brand/logo-mark.svg :
- * favicon, icônes PWA (192, 512, maskable), apple-touch-icon, image de partage par défaut,
- * et le logo embarqué dans les images Open Graph dynamiques (api/_brand.ts).
+ * Generates every variant of the logo from brand/logo-mark.svg:
+ * favicon, PWA icons (192, 512, maskable), apple-touch-icon, default share image,
+ * and the logo embedded in dynamic Open Graph images (api/_brand.ts).
  *
  *   npm run brand
  */
@@ -14,7 +14,7 @@ const source = readFileSync('brand/logo-mark.svg', 'utf8')
 const mark = source.match(/<g id="mark">[\s\S]*<\/g>\s*<\/svg>/)?.[0].replace(/<\/svg>$/, '')
 if (!mark) throw new Error('Groupe #mark introuvable dans brand/logo-mark.svg')
 
-/** Le symbole sur fond rouge, avec une marge (0 = plein cadre, 0.1 = 10 % de chaque côté). */
+/** The symbol on a red background, with a margin (0 = full frame, 0.1 = 10% on each side). */
 function tile(padding: number, radius = 0): string {
   const scale = 1 - padding * 2
   const offset = 512 * padding
@@ -38,15 +38,15 @@ const wordmark = (x: number, y: number, size: number) =>
 
 mkdirSync('public/icons', { recursive: true })
 
-// Favicon : coins arrondis, symbole plein cadre.
+// Favicon: rounded corners, symbol filling the frame.
 writeFileSync('public/favicon.svg', tile(0, 96))
 writeFileSync('public/icons/icon-192.png', png(tile(0, 0), 192))
 writeFileSync('public/icons/icon-512.png', png(tile(0, 0), 512))
-// Maskable : le symbole tient dans la zone sûre (cercle de 80 %).
+// Maskable: the symbol fits in the safe zone (80% circle).
 writeFileSync('public/icons/maskable-512.png', png(tile(0.12, 0), 512))
 writeFileSync('public/icons/apple-touch-icon.png', png(tile(0.06, 0), 180))
 
-// Logo horizontal (symbole + nom), pour le README et les réseaux.
+// Horizontal logo (symbol + name), for the README and social networks.
 const horizontal = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 512">
   <rect width="1400" height="512" fill="${INK}"/>
   <g transform="translate(64 64) scale(0.75)">${tile(0, 72).replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g>
@@ -55,7 +55,7 @@ const horizontal = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 51
 writeFileSync('brand/logo-horizontal.svg', horizontal)
 writeFileSync('brand/logo-horizontal.png', png(horizontal, 1400))
 
-// Image de partage par défaut (1200 x 630), utilisée si l'image dynamique est indisponible.
+// Default share image (1200 x 630), used if the dynamic image is unavailable.
 const og = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="${INK}"/>
   <g transform="translate(80 135) scale(0.7)">${tile(0, 64).replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g>
@@ -65,7 +65,7 @@ const og = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
 </svg>`
 writeFileSync('public/og-default.png', png(og, 1200))
 
-// Symbole pour les images Open Graph dynamiques (satori accepte les data URI SVG).
+// Symbol for the dynamic Open Graph images (satori accepts SVG data URIs).
 writeFileSync(
   'api/_brand.ts',
   `// Généré par scripts/generate-brand.ts - ne pas modifier à la main.\nexport const MARK_DATA_URI =\n  'data:image/svg+xml;base64,${Buffer.from(tile(0, 64)).toString('base64')}'\n`,

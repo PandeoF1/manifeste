@@ -1,14 +1,14 @@
-// Export du tableau « Médias » : image PNG (dessinée sur un canvas, sans bibliothèque ni
-// service externe) et CSV.
+// Export of the "Media" table: PNG image (drawn on a canvas, no library or
+// external service) and CSV.
 import { MIN_ARTICLES_BADGE, type Badge, type OutletStats } from './mediaStats'
 
 export interface ExportMeta {
-  /** Ex. « 30 derniers jours ». */
+  /** E.g. "30 derniers jours". */
   period: string
   by: 'outlet' | 'owner'
-  /** Seuil appliqué (articles minimum par média). */
+  /** Threshold applied (minimum articles per outlet). */
   minArticles: number
-  /** Date de génération (heure de Paris). */
+  /** Generation date (Paris time). */
   generatedAt: Date
 }
 
@@ -24,7 +24,7 @@ function csvCell(v: string | number): string {
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-/** CSV (séparateur « ; », ouvert directement par Excel en français). */
+/** CSV (";" separator, opens directly in French-locale Excel). */
 export function mediaCsv(stats: ReadonlyArray<OutletStats>, by: 'outlet' | 'owner'): string {
   const head = [
     by === 'owner' ? 'Propriétaire' : 'Média',
@@ -103,7 +103,7 @@ function roundRect(
   ctx.closePath()
 }
 
-/** Image PNG du tableau (fond sombre, 2000 px de large, ×2 pour la netteté). */
+/** PNG image of the table (dark background, 2000 px wide, ×2 for sharpness). */
 export function renderMediaPng(stats: ReadonlyArray<OutletStats>, meta: ExportMeta): Promise<Blob> {
   const scale = 2
   const height = HEAD_H + stats.length * ROW_H + FOOT_H
@@ -118,7 +118,7 @@ export function renderMediaPng(stats: ReadonlyArray<OutletStats>, meta: ExportMe
   ctx.fillStyle = C.bg
   ctx.fillRect(0, 0, W, height)
 
-  // En-tête
+  // Header
   ctx.fillStyle = C.fg
   ctx.font = `800 46px ${FONT}`
   ctx.fillText('Comment la presse parle de la mobilisation lycéenne', PAD, 82)
@@ -194,7 +194,7 @@ export function renderMediaPng(stats: ReadonlyArray<OutletStats>, meta: ExportMe
     ctx.fillStyle = C.poor
     ctx.fillText(pct(s.defavorable), x, mid)
 
-    // Constats : pastilles sur deux lignes au plus (le reste en « +n »), mots employés dessous.
+    // Findings: badges on two lines at most (the rest as "+n"), words used below.
     ctx.font = `600 19px ${FONT}`
     let bx = COL.badges
     let line = 0
@@ -264,7 +264,7 @@ export function renderMediaPng(stats: ReadonlyArray<OutletStats>, meta: ExportMe
   )
 }
 
-/** Télécharge un fichier généré dans le navigateur. */
+/** Downloads a file generated in the browser. */
 export function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

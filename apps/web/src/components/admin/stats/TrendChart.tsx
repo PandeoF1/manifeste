@@ -1,9 +1,9 @@
 import { useId } from 'react'
 
 export interface TrendPoint {
-  /** Libellé complet de la tranche (info-bulle). */
+  /** Full label of the slot (tooltip). */
   label: string
-  /** Libellé court pour l'axe. */
+  /** Short label for the axis. */
   axis: string
   value: number | null
 }
@@ -12,8 +12,8 @@ const H = 132
 const PAD_TOP = 10
 
 /**
- * Courbe d'une seule série (le titre la nomme : pas de légende), aire légère, trous pour les
- * valeurs inconnues. Le survol est partagé entre les courbes d'une même période (`hover`).
+ * Curve of a single series (the title names it: no legend), light area, gaps for
+ * unknown values. Hover is shared between the curves of the same period (`hover`).
  */
 export function TrendChart({
   points,
@@ -29,7 +29,7 @@ export function TrendChart({
   color?: string
   hover: number | null
   onHover: (i: number | null) => void
-  /** Seuils (ex. Web Vitals) : lignes repères « bon » et « lent ». */
+  /** Thresholds (e.g. Web Vitals): "good" and "slow" reference lines. */
   bands?: { good: number; poor: number }
   ariaLabel: string
 }) {
@@ -43,7 +43,7 @@ export function TrendChart({
   const x = (i: number) => (n <= 1 ? 500 : (i / (n - 1)) * 1000)
   const y = (v: number) => PAD_TOP + (H - PAD_TOP) * (1 - v / top)
 
-  // Segments continus (une valeur null coupe la courbe).
+  // Continuous segments (a null value breaks the curve).
   const segments: Array<Array<[number, number]>> = []
   let cur: Array<[number, number]> = []
   points.forEach((p, i) => {
@@ -155,7 +155,7 @@ export function TrendChart({
               </g>
             ))}
           </svg>
-          {/* Points isolés (entourés de trous) : sinon invisibles. */}
+          {/* Isolated points (surrounded by gaps): otherwise invisible. */}
           {segments
             .filter((s) => s.length === 1)
             .map((s) => (
@@ -198,7 +198,7 @@ export function TrendChart({
         </div>
         <div className="relative mt-1 h-4" aria-hidden="true">
           {points.map((p, i) => {
-            // Une étiquette sur `labelEvery`, plus la dernière (sans chevaucher sa voisine).
+            // One label every `labelEvery`, plus the last one (without overlapping its neighbour).
             const regular = i % labelEvery === 0 && n - 1 - i >= labelEvery * 0.6
             if (!regular && i !== n - 1) return null
             return (

@@ -19,7 +19,7 @@ const OUTCOMES: Record<Outcome, { label: string; className: string }> = {
   erreur: { label: 'Erreur', className: 'border-bloque text-bloque' },
 }
 
-/** Journal d'une source : derniers passages avec du nouveau, et le devenir de chaque élément. */
+/** Log of a source: latest runs with something new, and what became of each item. */
 export function SourceLog({ sourceId }: { sourceId: string }) {
   const log = useQuery(sourceLogQuery(sourceId))
   const [open, setOpen] = useState<string | null>(null)

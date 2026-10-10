@@ -4,9 +4,9 @@ export interface NationalStats {
   bloque: number
   filtrant: number
   leve: number
-  /** Départements avec au moins un lycée bloqué ou en barrage filtrant. */
+  /** Departments with at least one blocked or filtering school. */
   departments: number
-  /** Lycées bloqués ou filtrants dont le dernier signal date de moins d'une heure. */
+  /** Blocked or filtering schools whose latest signal is less than an hour old. */
   lastHour: number
 }
 

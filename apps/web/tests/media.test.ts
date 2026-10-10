@@ -9,7 +9,7 @@ const item = (text: string, url = 'https://www.lefigaro.fr/a') => ({
   publishedAt: new Date('2026-10-06T08:00:00Z'),
 })
 
-describe('analyse des médias', () => {
+describe('media analysis', () => {
   const batch = [
     {
       id: '0',
@@ -31,21 +31,21 @@ describe('analyse des médias', () => {
     quote_framing: 'Une phrase inventée par le modèle',
   }
 
-  it('garde les citations réellement présentes dans le texte, retire les inventées', () => {
+  it('keeps quotes really present in the text, removes invented ones', () => {
     const [a] = parseMediaAnalyses({ articles: [answer] }, batch)
     expect(a?.quote_demands).toBe('"Nous refusons la réforme du bac"')
     expect(a?.quote_framing).toBeNull()
-    // Une valeur hors liste vide la liste (catch) plutôt que de rejeter l'article.
+    // A value outside the list empties the list (catch) rather than rejecting the article.
     expect(a?.voices).toEqual([])
   })
 
-  it('ignore les identifiants inconnus et les sorties invalides', () => {
+  it('ignores unknown ids and invalid outputs', () => {
     expect(parseMediaAnalyses({ articles: [{ ...answer, item_id: '9' }] }, batch)).toEqual([])
     expect(parseMediaAnalyses({ articles: [{ ...answer, focus: 'autre' }] }, batch)).toEqual([])
     expect(parseMediaAnalyses(null, batch)).toEqual([])
   })
 
-  it('ne retient que la presse', () => {
+  it('only keeps press', () => {
     expect(isPressItem('rss', item('x'))).toBe(true)
     expect(isPressItem('telegram', item('x', 'https://t.me/s/canal/1'))).toBe(false)
     expect(isPressItem('rss', { ...item('x', 'https://news.google.com/rss/articles/x') })).toBe(
@@ -79,16 +79,16 @@ const row = (domain: string, over: Partial<MediaRow> = {}): MediaRow => ({
   ...over,
 })
 
-describe('titre de l’article', () => {
-  it('prend la première ligne non vide (texte enrichi sans titre de flux)', () => {
+describe('article title', () => {
+  it('takes the first non-empty line (enriched text without a feed title)', () => {
     expect(articleTitle(item('\nBlocus à Lens\nLe chapeau de l’article'))).toBe('Blocus à Lens')
     expect(articleTitle(item('Titre du flux\nChapeau'))).toBe('Titre du flux')
     expect(articleTitle(item(''))).toBe('')
   })
 })
 
-describe('statistiques par média', () => {
-  it('regroupe par média et par propriétaire, hors articles sans rapport', () => {
+describe('statistics per outlet', () => {
+  it('groups by outlet and by owner, excluding unrelated articles', () => {
     const cn = (over: Partial<MediaRow> = {}) =>
       row('cnews.fr', {
         focus: 'incidents',
@@ -124,7 +124,7 @@ describe('statistiques par média', () => {
     expect(topDemands(rows)).toEqual([['réforme du bac', 1]])
   })
 
-  it('les revendications se mesurent sur les articles dont l’IA a lu plus qu’un titre', () => {
+  it('demands are measured on articles where the AI read more than a title', () => {
     const rows = [
       ...Array.from({ length: 16 }, () =>
         row('lefigaro.fr', { focus: 'incidents', text_chars: 90 }),
@@ -136,7 +136,7 @@ describe('statistiques par média', () => {
     const stats = aggregate(rows, 'outlet')
     const figaro = stats.find((s) => s.key === 'lefigaro.fr')
     expect(figaro?.demandsBase).toBe(0)
-    // Titres seuls : pas de constat « peu de revendications », faute de mesure.
+    // Titles only: no "few demands" finding, for lack of measurement.
     expect(figaro?.badges.map((b) => b.id)).not.toContain('degats')
     const monde = stats.find((s) => s.key === 'lemonde.fr')
     expect(monde?.demandsBase).toBe(15)
@@ -144,7 +144,7 @@ describe('statistiques par média', () => {
     expect(monde?.badges.map((b) => b.id)).toContain('revendications')
   })
 
-  it('pas de constat en dessous de 3 articles, et domaine inconnu affiché tel quel', () => {
+  it('no finding below 3 articles, and an unknown domain is shown as is', () => {
     expect(
       badgesFor({
         name: 'x',
@@ -166,8 +166,8 @@ describe('statistiques par média', () => {
   })
 })
 
-describe('lignes enregistrées', () => {
-  it('relie chaque analyse à son article et ignore les identifiants inconnus', async () => {
+describe('stored rows', () => {
+  it('links each analysis to its article and ignores unknown ids', async () => {
     const { mediaRows } = await import('@shared/media.ts')
     const b = [
       {
@@ -209,8 +209,8 @@ describe('lignes enregistrées', () => {
   })
 })
 
-describe('export CSV', () => {
-  it('échappe les guillemets et séparateurs, avec BOM pour Excel', async () => {
+describe('CSV export', () => {
+  it('escapes quotes and separators, with a BOM for Excel', async () => {
     const { mediaCsv } = await import('@/lib/mediaExport')
     const stats = aggregate(
       [
@@ -227,8 +227,8 @@ describe('export CSV', () => {
   })
 })
 
-describe('propriétaires', () => {
-  it('reconnaît le service public et les sites régionaux d’un groupe', () => {
+describe('owners', () => {
+  it("recognises public broadcasting and a group's regional sites", () => {
     expect(outletOf('ici.fr').owner).toBe('Service public')
     expect(outletOf('france3-regions.franceinfo.fr').name).toBe('France 3 Régions')
     expect(outletOf('la1ere.franceinfo.fr').owner).toBe('Service public')
@@ -238,7 +238,7 @@ describe('propriétaires', () => {
     expect(outletOf('exemple.org').owner).toBe('Non renseigné')
   })
 
-  it('range les propriétaires inconnus en dernier', () => {
+  it('puts unknown owners last', () => {
     const rows = [...Array.from({ length: 5 }, () => row('inconnu.org')), row('cnews.fr')]
     expect(aggregate(rows, 'owner').map((o) => o.name)).toEqual([
       'Groupe Canal+ (Bolloré)',

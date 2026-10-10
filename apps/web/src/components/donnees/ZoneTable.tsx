@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Zone } from '@/queries/donnees'
 import { fmtDay, fmtInt } from '@/lib/donneesFormat'
 
-/** Tableau par département ou académie ; les premières lignes, puis « tout afficher ». */
+/** Table per department or academy; the first rows, then "show all". */
 export function ZoneTable({
   zones,
   label,

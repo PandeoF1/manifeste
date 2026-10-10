@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-/** Anime un nombre de sa valeur précédente vers `target` (désactivé si mouvement réduit). */
+/** Animates a number from its previous value to `target` (disabled with reduced motion). */
 export function useCountUp(target: number, durationMs = 900): number {
   const [value, setValue] = useState(target)
   const fromRef = useRef(0)

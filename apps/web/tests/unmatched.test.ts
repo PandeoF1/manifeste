@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { initialQuery } from '@/lib/unmatched'
 
-describe('recherche pré-remplie pour le rattachement manuel', () => {
+describe('pre-filled search for manual matching', () => {
   it.each([
     [{ school_name: 'Lycée Daudet', city: 'Nîmes' }, 'Daudet Nîmes'],
     [{ school_name: 'Lycée', city: 'Briançon' }, 'Briançon'],

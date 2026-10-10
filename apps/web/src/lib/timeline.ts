@@ -4,10 +4,10 @@ import { periodSince, type PublicSettings } from './periods'
 import type { SchoolStatus } from '@/queries/statuses'
 
 /**
- * Historique de la carte : tous les signalements validés depuis le début du mouvement, pour
- * rejouer la carte à n'importe quel instant (frise en bas de la carte). Les données viennent de
- * la fonction SQL timeline_events ; tout le reste (état à l'instant T, histogramme) est calculé
- * ici, dans le navigateur, sans nouvel appel pendant qu'on avance dans le temps.
+ * Map history: every validated report since the start of the movement, to
+ * replay the map at any moment (timeline at the bottom of the map). The data comes from
+ * the SQL function timeline_events; everything else (state at time T, histogram) is computed
+ * here, in the browser, with no new call while moving through time.
  */
 
 const schoolSchema = z.object({
@@ -21,15 +21,15 @@ const schoolSchema = z.object({
   level: z.enum(['lycee', 'superieur']),
 })
 const eventSchema = z.object({
-  /** UAI de l'établissement. */
+  /** School UAI. */
   u: z.string(),
   /** Statut. */
   s: z.enum(REPORT_STATUSES),
-  /** Heure du fait, en millisecondes depuis 1970. */
+  /** Time of the fact, in milliseconds since 1970. */
   t: z.number(),
-  /** Clé de source (une source compte pour une, quel que soit le nombre d'articles). Absente pour un signalement sur place. */
+  /** Source key (a source counts for one, however many articles). Absent for an on-site report. */
   k: z.string().nullable(),
-  /** Mobilisation signalée (niveaux du juge) : n'entre pas dans les statuts comptés. */
+  /** Reported mobilisation (judge tiers): not part of the counted statuses. */
   m: z.boolean().optional(),
 })
 const timelineSchema = z.object({ schools: z.array(z.unknown()), events: z.array(z.unknown()) })
@@ -38,11 +38,11 @@ export type TimelineSchool = z.infer<typeof schoolSchema>
 export type TimelineEvent = z.infer<typeof eventSchema>
 export interface TimelineData {
   schools: TimelineSchool[]
-  /** Du plus ancien au plus récent. */
+  /** Oldest to newest. */
   events: TimelineEvent[]
 }
 
-/** Garde les lignes valides : une ligne abîmée ne doit pas faire disparaître toute la frise. */
+/** Keeps valid rows: one damaged row must not make the whole timeline disappear. */
 function keepValid<T>(schema: z.ZodType<T>, rows: unknown[]): T[] {
   const out: T[] = []
   for (const row of rows) {
@@ -52,7 +52,7 @@ function keepValid<T>(schema: z.ZodType<T>, rows: unknown[]): T[] {
   return out
 }
 
-/** Lecture de la réponse de la base (forme générale stricte, lignes tolérantes) ; trie les événements. */
+/** Reads the database response (strict overall shape, tolerant rows); sorts the events. */
 export function parseTimeline(raw: unknown): TimelineData {
   const data = timelineSchema.parse(raw)
   const schools = keepValid(schoolSchema, data.schools)
@@ -63,7 +63,7 @@ export function parseTimeline(raw: unknown): TimelineData {
 
 const HOUR = 3_600_000
 
-/** Premier index dont l'heure est strictement supérieure à `t` (événements triés). */
+/** First index whose time is strictly greater than `t` (events sorted). */
 function firstAfter(events: ReadonlyArray<TimelineEvent>, t: number): number {
   let lo = 0
   let hi = events.length
@@ -76,17 +76,17 @@ function firstAfter(events: ReadonlyArray<TimelineEvent>, t: number): number {
 }
 
 /**
- * La carte telle qu'elle était à l'instant `at` : même règle que la vue « direct » de la base
- * (dernier signalement de chaque établissement dans les `hours` précédentes, statut = celui du
- * dernier), mais décalée à `at`. Fenêtre : ]at - hours, at].
+ * The map as it was at time `at`: same rule as the database's "direct" view
+ * (latest report of each school in the preceding `hours`, status = that of the
+ * latest), but shifted to `at`. Window: ]at - hours, at].
  */
 export function statusesAt(data: TimelineData, at: number, hours: number): SchoolStatus[] {
   return stateAt(data, at, hours, false)
 }
 
 /**
- * Les mobilisations signalées à l'instant `at` : établissements qui n'ont, dans la fenêtre, que des
- * événements de mobilisation (rien de compté). Même fenêtre que `statusesAt`.
+ * Reported mobilisations at time `at`: schools that only have, in the window,
+ * mobilisation events (nothing counted). Same window as `statusesAt`.
  */
 export function mobilisationAt(data: TimelineData, at: number, hours: number): SchoolStatus[] {
   const counted = new Set(stateAt(data, at, hours, false).map((s) => s.uai))
@@ -109,7 +109,7 @@ function stateAt(
   for (let i = start; i < end; i++) {
     const e = events[i]
     if (!e || (e.m === true) !== mobilisation) continue
-    // Triés par heure : le dernier vu est le plus récent.
+    // Sorted by time: the last one seen is the most recent.
     latest.set(e.u, { status: e.s, t: e.t })
     let set = sources.get(e.u)
     if (!set) sources.set(e.u, (set = new Set()))
@@ -137,7 +137,7 @@ function stateAt(
   return out.sort((a, b) => b.last_signal_at.localeCompare(a.last_signal_at))
 }
 
-// --- Fenêtre affichée par la frise ---------------------------------------------------------
+// --- Window shown by the timeline ---------------------------------------------------------
 
 export const TIMELINE_RANGES = ['24h', '3j', '7j', 'tout'] as const
 export type TimelineRange = (typeof TIMELINE_RANGES)[number]
@@ -156,14 +156,14 @@ const RANGE_HOURS: Record<Exclude<TimelineRange, 'tout'>, number> = {
   '7j': 168,
 }
 
-/** Début de la frise ; jamais avant le début du mouvement. */
+/** Start of the timeline; never before the start of the movement. */
 export function rangeStart(range: TimelineRange, settings: PublicSettings, now: number): number {
   const start = periodSince('tout', settings, now).getTime()
   if (range === 'tout') return start
   return Math.max(start, now - RANGE_HOURS[range] * HOUR)
 }
 
-/** Durées proposées pour « un signalement reste affiché » : le réglage du site, la valeur courante (lien partagé), plus quelques choix. */
+/** Durations offered for "a report stays shown": the site setting, the current value (shared link), plus a few choices. */
 export function hourChoices(ttl: number, ...also: number[]): number[] {
   return [...new Set([1, 3, 6, 12, 24, 48, ttl, ...also])].sort((a, b) => a - b)
 }
@@ -171,10 +171,10 @@ export function hourChoices(ttl: number, ...also: number[]): number[] {
 // --- Lecture (play) ------------------------------------------------------------------------
 
 export const PLAY_SPEEDS = [1, 2, 4] as const
-/** Durée d'un parcours complet de la frise à la vitesse ×1. */
+/** Duration of a full pass through the timeline at ×1 speed. */
 export const PLAY_SECONDS = 30
 
-/** Avance de la tête de lecture pour `dtMs` de temps réel. */
+/** Advance of the playhead for `dtMs` of real time. */
 export function advance(at: number, dtMs: number, from: number, to: number, speed: number): number {
   const next = at + ((to - from) / (PLAY_SECONDS * 1000)) * dtMs * speed
   return Math.min(to, Math.max(from, next))
@@ -192,12 +192,12 @@ export interface Bucket {
 
 const BUCKET_STEPS = [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440].map((m) => m * 60_000)
 
-/** Largeur d'une barre : la plus petite « ronde » qui donne au plus ~96 barres. */
+/** Width of a bar: the smallest "round" one that gives at most ~96 bars. */
 export function bucketSize(rangeMs: number, maxBars = 96): number {
   return BUCKET_STEPS.find((s) => rangeMs / s <= maxBars) ?? 1440 * 60_000
 }
 
-/** Signalements par tranche de temps sur [from, to], par statut. */
+/** Reports per time slot over [from, to], by status. */
 export function bucketize(
   events: ReadonlyArray<TimelineEvent>,
   from: number,
@@ -224,7 +224,7 @@ export function bucketize(
   return buckets
 }
 
-// --- Dates (heure de Paris) ----------------------------------------------------------------
+// --- Dates (Paris time) ----------------------------------------------------------------
 
 const parisFmt = new Intl.DateTimeFormat('fr-FR', {
   weekday: 'short',
@@ -248,25 +248,25 @@ function parisParts(ms: number) {
   }
 }
 
-/** « mer. 8 oct. · 14 h 30 » */
+/** "mer. 8 oct. · 14 h 30" */
 export function fmtMoment(ms: number): string {
   const p = parisParts(ms)
   return `${p.weekday} ${p.day} ${p.month} · ${p.hour} h ${p.minute}`
 }
 
-/** « 8 oct. à 14 h 30 », pour les phrases. */
+/** "8 oct. à 14 h 30", for sentences. */
 export function fmtMomentShort(ms: number): string {
   const p = parisParts(ms)
   return `${p.day} ${p.month} à ${p.hour} h ${p.minute}`
 }
 
-/** Graduation de l'axe : l'heure sur une courte période, le jour sinon. */
+/** Axis tick: the hour over a short period, the day otherwise. */
 export function fmtTick(ms: number, rangeMs: number): string {
   const p = parisParts(ms)
   return rangeMs <= 3 * 24 * HOUR ? `${p.day} ${p.month} ${p.hour} h` : `${p.day} ${p.month}`
 }
 
-/** Durée écoulée en clair : « il y a 3 h », « il y a 2 j ». */
+/** Elapsed time in plain words: "il y a 3 h", "il y a 2 j". */
 export function fmtAgo(ms: number, now: number): string {
   const minutes = Math.max(0, Math.round((now - ms) / 60_000))
   if (minutes < 2) return "à l'instant"

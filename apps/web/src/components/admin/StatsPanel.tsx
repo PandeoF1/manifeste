@@ -27,7 +27,7 @@ const statsQuery = {
 
 const nf = new Intl.NumberFormat('fr-FR')
 
-/** Statistiques anonymes du site : en ligne, visiteurs uniques, pages vues, performances. */
+/** Anonymous site statistics: online, unique visitors, page views, performance. */
 export function StatsPanel() {
   const stats = useQuery(statsQuery)
   if (stats.isPending) return <div className="mt-4 h-64 animate-pulse rounded-xl bg-surface" />
@@ -39,7 +39,7 @@ export function StatsPanel() {
     )
   const s = stats.data
   const today = s.daily.at(-1)
-  // Moyenne des 7 jours précédents qui ont des données (pas de faux « 0 » au lancement).
+  // Average of the previous 7 days that have data (no false "0" at launch).
   const past = s.daily.slice(-8, -1).filter((d) => d.visitors > 0)
   const avg7 = past.length ? past.reduce((a, d) => a + d.visitors, 0) / past.length : null
 
@@ -77,8 +77,8 @@ export function StatsPanel() {
         <Tile
           label={`Visiteurs / jour (moy. ${past.length || 7} j)`}
           value={avg7 == null ? '–' : Math.round(avg7)}
-          // Pas de pourcentage : la journée en cours est incomplète, la comparer à un jour entier
-          // donnerait toujours une baisse trompeuse.
+          // No percentage: the current day is incomplete, comparing it with a full day
+          // would always show a misleading drop.
           hint={
             avg7 == null
               ? 'pas encore d’historique'
@@ -134,7 +134,7 @@ function VitalCard({ metric, stat }: { metric: VitalStat['metric']; stat?: Vital
   const p75 = stat?.p75 ?? null
   const rating = p75 != null ? rate(metric, p75) : null
   const Icon = rating ? RATING_ICON[rating] : null
-  // Échelle de la jauge : jusqu'à 1,5 × le seuil « lent ».
+  // Gauge scale: up to 1.5 × the "slow" threshold.
   const max = info.poor * 1.5
   const pos = (v: number | null) => `${Math.min(((v ?? 0) / max) * 100, 100)}%`
   const delta = p75 != null && stat?.p75_prev ? p75 - stat.p75_prev : null
@@ -167,7 +167,7 @@ function VitalCard({ metric, stat }: { metric: VitalStat['metric']; stat?: Vital
           </span>
         )}
       </p>
-      {/* Jauge : zones bon / à améliorer / lent, plage p50 – p95 et repère p75. */}
+      {/* Gauge: good / needs improvement / slow zones, p50 – p95 range and p75 marker. */}
       <div className="relative mt-3 h-2" aria-hidden="true">
         <div className="absolute inset-0 flex gap-0.5 overflow-hidden rounded-full opacity-30">
           <div className="h-full bg-good" style={{ width: pos(info.good) }} />

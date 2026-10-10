@@ -1,5 +1,5 @@
-// Mise en forme d'un nom de lycée saisi par un visiteur : « lycee agricole jean monnet »
-// devient « Lycée agricole Jean-Monnet » (proposition, modifiable par l'équipe).
+// Formatting of a school name typed by a visitor: "lycee agricole jean monnet"
+// becomes "Lycée agricole Jean-Monnet" (a proposal, editable by the team).
 
 const TYPES: Array<[RegExp, string]> = [
   [
@@ -41,12 +41,12 @@ function cap(w: string): string {
   return fixed.charAt(0).toUpperCase() + fixed.slice(1)
 }
 
-/** Nom propre (après le type) : « jean monnet » -> « Jean-Monnet », particules en minuscule. */
+/** Proper name (after the type): "jean monnet" -> "Jean-Monnet", particles in lowercase. */
 function properName(rest: string): string {
   const words = rest.trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return ''
-  // Plusieurs mots commençant par une majuscule = nom de personne relié par des tirets
-  // (usage des noms d'établissements) ; les particules restent séparées.
+  // Several capitalised words = a person's name joined by hyphens
+  // (school naming practice); particles stay separate.
   const out = words.map((w) => {
     const lw = w.toLowerCase()
     if (LOWER.has(lw)) return lw

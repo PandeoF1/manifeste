@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { TraceRow } from './graph'
 
-/** Décalage de lecture : les traces arrivent par paquets, on les rejoue avec leur vrai rythme. */
+/** Playback lag: traces arrive in batches, they are replayed at their real pace. */
 const LAG_MS = 900
-/** Après la réponse de la collecte, silence au-delà duquel le passage est tenu pour fini. */
+/** After the collection responds, silence beyond which the run is considered finished. */
 const SETTLE_MS = 4_000
 
-/** Événement de fin du passage (les lecteurs n'en émettent pas). */
+/** End-of-run event (readers do not emit one). */
 const isRunEnd = (e: TraceRow) => e.phase === 'end' && e.target === 'collecteur'
 
 export type StreamState =
@@ -19,10 +19,10 @@ export type StreamState =
   | { kind: 'error'; message: string }
 
 /**
- * File d'événements d'une collecte : en direct (Realtime sur collector_trace, filtré par run)
- * ou rejouée depuis la base. `onEvent` reçoit chaque événement à son moment (horloge de lecture).
- * L'état passe à `done` quand l'événement de fin est joué (ou, à défaut, quelques secondes
- * après la réponse de la collecte).
+ * Event queue of a collection: live (Realtime on collector_trace, filtered by run)
+ * or replayed from the database. `onEvent` receives each event at its moment (playback clock).
+ * The state goes to `done` when the end event is played (or, failing that, a few seconds
+ * after the collection responds).
  */
 export function useTraceStream(onEvent: (e: TraceRow) => void) {
   const [state, setState] = useState<StreamState>({ kind: 'idle' })
@@ -32,7 +32,7 @@ export function useTraceStream(onEvent: (e: TraceRow) => void) {
   useEffect(() => {
     handler.current = onEvent
   })
-  /** Moment où la collecte a répondu (filet si l'événement de fin n'arrive jamais). */
+  /** Moment the collection responded (safety net if the end event never arrives). */
   const answeredAt = useRef<number | null>(null)
   const lastEventAt = useRef(0)
 
@@ -42,7 +42,7 @@ export function useTraceStream(onEvent: (e: TraceRow) => void) {
     channel.current = null
   }, [])
 
-  /** Passage terminé : on arrête d'écouter (les événements reçus ont tous été joués). */
+  /** Run finished: stop listening (the events received have all been played). */
   const finish = useCallback(() => {
     answeredAt.current = null
     closeChannel()
@@ -51,7 +51,7 @@ export function useTraceStream(onEvent: (e: TraceRow) => void) {
     )
   }, [closeChannel])
 
-  // Horloge de lecture : libère les événements dont le moment est passé.
+  // Playback clock: releases the events whose moment has passed.
   useEffect(() => {
     let frame = 0
     const tick = () => {
@@ -94,7 +94,7 @@ export function useTraceStream(onEvent: (e: TraceRow) => void) {
   }, [closeChannel])
   useEffect(() => reset, [reset])
 
-  /** Écoute un passage puis appelle `start` une fois l'abonnement actif (rien n'est manqué). */
+  /** Listens to a run then calls `start` once the subscription is active (nothing is missed). */
   const listen = useCallback(
     (runId: string, start: () => Promise<unknown>) => {
       reset()
@@ -119,7 +119,7 @@ export function useTraceStream(onEvent: (e: TraceRow) => void) {
                 setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }),
               )
               .finally(() => {
-                // La collecte a répondu : ses traces sont en base, il ne reste qu'à les jouer.
+                // The collection responded: its traces are in the database, they only need to be played.
                 answeredAt.current = performance.now()
               })
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -131,7 +131,7 @@ export function useTraceStream(onEvent: (e: TraceRow) => void) {
     [push, reset],
   )
 
-  /** Rejoue un passage enregistré (accéléré). */
+  /** Replays a recorded run (sped up). */
   const replay = useCallback(
     async (speed: number) => {
       reset()
@@ -153,7 +153,7 @@ export function useTraceStream(onEvent: (e: TraceRow) => void) {
       if (e2) return setState({ kind: 'error', message: e2.message })
       setState({ kind: 'replay', runId: last.run_id, speed })
       push(data as TraceRow[], speed)
-      // Relecture d'un passage coupé (sans événement de fin) : fini une fois la file vidée.
+      // Replay of an interrupted run (no end event): finished once the queue is empty.
       answeredAt.current = performance.now()
     },
     [push, reset],

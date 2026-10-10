@@ -14,7 +14,7 @@ export const schoolDetailQuery = (uai: string) =>
     staleTime: 24 * 3_600_000,
   })
 
-/** Statut courant (null si aucun signal actif). */
+/** Current status (null if there is no active signal). */
 export const schoolStatusQuery = (uai: string) =>
   queryOptions({
     queryKey: queryKeys.school(uai),
@@ -31,7 +31,7 @@ export const schoolStatusQuery = (uai: string) =>
     refetchInterval: 60_000,
   })
 
-/** Historique des signaux validés sur 7 jours. */
+/** History of validated signals over 7 days. */
 export const schoolHistoryQuery = (uai: string) =>
   queryOptions({
     queryKey: queryKeys.schoolHistory(uai),

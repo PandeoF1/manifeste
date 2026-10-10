@@ -39,8 +39,8 @@ const km = (m: number | null) =>
   m == null ? '' : m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`
 
 /**
- * Lycées proposés par les visiteurs (absents de la liste) : rattacher à un lycée existant,
- * créer le lycée, ou rejeter. Le signal part ensuite en Modération.
+ * Schools proposed by visitors (missing from the list): attach to an existing school,
+ * create the school, or reject. The signal then goes to Moderation.
  */
 export function ProposalsPanel({ canReject = true }: { canReject?: boolean }) {
   const proposals = useQuery(proposalsQuery)

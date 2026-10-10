@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { formatSchoolName } from '@/lib/schoolName'
 
 describe('formatSchoolName', () => {
-  it('met en forme les noms saisis', () => {
+  it('formats the typed names', () => {
     expect(formatSchoolName('lycee agricole jean monnet')).toBe('Lycée agricole Jean-Monnet')
     expect(formatSchoolName('LYCÉE VICTOR HUGO')).toBe('Lycée Victor-Hugo')
     expect(formatSchoolName('lycée de la mer')).toBe('Lycée de la Mer')

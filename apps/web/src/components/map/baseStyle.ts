@@ -2,10 +2,10 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import type { MapBase } from './palette'
 
 /**
- * Recolore n'importe quel style vectoriel (OpenFreeMap positron par défaut) à la volée, en
- * sombre ou en clair : on garde la géographie (côtes, frontières, villes) mais tout passe au
- * second plan, pour que seuls les signaux ressortent. Chaque propriété est posée explicitement :
- * on peut changer de thème à chaud, sans recharger le style.
+ * Recolours any vector style (OpenFreeMap positron by default) on the fly, in
+ * dark or light: we keep the geography (coasts, borders, towns) but everything moves to the
+ * background, so that only the signals stand out. Every property is set explicitly:
+ * the theme can be switched live, without reloading the style.
  */
 export function styleBase(map: MapLibreMap, MAP_BASE: MapBase) {
   const layers = map.getStyle().layers ?? []
@@ -18,7 +18,7 @@ export function styleBase(map: MapLibreMap, MAP_BASE: MapBase) {
       try {
         map.setPaintProperty(layer.id, prop, value)
       } catch {
-        // propriété absente pour ce type de calque
+        // property absent for this layer type
       }
     }
     switch (layer.type) {

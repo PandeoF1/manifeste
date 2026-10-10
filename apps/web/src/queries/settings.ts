@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
 import { DEFAULT_SETTINGS, parseSettings, type PublicSettings } from '@/lib/periods'
 
-/** Réglages publics (durée du direct, début du mouvement). */
+/** Public settings (length of the live view, start of the movement). */
 export const settingsQuery = queryOptions({
   queryKey: queryKeys.settings,
   queryFn: async (): Promise<PublicSettings> => {

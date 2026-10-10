@@ -10,7 +10,7 @@ import { initialQuery } from '@/lib/unmatched'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
-/** Faits extraits par l'IA que le matching n'a pas pu rattacher à un UAI. */
+/** Facts extracted by the AI that matching could not attach to a UAI. */
 export function UnmatchedPanel({ canManage = true }: { canManage?: boolean }) {
   const queryClient = useQueryClient()
   const unmatched = useQuery(unmatchedQuery)

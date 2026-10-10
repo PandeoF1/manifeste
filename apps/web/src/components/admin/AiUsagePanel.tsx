@@ -31,11 +31,11 @@ const aiUsageQuery = (days: number) => ({
   refetchInterval: 60_000,
 })
 
-/** Jour calendaire courant à Paris (« 2026-10-08 »), comme les jours renvoyés par la base. */
+/** Current calendar day in Paris ("2026-10-08"), like the days returned by the database. */
 const parisToday = () =>
   new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date())
 
-/** Consommation de tokens de l'IA (Gemini) : par jour et par modèle, et par tâche. */
+/** AI (Gemini) token consumption: per day and per model, and per task. */
 export function AiUsagePanel() {
   const [days, setDays] = useState<number>(30)
   const usage = useQuery(aiUsageQuery(days))

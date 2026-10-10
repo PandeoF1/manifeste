@@ -13,7 +13,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      // L'utilisateur choisit quand recharger (bandeau "nouvelle version").
+      // The user chooses when to reload ("new version" banner).
       registerType: 'prompt',
       injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
@@ -54,7 +54,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/embed\//, /^\/(sitemap\.xml|robots\.txt)$/],
         runtimeCaching: [
           {
-            // Lectures publiques : réseau d'abord (données en direct), cache si hors ligne.
+            // Public reads: network first (live data), cache when offline.
             urlPattern: ({ url, request }) =>
               request.method === 'GET' &&
               url.hostname.endsWith('.supabase.co') &&
@@ -68,7 +68,7 @@ export default defineConfig({
             },
           },
           {
-            // Photos publiées (floutées) : immuables.
+            // Published (blurred) photos: immutable.
             urlPattern: ({ url }) =>
               url.hostname.endsWith('.supabase.co') &&
               url.pathname.startsWith('/storage/v1/object/public/'),
@@ -80,7 +80,7 @@ export default defineConfig({
             },
           },
           {
-            // Tuiles et style de carte : cache plafonné en taille et en durée.
+            // Map tiles and style: cache capped in size and duration.
             urlPattern: ({ url }) => url.hostname === 'tiles.openfreemap.org',
             handler: 'CacheFirst',
             options: {

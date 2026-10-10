@@ -5,7 +5,7 @@ describe('debounce', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('regroupe une rafale en un seul appel, avec le dernier argument', () => {
+  it('groups a burst into a single call, with the last argument', () => {
     const fn = vi.fn()
     const d = debounce(fn, 3000)
     d('a')
@@ -18,7 +18,7 @@ describe('debounce', () => {
     expect(fn).toHaveBeenCalledWith('b')
   })
 
-  it('cancel annule l’appel en attente', () => {
+  it('cancel drops the pending call', () => {
     const fn = vi.fn()
     const d = debounce(fn, 100)
     d()

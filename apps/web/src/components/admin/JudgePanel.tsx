@@ -36,8 +36,8 @@ interface Row extends JudgedReport {
 }
 
 /**
- * Mode observation du juge (Jev) : ce qu'il propose pour chaque signalement publié. Rien n'est
- * masqué ni recompté : cette page sert à juger si ses avis sont bons avant de s'en servir.
+ * Judge (Jev) observation mode: what it proposes for each published report. Nothing is
+ * hidden or recounted: this page is for judging whether its opinions are good before relying on them.
  */
 export function JudgePanel() {
   const query = useQuery(judgedReportsQuery)

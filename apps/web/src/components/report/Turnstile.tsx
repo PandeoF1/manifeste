@@ -30,8 +30,8 @@ function loadScript(): Promise<void> {
 export const turnstileEnabled = Boolean(SITE_KEY)
 
 /**
- * Vérification anti-robot Cloudflare, chargée uniquement sur la page de signalement.
- * Désactivée si VITE_TURNSTILE_SITE_KEY n'est pas définie (développement).
+ * Cloudflare anti-bot check, loaded only on the report page.
+ * Disabled if VITE_TURNSTILE_SITE_KEY is not set (development).
  */
 export function Turnstile({
   onToken,

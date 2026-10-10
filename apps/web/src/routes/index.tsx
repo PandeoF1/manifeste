@@ -39,10 +39,10 @@ import {
   type TimelineRange,
 } from '@/lib/timeline'
 
-// MapLibre (~800 ko) est chargé à part : les chiffres et la liste s'affichent avant la carte.
+// MapLibre (~800 kB) is loaded separately: the figures and the list show before the map.
 const MapView = lazy(() => import('@/components/map/MapView'))
 
-// France métropolitaine entière, cadrage adapté à la largeur d'écran.
+// All of metropolitan France, framing adapted to the screen width.
 function defaultView(): MapViewState {
   const narrow = typeof window !== 'undefined' && window.innerWidth < 768
   return narrow ? { lat: 46.4, lng: 2.4, z: 4.3 } : { lat: 46.6, lng: 2.4, z: 5.2 }
@@ -57,9 +57,9 @@ const searchSchema = z.object({
     .regex(/^[0-9]{7}[A-Z]$/)
     .optional()
     .catch(undefined),
-  // Absente = direct (URL partagée par défaut inchangée). « historique » : la frise pour rejouer
-  // la carte, avec l'instant (t, millisecondes ; absent = maintenant), la durée d'un signalement
-  // (h, heures ; absente = réglage du site) et la période de la frise (r ; absente = 24 h).
+  // Absent = live (default shared URL unchanged). "historique": the timeline to replay
+  // the map, with the moment (t, milliseconds; absent = now), how long a report stays
+  // (h, hours; absent = site setting) and the timeline period (r; absent = 24 h).
   periode: z
     .enum([...PERIODS, 'historique'])
     .optional()
@@ -73,7 +73,7 @@ const NONE: ReadonlyArray<SchoolStatus> = []
 
 export const Route = createFileRoute('/')({
   validateSearch: searchSchema,
-  // Préchargement non bloquant : la page s'affiche tout de suite, les données arrivent ensuite.
+  // Non-blocking preload: the page shows at once, the data arrives afterwards.
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(statusesQuery)
     void context.queryClient.prefetchQuery(settingsQuery)
@@ -98,11 +98,11 @@ function MapPage() {
     isError,
     isPending,
   } = useQuery({ ...periodStatusesQuery(period, settings), placeholderData: keepPreviousData })
-  // Alertes « nouveau signal » : toujours sur le direct, quelle que soit la période affichée
-  // (changer de période ferait sinon apparaître de faux nouveaux lycées).
+  // "New signal" alerts: always on live, whatever period is shown
+  // (changing period would otherwise make false new schools appear).
   const { data: live = [] } = useQuery(statusesQuery)
   useReportsRealtime()
-  // Mode Historique : instant affiché (null = maintenant), période de la frise, durée d'un signal.
+  // History mode: moment shown (null = now), timeline period, how long a signal stays.
   const to = useNow(60_000).getTime()
   const range: TimelineRange = search.r ?? DEFAULT_TIMELINE_RANGE
   const hours = search.h ?? settings.statusTtlHours
@@ -114,8 +114,8 @@ function MapPage() {
     () => (historyMode && timeline.data ? statusesAt(timeline.data, at, hours) : undefined),
     [historyMode, timeline.data, at, hours],
   )
-  // Niveaux du juge : les mobilisations signalées, en plus des établissements comptés (direct, périodes
-  // et replay). Vide tant que les niveaux sont coupés.
+  // Judge tiers: reported mobilisations, in addition to the counted schools (live, periods
+  // and replay). Empty while tiers are off.
   const { data: mobilisationData } = useQuery({
     ...periodMobilisationQuery(period, settings),
     enabled: settings.judgeTiers && !historyMode,
@@ -139,8 +139,8 @@ function MapPage() {
   )
   const shown = historyMode ? (replayed ?? NONE) : statuses
   const loading = historyMode ? timeline.isPending : isPending
-  // Liste et chiffres passent après la carte : en glissant vite sur la frise, la carte et le curseur
-  // restent fluides, le reste rattrape dès que la main se calme.
+  // The list and figures come after the map: when dragging quickly on the timeline, the map and cursor
+  // stay smooth, the rest catches up once the hand calms down.
   const deferredShown = useDeferredValue(shown)
 
   const history = historyMode
@@ -154,8 +154,8 @@ function MapPage() {
     },
     [navigate],
   )
-  // Pendant la lecture, la position change plusieurs fois par seconde : on n'écrit l'adresse
-  // qu'une fois le mouvement fini.
+  // During playback, the position changes several times per second: the address is written
+  // only once the movement is over.
   const commitAt = useMemo(
     () => debounce((t: number | undefined) => patchHistory({ t }), 400),
     [patchHistory],
@@ -163,7 +163,7 @@ function MapPage() {
   useEffect(() => () => commitAt.cancel(), [commitAt])
   const setPeriod = useCallback(
     (p: Period) => {
-      // Un enregistrement de l'instant encore en attente ne doit pas réécrire l'adresse après la sortie.
+      // A still-pending save of the moment must not rewrite the address after leaving.
       commitAt.cancel()
       setAtState(null)
       void navigate({
@@ -180,7 +180,7 @@ function MapPage() {
     [navigate, commitAt],
   )
   const openHistory = useCallback(() => {
-    // On entre toujours au présent : l'instant d'une visite précédente est oublié.
+    // We always enter in the present: the moment of a previous visit is forgotten.
     setAtState(null)
     void navigate({
       search: (prev) => ({ ...prev, periode: 'historique', t: undefined }),
@@ -213,7 +213,7 @@ function MapPage() {
   const shareText = history
     ? `${stats.bloque} établissements ont été ${blockedPhrase(2)} ${history} en France.`
     : `${stats.bloque} établissements ${blockedPhrase(stats.bloque)} en ce moment en France.`
-  // En mode Historique, la fiche reste ouverte même si l'établissement n'a pas de signal à cet instant.
+  // In History mode, the card stays open even if the school has no signal at that moment.
   const confirmed =
     shown.find((s) => s.uai === search.uai) ??
     (historyMode ? statuses.find((s) => s.uai === search.uai) : undefined)
@@ -249,7 +249,7 @@ function MapPage() {
         France
       </h1>
 
-      {/* Ordinateur : panneau latéral (chiffres + fil en direct). */}
+      {/* Desktop: side panel (figures + live feed). */}
       <aside
         aria-label="Situation et derniers signaux"
         className={`hidden w-[380px] shrink-0 flex-col border-r border-border ${sideHidden ? '' : 'md:flex'}`}
@@ -289,7 +289,7 @@ function MapPage() {
       </aside>
 
       <div className="relative min-w-0 flex-1">
-        {/* Ordinateur : languette pour replier ou rouvrir le menu latéral. */}
+        {/* Desktop: tab to collapse or reopen the side menu. */}
         <button
           type="button"
           onClick={toggleSide}
@@ -317,7 +317,7 @@ function MapPage() {
           />
         </Suspense>
 
-        {/* Téléphone : chiffres en surimpression, repliables par une languette. */}
+        {/* Phone: figures overlaid, collapsible with a tab. */}
         <div className="absolute top-2 left-2 z-10 max-w-[calc(100%-4rem)] md:hidden">
           {!statsHidden && (
             <div className="glass pointer-events-none rounded-2xl border border-border px-3 py-2 shadow-2xl">
@@ -356,7 +356,7 @@ function MapPage() {
 
         <NewSignalToasts statuses={live} onSelect={onSelect} />
 
-        {/* Téléphone : partage de la carte, en bas à gauche (le bouton Signaler est à droite). */}
+        {/* Phone: share the map, bottom left (the Report button is on the right). */}
         {!selected && (
           <ShareButton
             url={shareUrl}
