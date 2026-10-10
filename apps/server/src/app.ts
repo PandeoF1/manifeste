@@ -8,6 +8,8 @@ import type { AppContext } from './context.ts'
 import { authRoutes } from './auth/plugin.ts'
 import { healthModule } from './modules/health/index.ts'
 import { HealthService } from './modules/health/service.ts'
+import { analyticsModule } from './modules/analytics/index.ts'
+import { AnalyticsService } from './modules/analytics/service.ts'
 import { openDataModule } from './modules/open-data/index.ts'
 import { OpenDataService } from './modules/open-data/service.ts'
 import { schoolsModule } from './modules/schools/index.ts'
@@ -49,6 +51,7 @@ export function createApp(ctx: AppContext) {
     .use(statusesModule(statuses))
     .use(openDataModule(new OpenDataService(db, settings, statuses)))
     .use(schoolsModule(new SchoolsService(db)))
+    .use(analyticsModule(new AnalyticsService(db)))
     .use(timelineModule(new TimelineService(db, settings)))
     .use(staffModule(auth, new StaffService(db, auth, config.PUBLIC_URL)))
 

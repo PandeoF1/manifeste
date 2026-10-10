@@ -6,3 +6,4 @@ export {
   type MigrationStatus,
 } from './migrate.ts'
 export * as schema from './schema/index.ts'
+export { ANALYTICS_PAGES, WEB_VITALS, SOURCE_KINDS } from './schema/enums.ts'

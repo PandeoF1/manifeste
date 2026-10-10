@@ -9,6 +9,10 @@ import type { Logger } from '../logger.ts'
 /** Every job the system knows, with its payload. Grows phase by phase. */
 export interface JobPayloads {
   'system.heartbeat': Record<string, never>
+  /** Every minute: how many tabs are open. */
+  'analytics.snapshot-online': Record<string, never>
+  /** Nightly: roll up visitors, delete salts and apply retention windows. */
+  'analytics.rollup': Record<string, never>
 }
 export type JobName = keyof JobPayloads
 
