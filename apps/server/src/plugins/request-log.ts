@@ -5,13 +5,13 @@ import type { Logger } from '../logger.ts'
 export const requestLog = (log: Logger) =>
   new Elysia({ name: 'request-log' })
     .derive({ as: 'global' }, () => ({ startedAt: performance.now() }))
-    .onAfterResponse({ as: 'global' }, ({ request, set, startedAt }) => {
-      const { pathname } = new URL(request.url)
-      if (!pathname.startsWith('/api/') || pathname.startsWith('/api/health')) return
+    // `path` rather than `request.url`: once better-auth has handled a request, its url is empty.
+    .onAfterResponse({ as: 'global' }, ({ path, request, set, startedAt }) => {
+      if (!path.startsWith('/api/') || path.startsWith('/api/health')) return
       log.info(
         {
           method: request.method,
-          path: pathname,
+          path,
           status: typeof set.status === 'number' ? set.status : 200,
           ms: Math.round(performance.now() - (startedAt ?? performance.now())),
         },

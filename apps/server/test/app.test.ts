@@ -123,6 +123,24 @@ describe('staff accounts', () => {
   })
 })
 
+describe('real socket', () => {
+  test('auth requests do not break the after-response hooks', async () => {
+    const server = s.app.listen({ port: 0, hostname: '127.0.0.1' })
+    try {
+      const base = `http://127.0.0.1:${server.server?.port}`
+      const res = await fetch(`${base}/api/auth/sign-in/email`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: s.ctx.config.PUBLIC_URL },
+        body: JSON.stringify({ email: 'nobody@example.org', password: 'wrong password!' }),
+      })
+      expect(res.status).toBe(401)
+      expect((await fetch(`${base}/api/health/live`)).status).toBe(200)
+    } finally {
+      await server.stop()
+    }
+  })
+})
+
 describe('SPA', () => {
   const dist = mkdtempSync(join(tmpdir(), 'manifeste-dist-'))
   mkdirSync(join(dist, 'assets'))

@@ -28,7 +28,6 @@
         "@opentelemetry/exporter-trace-otlp-proto": "0.200.0",
         "@opentelemetry/sdk-node": "0.200.0",
         "@opentelemetry/sdk-trace-base": "2.0.0",
-        "@scalar/api-reference": "1.73.1",
         "@sinclair/typebox": "0.34.52",
         "better-auth": "1.7.7",
         "drizzle-orm": "0.45.4",
@@ -39,6 +38,7 @@
       },
       "devDependencies": {
         "@elysiajs/eden": "1.4.9",
+        "@scalar/api-reference": "1.73.1",
         "@types/pg": "^8.15.6",
       },
     },

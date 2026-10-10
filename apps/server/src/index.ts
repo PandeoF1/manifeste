@@ -3,12 +3,13 @@ import { runMigrations } from '@manifeste/db'
 import { createApp } from './app.ts'
 import { ConfigError, loadConfig } from './config.ts'
 import { createContext } from './context.ts'
+import { resolvePreviewEnv } from './preview.ts'
 import { startTelemetry, stopTelemetry } from './telemetry/otel.ts'
 import { startWorker } from './worker.ts'
 
 let config
 try {
-  config = loadConfig()
+  config = loadConfig(await resolvePreviewEnv(process.env))
 } catch (error) {
   if (error instanceof ConfigError) {
     console.error(error.message)

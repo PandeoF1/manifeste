@@ -9,10 +9,10 @@ import { Elysia } from 'elysia'
 
 type OpenApiOptions = NonNullable<Parameters<typeof openapi>[0]>
 
-const SCALAR_BUNDLE = join(
-  dirname(Bun.resolveSync('@scalar/api-reference', import.meta.dir)),
-  'browser/standalone.js',
-)
+/** SCALAR_BUNDLE is set in the image; in development the file comes from node_modules. */
+const scalarBundle = () =>
+  process.env.SCALAR_BUNDLE ??
+  join(dirname(Bun.resolveSync('@scalar/api-reference', import.meta.dir)), 'browser/standalone.js')
 
 export const apiDocs = (version: string) =>
   new Elysia({ name: 'docs' })
@@ -20,7 +20,7 @@ export const apiDocs = (version: string) =>
       '/api/docs/scalar.js',
       ({ set }) => {
         set.headers['cache-control'] = 'public, max-age=86400'
-        return Bun.file(SCALAR_BUNDLE)
+        return Bun.file(scalarBundle())
       },
       { detail: { hide: true } },
     )

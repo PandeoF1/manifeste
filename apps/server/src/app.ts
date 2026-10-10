@@ -26,9 +26,9 @@ export function createApp(ctx: AppContext) {
   const app = new Elysia()
     .use(tracing)
     .use(requestLog(log))
-    .onError({ as: 'global' }, ({ code, error, request }) => {
+    .onError({ as: 'global' }, ({ code, error, path }) => {
       if (code === 'VALIDATION' || code === 'NOT_FOUND' || code === 'PARSE') return
-      log.error({ err: error, path: new URL(request.url).pathname }, 'unhandled error')
+      log.error({ err: error, path }, 'unhandled error')
     })
     .use(apiDocs(version))
     .use(authRoutes(auth))

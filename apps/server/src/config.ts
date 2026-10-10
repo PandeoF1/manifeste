@@ -48,6 +48,9 @@ export class ConfigError extends Error {
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const keys = Object.keys(Env.properties)
   const raw: Record<string, unknown> = {}
+  // Coolify injects the resource URLs (comma separated): the first one is the public origin.
+  const coolifyUrl = env.COOLIFY_URL?.split(',')[0]?.trim().replace(/\/$/, '')
+  if (coolifyUrl && !env.PUBLIC_URL) raw.PUBLIC_URL = coolifyUrl
   for (const key of keys) {
     const value = env[key]
     if (value !== undefined && value !== '') raw[key] = value

@@ -4,7 +4,9 @@ import { sql } from 'drizzle-orm'
 import { readMigrationFiles } from 'drizzle-orm/migrator'
 import type { Database } from './client.ts'
 
-export const MIGRATIONS_FOLDER = fileURLToPath(new URL('../migrations', import.meta.url))
+/** Shipped SQL migrations. MIGRATIONS_DIR overrides it when the server runs as a bundle. */
+export const MIGRATIONS_FOLDER =
+  process.env.MIGRATIONS_DIR ?? fileURLToPath(new URL('../migrations', import.meta.url))
 
 /** Applies pending migrations. Safe to run concurrently: drizzle takes an advisory lock. */
 export async function runMigrations(db: Database): Promise<void> {
