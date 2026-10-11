@@ -47,6 +47,12 @@ describe('API docs', () => {
     const res = await s.request('/api/docs/scalar.js')
     expect(res.status).toBe(200)
   })
+
+  test('the page points at the spec with an absolute URL, or it resolves under /api/api', async () => {
+    const html = await (await s.request('/api/docs')).text()
+    expect(html).toContain('"url":"/api/docs/openapi.json"')
+    expect((await s.request('/api/docs/openapi.json')).status).toBe(200)
+  })
 })
 
 describe('staff accounts', () => {

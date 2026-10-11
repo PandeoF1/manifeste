@@ -28,8 +28,10 @@ export const apiDocs = (version: string) =>
       openapi({
         path: '/api/docs',
         specPath: '/api/docs/openapi.json',
-        // The plugin types every Scalar option as required; only the bundle location is set.
-        scalar: { cdn: '/api/docs/scalar.js' } as NonNullable<OpenApiOptions['scalar']>,
+        // The plugin types every Scalar option as required; the bundle and spec locations are absolute (the plugin default is relative and breaks at /api/docs).
+        scalar: { url: '/api/docs/openapi.json', cdn: '/api/docs/scalar.js' } as NonNullable<
+          OpenApiOptions['scalar']
+        >,
         exclude: { tags: ['staff'], paths: [/^\/api\/auth/, /^\/api\/docs/] },
         documentation: {
           info: {
