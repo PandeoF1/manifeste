@@ -51,10 +51,10 @@ export class PipelineService {
     }>(
       this.db,
       sql`select
-            (select count(*) from ingest_items where discovered_at >= ${day})::int as discovered,
-            (select count(*) from ingest_items where discovered_at >= ${day} and state <> 'irrelevant')::int as relevant,
-            (select count(*) from ingest_items where discovered_at >= ${day} and state in ('read', 'extracted', 'done', 'no_event'))::int as read,
-            (select count(*) from ingest_items where discovered_at >= ${day} and state in ('extracted', 'done'))::int as extracted,
+            (select count(*) from ingest_items where discovered_at >= ${day} and reason is distinct from 'migrated from the previous collector')::int as discovered,
+            (select count(*) from ingest_items where discovered_at >= ${day} and reason is distinct from 'migrated from the previous collector' and state <> 'irrelevant')::int as relevant,
+            (select count(*) from ingest_items where discovered_at >= ${day} and reason is distinct from 'migrated from the previous collector' and state in ('read', 'extracted', 'done', 'no_event'))::int as read,
+            (select count(*) from ingest_items where discovered_at >= ${day} and reason is distinct from 'migrated from the previous collector' and state in ('extracted', 'done'))::int as extracted,
             (select count(*) from extractions where created_at >= ${day})::int as facts,
             (select count(*) from extractions where created_at >= ${day} and outcome = 'reported')::int as reported,
             (select count(*) from extractions where created_at >= ${day} and outcome = 'unmatched')::int as unmatched`,

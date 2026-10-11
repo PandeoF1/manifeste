@@ -535,6 +535,8 @@ async function seenItems(src: SourceDb, tx: Tx, days: number): Promise<TableRepo
           externalId: String(x.external_id),
           url: `https://legacy.invalid/${createHash('sha1').update(String(x.external_id)).digest('hex')}`,
           publishedAt: date(x.processed_at) ?? new Date(),
+          // Seen by the old collector then, not discovered by this pipeline today (keeps the admin funnel honest).
+          discoveredAt: date(x.processed_at) ?? new Date(),
           state: 'done' as const,
           reason: 'migrated from the previous collector',
         })),
