@@ -64,14 +64,14 @@ create database preview_template owner preview;   -- fill with a sanitized datas
 - Environment: `IMAGE` only to roll back (default `ghcr.io/pandeof1/manifeste:production`, the tag
   the deploy workflow moves; set a `:<sha>` tag to pin an older build),
   `DATABASE_URL` (internal URL of `manifeste-db`), `AUTH_SECRET` (`openssl rand -hex 32`),
-  `PUBLIC_URL=https://manifeste.pandeo.fr`, and for Grafana Cloud `OTEL_EXPORTER_OTLP_ENDPOINT` +
+  `PUBLIC_URL` left empty: it is taken from the domain set on the service (`COOLIFY_URL`), and for Grafana Cloud `OTEL_EXPORTER_OTLP_ENDPOINT` +
   `OTEL_EXPORTER_OTLP_HEADERS` (Grafana Cloud > OpenTelemetry > configure).
 - Health check: `/api/health/ready`.
 
 ### Staging: `manifeste-staging`
 
 Same as production with `deploy/compose.staging.yml`, branch `rework/elysia-backend` (later
-`develop`), `manifeste-db-staging`, `PUBLIC_URL=https://staging.manifeste.pandeo.fr`.
+`develop`), `manifeste-db-staging`, `PUBLIC_URL` left empty (taken from the service domain).
 
 ### PR previews: `manifeste-preview`
 
