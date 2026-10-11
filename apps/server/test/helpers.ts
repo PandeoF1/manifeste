@@ -4,6 +4,7 @@ import { schema } from '@manifeste/db'
 import { createApp } from '../src/app.ts'
 import { loadConfig } from '../src/config.ts'
 import { createContext, type AppContext } from '../src/context.ts'
+import { defineIngestQueues } from '../src/ingest/jobs.ts'
 import { createLogger } from '../src/logger.ts'
 import { StaffService } from '../src/modules/staff/service.ts'
 import { MemoryBlobStore } from '../src/storage/blob-store.ts'
@@ -36,6 +37,7 @@ export async function startTestServer(env: Record<string, string> = {}): Promise
   const blobs = new MemoryBlobStore()
   const ctx = createContext(config, { dbHandle: testDb, log: createLogger('silent'), blobs })
   await ctx.queue.start()
+  await defineIngestQueues(ctx.queue)
   const app = createApp(ctx)
   return {
     testDb,

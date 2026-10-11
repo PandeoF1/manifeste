@@ -3,6 +3,7 @@ import { runMigrations } from '@manifeste/db'
 import { createApp } from './app.ts'
 import { ConfigError, loadConfig } from './config.ts'
 import { createContext } from './context.ts'
+import { defineIngestQueues } from './ingest/jobs.ts'
 import { resolvePreviewEnv } from './preview.ts'
 import { startTelemetry, stopTelemetry } from './telemetry/otel.ts'
 import { startWorker } from './worker.ts'
@@ -28,6 +29,8 @@ if (config.MIGRATE_ON_BOOT) {
 }
 
 await ctx.queue.start()
+// Any process may send a job (the API's "read this source now"): the queues must exist.
+await defineIngestQueues(ctx.queue)
 // Only API instances hold WebSocket clients, so only they listen for events.
 if (config.ROLE !== 'worker') await ctx.bus.start()
 
