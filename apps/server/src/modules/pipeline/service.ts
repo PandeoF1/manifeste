@@ -13,6 +13,9 @@ type ItemsQuery = typeof PipelineModel.itemsQuery.static
 type Retry = typeof PipelineModel.retry.static
 type OperationBody = typeof PipelineModel.operation.static
 
+/** Upper edges of the latency histogram, in milliseconds: 11 bars with the overflow. */
+export const LATENCY_EDGES_MS = [10, 30, 100, 300, 1000, 3000, 10000, 30000, 100000, 300000]
+
 export class PipelineService {
   constructor(
     private readonly db: Database,
@@ -147,6 +150,34 @@ export class PipelineService {
           group by 1, 2, 3 order by 1`,
     )
     return found.map((r) => ({ ...r, hour: new Date(r.hour) }))
+  }
+
+  /** Step duration per stage: percentiles and a log-scale histogram (edges in `LATENCY_EDGES_MS`). */
+  async latency(hours: number) {
+    const found = await rows<{ stage: string; n: number; p50: number; p95: number; max: number }>(
+      this.db,
+      sql`select stage, count(*)::int as n,
+                 percentile_cont(0.5) within group (order by duration_ms)::int as p50,
+                 percentile_cont(0.95) within group (order by duration_ms)::int as p95,
+                 max(duration_ms)::int as max
+          from pipeline_events
+          where at >= now() - make_interval(hours => ${hours}) and duration_ms is not null
+          group by stage order by stage`,
+    )
+    const edges = sql.raw(`array[${LATENCY_EDGES_MS.join(',')}]`)
+    const buckets = await rows<{ stage: string; bucket: number; n: number }>(
+      this.db,
+      sql`select stage, width_bucket(duration_ms, ${edges}) as bucket, count(*)::int as n
+          from pipeline_events
+          where at >= now() - make_interval(hours => ${hours}) and duration_ms is not null
+          group by 1, 2`,
+    )
+    return found.map((r) => ({
+      ...r,
+      histogram: Array.from({ length: LATENCY_EDGES_MS.length + 1 }, (_, i) =>
+        buckets.filter((b) => b.stage === r.stage && b.bucket === i).reduce((n, b) => n + b.n, 0),
+      ),
+    }))
   }
 
   async retry(input: Retry, actor: Actor) {

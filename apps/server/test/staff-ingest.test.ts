@@ -204,6 +204,23 @@ describe('/api/staff/pipeline', () => {
     ).json()) as Array<{ stage: string; n: number }>
     expect(throughput.find((r) => r.stage === 'read' && r.n === 1)).toBeTruthy()
 
+    await s.ctx.db.insert(schema.pipelineEvents).values([
+      { stage: 'read', outcome: 'ok', durationMs: 50 },
+      { stage: 'read', outcome: 'ok', durationMs: 5000 },
+    ])
+    const latency = (await (
+      await as(admin, '/api/staff/pipeline/latency?hours=2')
+    ).json()) as Array<{
+      stage: string
+      n: number
+      max: number
+      histogram: number[]
+    }>
+    const read = latency.find((r) => r.stage === 'read')
+    expect(read).toMatchObject({ n: 2, max: 5000 })
+    expect(read?.histogram).toHaveLength(11)
+    expect(read?.histogram.reduce((a, b) => a + b, 0)).toBe(2)
+
     const retry = await as(admin, '/api/staff/pipeline/retry', {
       method: 'POST',
       json: { itemIds: [failed?.id] },

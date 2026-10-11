@@ -62,6 +62,15 @@ export const PipelineModel = {
     }),
     t.Object({ queued: t.Boolean() }),
   ]),
+  latency: t.Object({
+    stage: t.String(),
+    n: t.Number(),
+    p50: t.Number(),
+    p95: t.Number(),
+    max: t.Number(),
+    /** Counts per bar, edges in `LATENCY_EDGES_MS` (last bar = above the last edge). */
+    histogram: t.Array(t.Number()),
+  }),
   throughputQuery: t.Object({
     hours: t.Optional(t.Numeric({ minimum: 1, maximum: 168, default: 24 })),
   }),

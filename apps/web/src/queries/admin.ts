@@ -199,6 +199,12 @@ export const throughputQuery = (hours: number) =>
     queryFn: () => unwrap(staff.pipeline.throughput.get({ query: { hours } })),
     refetchInterval: 60_000,
   })
+export const latencyQuery = (hours: number) =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.all, 'pipeline', 'latency', hours],
+    queryFn: () => unwrap(staff.pipeline.latency.get({ query: { hours } })),
+    refetchInterval: 60_000,
+  })
 export const retryItems = (body: { itemIds?: string[]; states?: Array<'failed' | 'unreadable'> }) =>
   unwrap(staff.pipeline.retry.post(body))
 export const runPipelineNow = () => unwrap(staff.pipeline.run.post())

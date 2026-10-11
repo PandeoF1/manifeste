@@ -36,6 +36,12 @@ export const pipelineModule = (auth: Auth, service: PipelineService) =>
       query: PipelineModel.throughputQuery,
       detail: { tags: ['staff'], summary: 'Events per hour, stage and outcome' },
     })
+    .get('/latency', ({ query }) => service.latency(query.hours ?? 24), {
+      staff: { pipeline: ['view'] },
+      query: PipelineModel.throughputQuery,
+      response: { 200: t.Array(PipelineModel.latency) },
+      detail: { tags: ['staff'], summary: 'Step duration per stage: percentiles and histogram' },
+    })
     .post('/retry', ({ body, staff }) => service.retry(body, staff), {
       staff: { pipeline: ['operate'] },
       body: PipelineModel.retry,

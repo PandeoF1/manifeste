@@ -9,6 +9,7 @@ import { FlowDiagram } from './FlowDiagram'
 import { Funnel } from './Funnel'
 import { Lanes } from './Lanes'
 import { SourceMatrix } from './SourceMatrix'
+import { Latency } from './Latency'
 import { Throughput } from './Throughput'
 
 const usd = new Intl.NumberFormat('fr-FR', {
@@ -129,6 +130,7 @@ export function PipelineTab() {
           Débit
         </h2>
         <Throughput />
+        <Latency />
       </section>
 
       <section aria-labelledby="log-title">
