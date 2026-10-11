@@ -33,12 +33,12 @@ Phases of the rework described in [ADR 0001](adr/0001-v2-architecture.md).
 - Public modules: statuses, school, timeline, open data (exports CSV/JSON/GeoJSON), og/share/sitemap (from `api/`),
   analytics (visit, vitals, online), `POST /reports` (Turnstile, hash rate limit, BlobStore, purge jobs). Cache headers, Eden contract tests.
 
-### Phase 3: Parser + benchmark harness
+### Phase 3: Parser + benchmark harness (done, except storing runs in `benchmark_runs`)
 
 - Upload the corpus to R2 (`bench:corpus:push|pull`). Bootstrap labels from DB reports and hand-reviewed samples,
   then review them.
 - `packages/parser` as in D15, with unit tests on synthetic fixtures.
-- `bench/` runner: `bun run bench parser --variants develop,better-html-parser,v2` → JSON + markdown report
+- `bench/` runner: `bun parser/run.ts --variants legacy,branch,v2 --labelled` (from `bench/`) → JSON + markdown table
   (text recall/precision, school-mention recall, date accuracy, blocked detection, p50/p95), stored in `benchmark_runs`.
 
 ### Phase 4: AI layer

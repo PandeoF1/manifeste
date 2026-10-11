@@ -36,3 +36,4 @@ compare-judge-review.csv
 reextract-report.md
 reextract-backup-*.json
 data/
+bench/results/**/*-pages.jsonl

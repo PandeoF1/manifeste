@@ -12,6 +12,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
+    "bench",
     "legacy"
   ],
   "scripts": {

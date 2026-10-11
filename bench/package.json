@@ -1,0 +1,18 @@
+{
+  "name": "@manifeste/bench",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Benchmarks: parser variants and (later) prompt and model variants, scored against labelled datasets.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "bun test",
+    "parser": "bun parser/run.ts",
+    "corpus:push": "bun corpus-sync.ts push",
+    "corpus:pull": "bun corpus-sync.ts pull"
+  },
+  "dependencies": {
+    "@manifeste/core": "workspace:*",
+    "@manifeste/parser": "workspace:*"
+  }
+}

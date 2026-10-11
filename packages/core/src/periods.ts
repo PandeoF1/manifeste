@@ -14,7 +14,11 @@ export const MAX_LOOKBACK_DAYS = 366
 type PeriodSettings = Pick<PublicSettings, 'status_ttl_hours' | 'movement_start'>
 
 /** Start of a period, never before the start of the movement. */
-export function periodSince(period: Period, settings: PeriodSettings, now: Date = new Date()): Date {
+export function periodSince(
+  period: Period,
+  settings: PeriodSettings,
+  now: Date = new Date(),
+): Date {
   const start = parisMidnight(settings.movement_start)
   const hours = { live: settings.status_ttl_hours, '24h': 24, '7d': 24 * 7, all: Infinity }[period]
   if (hours === Infinity) return start
