@@ -75,6 +75,11 @@ Same as production with `deploy/compose.staging.yml`, branch `rework/elysia-back
 
 ### PR previews: `manifeste-preview`
 
+> Previews live on their own **Dockerfile** application. Do not enable Preview Deployments on the
+> Docker Compose resources (prod, staging): Coolify cannot resolve their compose file for a PR
+> (`Docker Compose file not found at: /deploy/compose.staging.yml`) and they would not get a database per PR anyway.
+> Object storage: R2 speaks the S3 API, so any S3-compatible bucket works by changing the endpoint and keys.
+
 - New resource > Public/Private repository (GitHub App) > build pack **Dockerfile**.
 - Enable **Preview Deployments**, URL template `{{pr_id}}.preview.manifeste.pandeo.fr`.
 - Preview environment variables: `ROLE=all`, `AUTH_SECRET`,
