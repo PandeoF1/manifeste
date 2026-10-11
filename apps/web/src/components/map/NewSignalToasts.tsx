@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { STATUS_LABELS } from '@shared/status.ts'
+import { STATUS_LABELS } from '@/lib/labels'
 import { StatusIcon } from '@/components/status/StatusIcon'
 import type { SchoolStatus } from '@/queries/statuses'
 
@@ -29,11 +29,11 @@ export function NewSignalToasts({
     const previous = known.current
     known.current = new Map(statuses.map((s) => [s.uai, s.status]))
     if (!previous) return
-    const fresh = statuses.filter((s) => s.status !== 'leve' && previous.get(s.uai) !== s.status)
+    const fresh = statuses.filter((s) => s.status !== 'lifted' && previous.get(s.uai) !== s.status)
     if (fresh.length === 0) return
     setToasts((t) =>
       [
-        ...fresh.map((school) => ({ key: `${school.uai}:${school.last_signal_at}`, school })),
+        ...fresh.map((school) => ({ key: `${school.uai}:${school.lastSignalAt}`, school })),
         ...t,
       ].slice(0, MAX),
     )

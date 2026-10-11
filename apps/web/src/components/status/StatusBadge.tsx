@@ -1,10 +1,11 @@
-import { STATUS_LABELS, type ReportStatus } from '@shared/status.ts'
+import { type ReportStatus } from '@manifeste/core'
+import { STATUS_LABELS } from '@/lib/labels'
 import { StatusIcon } from './StatusIcon'
 
 const TEXT_CLASS: Record<ReportStatus, string> = {
-  bloque: 'text-bloque',
-  filtrant: 'text-filtrant',
-  leve: 'text-leve',
+  blocked: 'text-bloque',
+  filtering: 'text-filtrant',
+  lifted: 'text-leve',
 }
 
 export function StatusBadge({ status }: { status: ReportStatus }) {

@@ -1,5 +1,4 @@
 import { queryOptions } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
 
 export type Origine = 'presse' | 'syndicat' | 'collecteur' | 'utilisateur'
@@ -70,23 +69,13 @@ function normalize<K extends keyof Vues>(vue: K, data: Vues[K]): Vues[K] {
   })) as unknown as Vues[K]
 }
 
-/**
- * Open data is served by /api/donnees (5-minute CDN cache, open to
- * everyone). If the route is missing (development) or down, the database is queried.
- */
+/** Open data is served by /api/donnees (5-minute CDN cache, open to everyone). */
 async function fetchVue<K extends keyof Vues>(vue: K): Promise<Vues[K]> {
-  try {
-    const res = await fetch(`/api/donnees?vue=${vue}`, { headers: { accept: 'application/json' } })
-    if (res.ok && res.headers.get('content-type')?.includes('json')) {
-      const body = (await res.json()) as { donnees?: Vues[K] }
-      if (body.donnees != null) return normalize(vue, body.donnees)
-    }
-  } catch {
-    // fallback below
-  }
-  const { data, error } = await supabase.rpc('open_data', { p_view: vue })
-  if (error) throw error
-  return data as unknown as Vues[K]
+  const res = await fetch(`/api/donnees?vue=${vue}`, { headers: { accept: 'application/json' } })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const body = (await res.json()) as { donnees?: Vues[K] }
+  if (body.donnees == null) throw new Error('Empty answer')
+  return normalize(vue, body.donnees)
 }
 
 const REFRESH_MS = 5 * 60_000

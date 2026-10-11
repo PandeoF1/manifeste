@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ACTIVE_PHRASE } from '@shared/status.ts'
+import { ACTIVE_PHRASE } from '@/lib/labels'
 import { joursQuery, resumeQuery } from '@/queries/donnees'
 import { DailyBars } from '@/components/donnees/DailyBars'
 import { fmtInt } from '@/lib/donneesFormat'

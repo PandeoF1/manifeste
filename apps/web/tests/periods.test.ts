@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'bun:test'
-import { DEFAULT_SETTINGS, parseSettings, periodDescription, periodSince } from '../src/lib/periods'
+import {
+  DEFAULT_SETTINGS,
+  fromApiSettings,
+  periodDescription,
+  periodSince,
+} from '../src/lib/periods'
 
 const settings = { statusTtlHours: 5, movementStart: '2026-09-14', judgeTiers: false }
 const now = Date.parse('2026-10-05T12:00:00Z')
@@ -32,21 +37,21 @@ describe('periodDescription', () => {
   })
 })
 
-describe('parseSettings', () => {
-  it('reads the settings and ignores invalid values', () => {
+describe('fromApiSettings', () => {
+  it('renames what the API serves', () => {
     expect(
-      parseSettings([
-        { key: 'status_ttl_hours', value: '12' },
-        { key: 'movement_start', value: '2026-09-10' },
-      ]),
-    ).toEqual({ statusTtlHours: 12, movementStart: '2026-09-10', judgeTiers: false })
-    expect(parseSettings([{ key: 'judge_tiers', value: 'on' }]).judgeTiers).toBe(true)
-    expect(parseSettings([{ key: 'judge_tiers', value: 'oui' }]).judgeTiers).toBe(false)
-    expect(
-      parseSettings([
-        { key: 'status_ttl_hours', value: 'abc' },
-        { key: 'movement_start', value: 'hier' },
-      ]),
-    ).toEqual(DEFAULT_SETTINGS)
+      fromApiSettings({ status_ttl_hours: 8, movement_start: '2026-09-20', judge_tiers: true }),
+    ).toEqual({
+      statusTtlHours: 8,
+      movementStart: '2026-09-20',
+      judgeTiers: true,
+    })
+  })
+  it('the defaults are the production ones', () => {
+    expect(DEFAULT_SETTINGS).toEqual({
+      statusTtlHours: 5,
+      movementStart: '2026-09-14',
+      judgeTiers: false,
+    })
   })
 })

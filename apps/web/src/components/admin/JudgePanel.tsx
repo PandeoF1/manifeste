@@ -1,33 +1,40 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ExternalLink } from 'lucide-react'
-import { chiffres, tierOf, type RapportRow, type Tier } from '@shared/judge-tiers.ts'
+import { figures, tierOf, type FigureRow, type Tier } from '@manifeste/core'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { fmtInt } from '@/lib/donneesFormat'
-import { judgedReportsQuery, type JudgedReport } from '@/queries/judge'
+import { judgeReportsQuery, type JudgedReport } from '@/queries/admin'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
 const TIER_LABEL: Record<Tier, string> = {
-  confirme: 'Confirmé',
-  mobilise: 'Mobilisation',
-  'non-retenu': 'Non retenu',
-  'non-juge': 'Non jugé',
+  confirmed: 'Confirmé',
+  mobilisation: 'Mobilisation',
+  not_retained: 'Non retenu',
+  unjudged: 'Non jugé',
 }
 const TIER_HELP: Record<Tier, string> = {
-  confirme: 'Le texte dit bloqué ou fermé',
-  mobilise: 'Rassemblement, incident, cas incertain',
-  'non-retenu': 'Récit, aperçu, mauvais établissement',
-  'non-juge': 'Article illisible ou trop court',
+  confirmed: 'Le texte dit bloqué ou fermé',
+  mobilisation: 'Rassemblement, incident, cas incertain',
+  not_retained: 'Récit, aperçu, mauvais établissement',
+  unjudged: 'Article illisible ou trop court',
 }
 const TIER_DOT: Record<Tier, string> = {
-  confirme: 'bg-bloque',
-  mobilise: 'bg-filtrant',
-  'non-retenu': 'bg-muted',
-  'non-juge': 'bg-border',
+  confirmed: 'bg-bloque',
+  mobilisation: 'bg-filtrant',
+  not_retained: 'bg-muted',
+  unjudged: 'bg-border',
 }
-const TIERS: Tier[] = ['confirme', 'mobilise', 'non-retenu', 'non-juge']
-const NATURES = ['blocage', 'ferme', 'rassemblement', 'incident', 'autre'] as const
+const TIERS: Tier[] = ['confirmed', 'mobilisation', 'not_retained', 'unjudged']
+const NATURES = ['blockade', 'closed', 'gathering', 'incident', 'other'] as const
+const NATURE_LABEL: Record<string, string> = {
+  blockade: 'blocage',
+  closed: 'fermé',
+  gathering: 'rassemblement',
+  incident: 'incident',
+  other: 'autre',
+}
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -40,7 +47,7 @@ interface Row extends JudgedReport {
  * hidden or recounted: this page is for judging whether its opinions are good before relying on them.
  */
 export function JudgePanel() {
-  const query = useQuery(judgedReportsQuery)
+  const query = useQuery(judgeReportsQuery)
   const [keep, setKeep] = useState(0.5)
   const [low, setLow] = useState(0.3)
   const [tier, setTier] = useState<Tier | 'all'>('all')
@@ -56,68 +63,60 @@ export function JudgePanel() {
         ...r,
         tier: tierOf(
           {
-            probability: r.judge_score,
-            nature: r.judge_nature,
+            probability: r.probability,
+            nature: r.nature,
             status: r.status,
-            userReport: r.source_type === 'utilisateur',
+            onSite: r.origin === 'on_site',
+            levelConflict: r.level != null && r.level !== 'unknown' && r.level !== r.schoolLevel,
           },
-          keep,
-          low,
+          { keep, low },
         ),
       })),
     [query.data, keep, low],
   )
 
   const counts = useMemo(() => {
-    const c: Record<Tier, number> = { confirme: 0, mobilise: 0, 'non-retenu': 0, 'non-juge': 0 }
+    const c: Record<Tier, number> = { confirmed: 0, mobilisation: 0, not_retained: 0, unjudged: 0 }
     for (const r of rows) c[r.tier]++
     return c
   }, [rows])
 
-  const figures = useMemo(() => {
-    const rapport: RapportRow[] = rows.flatMap((r) =>
-      r.schools
-        ? [
-            {
-              uai: r.school_uai,
-              department: r.schools.department,
-              level: r.schools.level,
-              status: r.status,
-              observedAt: r.observed_at,
-              domain: r.source_type === 'utilisateur' ? null : r.source_domain,
-              tier: r.tier,
-              nature: r.judge_nature,
-            },
-          ]
-        : [],
-    )
+  const columns = useMemo(() => {
+    const rapport: FigureRow[] = rows.map((r) => ({
+      uai: r.schoolUai,
+      department: r.department,
+      level: r.schoolLevel,
+      status: r.status,
+      observedAt: r.observedAt,
+      domain: r.origin === 'on_site' ? null : r.sourceDomain,
+      tier: r.tier,
+      nature: r.nature,
+    }))
     const now = new Date()
     const sets: Array<[string, Tier[]]> = [
       ['Aujourd’hui (sans juge)', TIERS],
-      ['Confirmé seul', ['confirme']],
-      ['+ mobilisation', ['confirme', 'mobilise']],
-      ['+ non jugés', ['confirme', 'mobilise', 'non-juge']],
+      ['Confirmé seul', ['confirmed']],
+      ['+ mobilisation', ['confirmed', 'mobilisation']],
+      ['+ non jugés', ['confirmed', 'mobilisation', 'unjudged']],
     ]
-    return sets.map(([name, t]) => ({ name, c: chiffres(rapport, t, now) }))
+    return sets.map(([name, t]) => ({ name, c: figures(rapport, t, now) }))
   }, [rows])
 
   const items = useMemo(() => {
     const text = normalize(q.trim())
     return rows
       .filter((r) => tier === 'all' || r.tier === tier)
-      .filter((r) => nature === 'all' || r.judge_nature === nature)
-      .filter((r) => !disagree || (r.certainty === 'haute' && r.tier !== 'confirme'))
+      .filter((r) => nature === 'all' || r.nature === nature)
+      .filter((r) => !disagree || (r.certainty === 'high' && r.tier !== 'confirmed'))
       .filter(
         (r) =>
           !text ||
-          normalize(
-            `${r.schools?.name ?? ''} ${r.schools?.city ?? ''} ${r.source_domain ?? ''}`,
-          ).includes(text),
+          normalize(`${r.schoolName} ${r.schoolCity} ${r.sourceDomain ?? ''}`).includes(text),
       )
       .sort((a, b) =>
         sort === 'recent'
-          ? b.observed_at.localeCompare(a.observed_at)
-          : (a.judge_score ?? 2) - (b.judge_score ?? 2),
+          ? b.observedAt.getTime() - a.observedAt.getTime()
+          : (a.probability ?? 2) - (b.probability ?? 2),
       )
   }, [rows, tier, nature, disagree, sort, q])
 
@@ -130,7 +129,7 @@ export function JudgePanel() {
       </p>
     )
 
-  const judged = rows.length - counts['non-juge']
+  const judged = rows.length - counts['unjudged']
   return (
     <div className="space-y-6">
       <p className="max-w-prose text-sm text-muted">
@@ -194,7 +193,7 @@ export function JudgePanel() {
           <thead>
             <tr className="border-b border-border text-left text-muted">
               <th className="py-2 pr-3 font-medium" />
-              {figures.map((f) => (
+              {columns.map((f) => (
                 <th key={f.name} className="py-2 pr-3 font-medium">
                   {f.name}
                 </th>
@@ -202,20 +201,20 @@ export function JudgePanel() {
             </tr>
           </thead>
           <tbody>
-            <FigureRow label="Établissements" f={figures} get={(c) => fmtInt(c.etablissements)} />
-            <FigureRow
+            <FigureTableRow label="Établissements" f={columns} get={(c) => fmtInt(c.schools)} />
+            <FigureTableRow
               label="Meilleure journée"
-              f={figures}
-              get={(c) => `${fmtInt(c.pic.n)} (${c.pic.jour.slice(5)})`}
+              f={columns}
+              get={(c) => `${fmtInt(c.peak.schools)} (${c.peak.day.slice(5)})`}
             />
-            <FigureRow label="Départements" f={figures} get={(c) => fmtInt(c.departements)} />
-            <FigureRow label="Facs" f={figures} get={(c) => fmtInt(c.facs)} />
-            <FigureRow
+            <FigureTableRow label="Départements" f={columns} get={(c) => fmtInt(c.departments)} />
+            <FigureTableRow label="Facs" f={columns} get={(c) => fmtInt(c.higherEducation)} />
+            <FigureTableRow
               label="En ce moment (dont bloqués)"
-              f={figures}
-              get={(c) => `${fmtInt(c.maintenant.total)} (${fmtInt(c.maintenant.bloques)})`}
+              f={columns}
+              get={(c) => `${fmtInt(c.now.total)} (${fmtInt(c.now.blocked)})`}
             />
-            <FigureRow label="Sources" f={figures} get={(c) => fmtInt(c.sources)} />
+            <FigureTableRow label="Sources" f={columns} get={(c) => fmtInt(c.sources)} />
           </tbody>
         </table>
       </section>
@@ -239,7 +238,7 @@ export function JudgePanel() {
             <option value="all">Toutes natures</option>
             {NATURES.map((n) => (
               <option key={n} value={n}>
-                {n}
+                {NATURE_LABEL[n]}
               </option>
             ))}
           </select>
@@ -277,14 +276,14 @@ export function JudgePanel() {
   )
 }
 
-function FigureRow({
+function FigureTableRow({
   label,
   f,
   get,
 }: {
   label: string
-  f: Array<{ name: string; c: ReturnType<typeof chiffres> }>
-  get: (c: ReturnType<typeof chiffres>) => string
+  f: Array<{ name: string; c: ReturnType<typeof figures> }>
+  get: (c: ReturnType<typeof figures>) => string
 }) {
   return (
     <tr className="border-b border-border">
@@ -301,34 +300,32 @@ function FigureRow({
 }
 
 function JudgeRow({ r }: { r: Row }) {
-  const score = r.judge_score
-  const levelClash =
-    r.judge_level && r.judge_level !== 'inconnu' && r.schools && r.judge_level !== r.schools.level
+  const score = r.probability
+  const levelClash = r.level && r.level !== 'unknown' && r.level !== r.schoolLevel
   return (
     <li className="rounded-lg border border-border bg-surface p-3 text-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-semibold">
-            {r.schools?.name ?? '?'}{' '}
-            <span className="font-normal text-muted">{r.schools?.city}</span>
+            {r.schoolName} <span className="font-normal text-muted">{r.schoolCity}</span>
           </p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
             <span className="inline-flex items-center gap-1">
               Gemini : <StatusBadge status={r.status} />
               {r.certainty ? ` · ${r.certainty}` : ''}
             </span>
-            <span>{dateFmt.format(new Date(r.observed_at))}</span>
-            {r.source_url ? (
+            <span>{dateFmt.format(r.observedAt)}</span>
+            {r.sourceUrl ? (
               <a
-                href={r.source_url}
+                href={r.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 underline"
               >
-                {r.source_domain ?? 'source'} <ExternalLink size={12} aria-hidden="true" />
+                {r.sourceDomain ?? 'source'} <ExternalLink size={12} aria-hidden="true" />
               </a>
             ) : (
-              <span>{r.source_type === 'utilisateur' ? 'sur place' : (r.source_domain ?? '')}</span>
+              <span>{r.origin === 'on_site' ? 'sur place' : (r.sourceDomain ?? '')}</span>
             )}
           </p>
         </div>
@@ -341,7 +338,7 @@ function JudgeRow({ r }: { r: Row }) {
         {score === null ? (
           <span className="text-muted">
             Pas d'avis du juge
-            {r.judged_at
+            {r.judgedAt
               ? ' (article illisible ou trop court)'
               : ' (texte trop court, ou pas encore jugé)'}
           </span>
@@ -360,12 +357,12 @@ function JudgeRow({ r }: { r: Row }) {
               </span>
               <strong className="tabular-nums">{Math.round(score * 100)} %</strong>
             </span>
-            <span>nature : {r.judge_nature ?? '?'}</span>
+            <span>nature : {(r.nature && NATURE_LABEL[r.nature]) || '?'}</span>
             <span className={levelClash ? 'font-semibold text-filtrant' : ''}>
-              niveau : {r.judge_level ?? '?'}
-              {levelClash ? ` (la base dit ${r.schools?.level})` : ''}
+              niveau : {r.level ?? '?'}
+              {levelClash ? ` (la base dit ${r.schoolLevel})` : ''}
             </span>
-            <span className="text-muted">{r.judge_model}</span>
+            <span className="text-muted">{r.model}</span>
           </>
         )}
       </p>

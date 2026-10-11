@@ -1,34 +1,16 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, Link2, MapPin, Plus, Trash2 } from 'lucide-react'
-import { STATUS_LABELS, type ReportStatus } from '@shared/status.ts'
-import { supabase } from '@/lib/supabase'
+import { STATUS_LABELS } from '@/lib/labels'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatSchoolName } from '@/lib/schoolName'
-import { originalPhotoUrl } from '@/queries/admin'
-
-export interface Proposal {
-  id: string
-  name: string
-  city: string
-  status: ReportStatus
-  lat: number
-  lng: number
-  photo_path: string | null
-  source_url: string | null
-  created_at: string
-  candidates: Array<{ uai: string; name: string; city: string; distance_m: number | null }>
-}
-
-export const proposalsQuery = {
-  queryKey: [...queryKeys.admin.all, 'school-proposals'],
-  queryFn: async (): Promise<Proposal[]> => {
-    const { data, error } = await supabase.rpc('admin_school_proposals')
-    if (error) throw error
-    return (Array.isArray(data) ? data : []) as unknown as Proposal[]
-  },
-  refetchInterval: 60_000,
-}
+import {
+  proposalPhotoUrl,
+  proposalsQuery,
+  rejectProposal,
+  resolveProposal,
+  type Proposal,
+} from '@/queries/admin'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', {
   dateStyle: 'short',
@@ -73,29 +55,19 @@ function ProposalCard({ p, canReject }: { p: Proposal; canReject: boolean }) {
   const [name, setName] = useState(() => formatSchoolName(p.name))
   const [city, setCity] = useState(p.city)
   const [uai, setUai] = useState('')
-  const [photo, setPhoto] = useState<string | null>(null)
+  const [showPhoto, setShowPhoto] = useState(false)
   const done = () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.all })
 
   const resolve = useMutation({
-    mutationFn: async (args: { link?: string; create?: boolean }) => {
-      const { data, error } = await supabase.rpc('admin_resolve_school_proposal', {
-        p_id: p.id,
-        p_link_uai: args.link ?? null,
-        p_name: args.create ? name : null,
-        p_city: args.create ? city : null,
-        p_new_uai: args.create && uai.trim() ? uai.trim().toUpperCase() : null,
-      })
-      if (error) throw error
-      return data
-    },
+    mutationFn: (args: { link?: string; create?: boolean }) =>
+      resolveProposal(p.id, {
+        ...(args.link && { linkUai: args.link }),
+        ...(args.create && { name, city, ...(uai.trim() && { newUai: uai.trim().toUpperCase() }) }),
+      }),
     onSuccess: done,
   })
   const reject = useMutation({
-    mutationFn: async () => {
-      if (p.photo_path) await supabase.storage.from('submissions').remove([p.photo_path])
-      const { error } = await supabase.from('school_proposals').delete().eq('id', p.id)
-      if (error) throw error
-    },
+    mutationFn: () => rejectProposal(p.id),
     onSuccess: done,
   })
   const busy = resolve.isPending || reject.isPending
@@ -108,7 +80,7 @@ function ProposalCard({ p, canReject }: { p: Proposal; canReject: boolean }) {
             « {p.name} » · {p.city}
           </h2>
           <p className="text-xs text-muted">
-            {STATUS_LABELS[p.status]} · {dateFmt.format(new Date(p.created_at))} ·{' '}
+            {STATUS_LABELS[p.status]} · {dateFmt.format(p.createdAt)} ·{' '}
             <a
               className="inline-flex items-center gap-1 underline"
               href={`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}`}
@@ -117,12 +89,12 @@ function ProposalCard({ p, canReject }: { p: Proposal; canReject: boolean }) {
             >
               <MapPin size={12} aria-hidden="true" /> position du visiteur (~100 m)
             </a>
-            {p.source_url && (
+            {p.sourceUrl && (
               <>
                 {' · '}
                 <a
                   className="inline-flex items-center gap-1 underline"
-                  href={p.source_url}
+                  href={p.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -147,15 +119,15 @@ function ProposalCard({ p, canReject }: { p: Proposal; canReject: boolean }) {
         )}
       </header>
 
-      {p.photo_path &&
-        (photo ? (
-          <img src={photo} alt="Photo envoyée (non floutée)" className="max-h-64 rounded-lg" />
+      {p.hasPhoto &&
+        (showPhoto ? (
+          <img
+            src={proposalPhotoUrl(p.id)}
+            alt="Photo envoyée (non floutée)"
+            className="max-h-64 rounded-lg"
+          />
         ) : (
-          <button
-            type="button"
-            className="text-sm underline"
-            onClick={() => void originalPhotoUrl(p.photo_path as string).then(setPhoto)}
-          >
+          <button type="button" className="text-sm underline" onClick={() => setShowPhoto(true)}>
             Voir la photo
           </button>
         ))}
@@ -173,7 +145,7 @@ function ProposalCard({ p, canReject }: { p: Proposal; canReject: boolean }) {
                 <span className="text-muted">
                   {' '}
                   · {c.city}
-                  {c.distance_m != null ? ` · ${km(c.distance_m)}` : ''}
+                  {c.distanceM != null ? ` · ${km(c.distanceM)}` : ''}
                 </span>
               </span>
               <button

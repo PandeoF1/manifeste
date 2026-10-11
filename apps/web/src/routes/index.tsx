@@ -8,7 +8,7 @@ import { LiveFeed } from '@/components/map/LiveFeed'
 import { NewSignalToasts } from '@/components/map/NewSignalToasts'
 import { SchoolPanel } from '@/components/map/SchoolPanel'
 import { Timeline } from '@/components/map/Timeline'
-import { blockedPhrase } from '@shared/status.ts'
+import { blockedPhrase } from '@/lib/labels'
 import { HeroStats, Legend } from '@/components/status/HeroStats'
 import { ShareButton } from '@/components/ShareButton'
 import {
@@ -211,8 +211,8 @@ function MapPage() {
       ? '/'
       : `/?periode=${period}`
   const shareText = history
-    ? `${stats.bloque} établissements ont été ${blockedPhrase(2)} ${history} en France.`
-    : `${stats.bloque} établissements ${blockedPhrase(stats.bloque)} en ce moment en France.`
+    ? `${stats.blocked} établissements ont été ${blockedPhrase(2)} ${history} en France.`
+    : `${stats.blocked} établissements ${blockedPhrase(stats.blocked)} en ce moment en France.`
   // In History mode, the card stays open even if the school has no signal at that moment.
   const confirmed =
     shown.find((s) => s.uai === search.uai) ??

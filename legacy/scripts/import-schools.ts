@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
-import type { Database } from '../../apps/web/src/lib/database.types.ts'
+import type { Database } from './database.types.ts'
 import { isExcludedEstablishment } from './school-filter.ts'
 
 const DATASET = 'fr-en-annuaire-education'

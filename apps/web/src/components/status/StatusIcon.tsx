@@ -1,4 +1,4 @@
-import type { ReportStatus } from '@shared/status.ts'
+import type { ReportStatus } from '@manifeste/core'
 
 /**
  * A distinct shape per status (never colour alone):
@@ -8,7 +8,7 @@ import type { ReportStatus } from '@shared/status.ts'
 export function StatusIcon({ status, size = 16 }: { status: ReportStatus; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', 'aria-hidden': true } as const
   switch (status) {
-    case 'bloque':
+    case 'blocked':
       return (
         <svg {...common}>
           <polygon
@@ -20,7 +20,7 @@ export function StatusIcon({ status, size = 16 }: { status: ReportStatus; size?:
           <rect x="6" y="10.5" width="12" height="3" fill="white" />
         </svg>
       )
-    case 'filtrant':
+    case 'filtering':
       return (
         <svg {...common}>
           <polygon
@@ -33,7 +33,7 @@ export function StatusIcon({ status, size = 16 }: { status: ReportStatus; size?:
           <rect x="10.75" y="16.5" width="2.5" height="2.5" fill="white" />
         </svg>
       )
-    case 'leve':
+    case 'lifted':
       return (
         <svg {...common}>
           <circle

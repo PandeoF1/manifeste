@@ -1,64 +1,12 @@
 import { describe, expect, it } from 'bun:test'
-import { articleTitle, isPressItem, parseMediaAnalyses } from '@shared/media.ts'
-import { aggregate, badgesFor, outletOf, topDemands, type MediaRow } from '@/lib/mediaStats'
-
-const item = (text: string, url = 'https://www.lefigaro.fr/a') => ({
-  externalId: url,
-  url,
-  text,
-  publishedAt: new Date('2026-10-06T08:00:00Z'),
-})
-
-describe('media analysis', () => {
-  const batch = [
-    {
-      id: '0',
-      item: item('Blocus au lycée. « Nous refusons la réforme du bac » expliquent les élèves.'),
-    },
-  ]
-  const answer = {
-    item_id: '0',
-    about_movement: true,
-    mentions_demands: true,
-    demands: ['réforme du bac'],
-    voices: ['lyceens', 'inconnu'],
-    focus: 'revendications',
-    incidents: false,
-    police_violence: false,
-    terms: ['élèves'],
-    tone: 'neutre',
-    quote_demands: '"Nous refusons la réforme du bac"',
-    quote_framing: 'Une phrase inventée par le modèle',
-  }
-
-  it('keeps quotes really present in the text, removes invented ones', () => {
-    const [a] = parseMediaAnalyses({ articles: [answer] }, batch)
-    expect(a?.quote_demands).toBe('"Nous refusons la réforme du bac"')
-    expect(a?.quote_framing).toBeNull()
-    // A value outside the list empties the list (catch) rather than rejecting the article.
-    expect(a?.voices).toEqual([])
-  })
-
-  it('ignores unknown ids and invalid outputs', () => {
-    expect(parseMediaAnalyses({ articles: [{ ...answer, item_id: '9' }] }, batch)).toEqual([])
-    expect(parseMediaAnalyses({ articles: [{ ...answer, focus: 'autre' }] }, batch)).toEqual([])
-    expect(parseMediaAnalyses(null, batch)).toEqual([])
-  })
-
-  it('only keeps press', () => {
-    expect(isPressItem('rss', item('x'))).toBe(true)
-    expect(isPressItem('telegram', item('x', 'https://t.me/s/canal/1'))).toBe(false)
-    expect(isPressItem('rss', { ...item('x', 'https://news.google.com/rss/articles/x') })).toBe(
-      false,
-    )
-    expect(
-      isPressItem('rss', {
-        ...item('x', 'https://news.google.com/rss/articles/x'),
-        publisherDomain: 'cnews.fr',
-      }),
-    ).toBe(true)
-  })
-})
+import {
+  aggregate,
+  badgesFor,
+  fromApiMedia,
+  outletOf,
+  topDemands,
+  type MediaRow,
+} from '@/lib/mediaStats'
 
 const row = (domain: string, over: Partial<MediaRow> = {}): MediaRow => ({
   url: `https://${domain}/${Math.random()}`,
@@ -77,14 +25,6 @@ const row = (domain: string, over: Partial<MediaRow> = {}): MediaRow => ({
   quote_demands: null,
   quote_framing: null,
   ...over,
-})
-
-describe('article title', () => {
-  it('takes the first non-empty line (enriched text without a feed title)', () => {
-    expect(articleTitle(item('\nBlocus à Lens\nLe chapeau de l’article'))).toBe('Blocus à Lens')
-    expect(articleTitle(item('Titre du flux\nChapeau'))).toBe('Titre du flux')
-    expect(articleTitle(item(''))).toBe('')
-  })
 })
 
 describe('statistics per outlet', () => {
@@ -166,49 +106,6 @@ describe('statistics per outlet', () => {
   })
 })
 
-describe('stored rows', () => {
-  it('links each analysis to its article and ignores unknown ids', async () => {
-    const { mediaRows } = await import('@shared/media.ts')
-    const b = [
-      {
-        id: '0',
-        item: item('Titre de l’article\nChapeau', 'https://www.lemonde.fr/a'),
-        source: { id: 's1' },
-      },
-    ]
-    const base = {
-      about_movement: true,
-      mentions_demands: false,
-      demands: [],
-      voices: [],
-      focus: 'mobilisation' as const,
-      incidents: false,
-      police_violence: false,
-      terms: [],
-      tone: 'neutre' as const,
-      quote_demands: null,
-      quote_framing: null,
-    }
-    const rows = mediaRows(
-      [
-        { ...base, item_id: '0' },
-        { ...base, item_id: '7' },
-      ],
-      b,
-      'm',
-    )
-    expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({
-      url: 'https://www.lemonde.fr/a',
-      domain: 'lemonde.fr',
-      title: 'Titre de l’article',
-      source_id: 's1',
-      model: 'm',
-    })
-    expect(rows[0]).not.toHaveProperty('item_id')
-  })
-})
-
 describe('CSV export', () => {
   it('escapes quotes and separators, with a BOM for Excel', async () => {
     const { mediaCsv } = await import('@/lib/mediaExport')
@@ -244,5 +141,36 @@ describe('owners', () => {
       'Groupe Canal+ (Bolloré)',
       'Non renseigné',
     ])
+  })
+})
+
+describe('reading the API', () => {
+  it('translates the English values back to the vocabulary of the statistics', () => {
+    const r = fromApiMedia({
+      url: 'https://x.fr/a',
+      domain: 'x.fr',
+      title: 'T',
+      publishedAt: new Date('2026-10-06T08:00:00Z'),
+      aboutMovement: true,
+      mentionsDemands: true,
+      demands: ['bac'],
+      voices: ['students', 'police_prefecture', 'other'],
+      focus: 'demands',
+      incidents: false,
+      policeViolence: true,
+      terms: ['élèves'],
+      tone: 'unfavourable',
+      quoteDemands: null,
+      quoteFraming: 'q',
+      textChars: 900,
+    })
+    expect(r).toMatchObject({
+      published_at: '2026-10-06T08:00:00.000Z',
+      voices: ['lyceens', 'police_prefecture', 'other'],
+      focus: 'revendications',
+      tone: 'defavorable',
+      police_violence: true,
+      text_chars: 900,
+    })
   })
 })

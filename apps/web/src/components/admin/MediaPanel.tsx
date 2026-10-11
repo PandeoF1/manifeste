@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download, ExternalLink, FileSpreadsheet, Info, Quote } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { download, mediaCsv, renderMediaPng } from '@/lib/mediaExport'
-import { queryKeys } from '@/lib/queryKeys'
+import { useNow } from '@/lib/useNow'
+import { mediaQuery } from '@/queries/admin'
 import {
   MIN_ARTICLES_BADGE,
   aggregate,
+  fromApiMedia,
   outletOf,
   topDemands,
   type Badge,
@@ -19,23 +20,6 @@ const PERIODS = [
   { id: 30, label: '30 j' },
   { id: 0, label: 'Tout' },
 ] as const
-
-const mediaQuery = (days: number) => ({
-  queryKey: [...queryKeys.admin.all, 'media', days],
-  queryFn: async (): Promise<MediaRow[]> => {
-    let q = supabase
-      .from('media_analyses')
-      .select(
-        'url, domain, title, published_at, about_movement, mentions_demands, demands, voices, focus, incidents, police_violence, terms, tone, quote_demands, quote_framing, text_chars',
-      )
-      .order('published_at', { ascending: false })
-      .limit(3000)
-    if (days > 0) q = q.gte('published_at', new Date(Date.now() - days * 86_400_000).toISOString())
-    const { data, error } = await q
-    if (error) throw error
-    return data
-  },
-})
 
 /** Choice of the display and export threshold (minimum articles per outlet). */
 const MIN_OPTIONS = [1, 5, 10, 15, 30] as const
@@ -69,8 +53,14 @@ export function MediaPanel() {
   const [days, setDays] = useState<number>(30)
   const [by, setBy] = useState<'outlet' | 'owner'>('outlet')
   const [open, setOpen] = useState<string | null>(null)
-  const q = useQuery(mediaQuery(days))
-  const rows = useMemo(() => q.data ?? [], [q.data])
+  const q = useQuery(mediaQuery)
+  const now = useNow(300_000)
+  const rows = useMemo(() => {
+    const since = days > 0 ? now.getTime() - days * 86_400_000 : 0
+    return (q.data ?? [])
+      .map(fromApiMedia)
+      .filter((r) => !r.published_at || new Date(r.published_at).getTime() >= since)
+  }, [q.data, days, now])
   const [minArticles, setMinArticles] = useState<number>(10)
   const allStats = useMemo(() => aggregate(rows, by), [rows, by])
   const stats = useMemo(

@@ -1,62 +1,55 @@
-import { z } from 'zod'
-import { REPORT_STATUSES, type ReportStatus } from '@shared/status.ts'
+import type { ReportStatus } from '@manifeste/core'
+import type { Timeline } from '@/lib/apiTypes'
 import { periodSince, type PublicSettings } from './periods'
 import type { SchoolStatus } from '@/queries/statuses'
 
 /**
- * Map history: every validated report since the start of the movement, to
- * replay the map at any moment (timeline at the bottom of the map). The data comes from
- * the SQL function timeline_events; everything else (state at time T, histogram) is computed
- * here, in the browser, with no new call while moving through time.
+ * Map history: every validated report since the start of the movement, to replay the map at any
+ * moment (timeline at the bottom of the map). The server sends the events; everything else (state
+ * at time T, histogram) is computed here, in the browser, with no new call while moving through
+ * time. Events are kept in a compact form: a few thousand of them are scanned on every drag.
  */
 
-const schoolSchema = z.object({
-  uai: z.string(),
-  name: z.string(),
-  city: z.string(),
-  department: z.string().nullable(),
-  academy: z.string().nullable(),
-  lat: z.number(),
-  lng: z.number(),
-  level: z.enum(['lycee', 'superieur']),
-})
-const eventSchema = z.object({
+export interface TimelineSchool {
+  uai: string
+  name: string
+  city: string
+  department: string | null
+  academy: string | null
+  lat: number
+  lng: number
+  level: 'secondary' | 'higher'
+}
+export interface TimelineEvent {
   /** School UAI. */
-  u: z.string(),
-  /** Statut. */
-  s: z.enum(REPORT_STATUSES),
+  u: string
+  /** Status. */
+  s: ReportStatus
   /** Time of the fact, in milliseconds since 1970. */
-  t: z.number(),
+  t: number
   /** Source key (a source counts for one, however many articles). Absent for an on-site report. */
-  k: z.string().nullable(),
+  k: string | null
   /** Reported mobilisation (judge tiers): not part of the counted statuses. */
-  m: z.boolean().optional(),
-})
-const timelineSchema = z.object({ schools: z.array(z.unknown()), events: z.array(z.unknown()) })
-
-export type TimelineSchool = z.infer<typeof schoolSchema>
-export type TimelineEvent = z.infer<typeof eventSchema>
+  m?: boolean
+}
 export interface TimelineData {
   schools: TimelineSchool[]
   /** Oldest to newest. */
   events: TimelineEvent[]
 }
 
-/** Keeps valid rows: one damaged row must not make the whole timeline disappear. */
-function keepValid<T>(schema: z.ZodType<T>, rows: unknown[]): T[] {
-  const out: T[] = []
-  for (const row of rows) {
-    const parsed = schema.safeParse(row)
-    if (parsed.success) out.push(parsed.data)
-  }
-  return out
-}
-
-/** Reads the database response (strict overall shape, tolerant rows); sorts the events. */
-export function parseTimeline(raw: unknown): TimelineData {
-  const data = timelineSchema.parse(raw)
-  const schools = keepValid(schoolSchema, data.schools)
-  const events = keepValid(eventSchema, data.events)
+/** The API's timeline in the compact form; schools without a position cannot be mapped. */
+export function fromApiTimeline(data: Timeline): TimelineData {
+  const schools = data.schools.flatMap((s) =>
+    s.lat === null || s.lng === null ? [] : [{ ...s, lat: s.lat, lng: s.lng }],
+  )
+  const events = data.events.map((e): TimelineEvent => ({
+    u: e.uai,
+    s: e.status,
+    t: e.at,
+    k: e.sourceKey || null,
+    ...(e.mobilisation && { m: true }),
+  }))
   const sorted = events.every((e, i) => i === 0 || (events[i - 1]?.t ?? 0) <= e.t)
   return { schools, events: sorted ? events : events.sort((a, b) => a.t - b.t) }
 }
@@ -91,7 +84,7 @@ export function statusesAt(data: TimelineData, at: number, hours: number): Schoo
 export function mobilisationAt(data: TimelineData, at: number, hours: number): SchoolStatus[] {
   const counted = new Set(stateAt(data, at, hours, false).map((s) => s.uai))
   return stateAt(data, at, hours, true)
-    .filter((s) => !counted.has(s.uai) && s.status !== 'leve')
+    .filter((s) => !counted.has(s.uai) && s.status !== 'lifted')
     .map((s) => ({ ...s, mobilisation: true }))
 }
 
@@ -130,11 +123,11 @@ function stateAt(
       lng: school.lng,
       level: school.level,
       status: last.status,
-      last_signal_at: new Date(last.t).toISOString(),
-      source_count: sources.get(uai)?.size ?? 0,
+      lastSignalAt: new Date(last.t),
+      sourceCount: sources.get(uai)?.size ?? 0,
     })
   }
-  return out.sort((a, b) => b.last_signal_at.localeCompare(a.last_signal_at))
+  return out.sort((a, b) => b.lastSignalAt.getTime() - a.lastSignalAt.getTime())
 }
 
 // --- Window shown by the timeline ---------------------------------------------------------
@@ -184,9 +177,9 @@ export function advance(at: number, dtMs: number, from: number, to: number, spee
 
 export interface Bucket {
   start: number
-  bloque: number
-  filtrant: number
-  leve: number
+  blocked: number
+  filtering: number
+  lifted: number
   total: number
 }
 
@@ -207,9 +200,9 @@ export function bucketize(
   const count = Math.max(1, Math.ceil((to - from) / size))
   const buckets: Bucket[] = Array.from({ length: count }, (_, i) => ({
     start: from + i * size,
-    bloque: 0,
-    filtrant: 0,
-    leve: 0,
+    blocked: 0,
+    filtering: 0,
+    lifted: 0,
     total: 0,
   }))
   for (let i = firstAfter(events, from - 1); i < events.length; i++) {

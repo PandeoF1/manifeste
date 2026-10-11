@@ -1,10 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
-import { normalizeDomainInput } from '@shared/domain.ts'
-import { supabase } from '@/lib/supabase'
+import { normalizeDomainInput } from '@manifeste/core'
 import { queryKeys } from '@/lib/queryKeys'
-import { trustedDomainsQuery } from '@/queries/admin'
+import { addTrustedDomain, removeTrustedDomain, trustedDomainsQuery } from '@/queries/admin'
 
 export function TrustedDomainsPanel() {
   const queryClient = useQueryClient()
@@ -13,20 +12,8 @@ export function TrustedDomainsPanel() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.admin.trustedDomains() })
 
-  const add = useMutation({
-    mutationFn: async (row: { domain: string; label: string; kind: 'presse' | 'syndicat' }) => {
-      const { error } = await supabase.from('trusted_domains').insert(row)
-      if (error) throw new Error(error.code === '23505' ? 'Domaine déjà présent.' : error.message)
-    },
-    onSuccess: invalidate,
-  })
-  const remove = useMutation({
-    mutationFn: async (domain: string) => {
-      const { error } = await supabase.from('trusted_domains').delete().eq('domain', domain)
-      if (error) throw error
-    },
-    onSuccess: invalidate,
-  })
+  const add = useMutation({ mutationFn: addTrustedDomain, onSuccess: invalidate })
+  const remove = useMutation({ mutationFn: removeTrustedDomain, onSuccess: invalidate })
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -40,7 +27,7 @@ export function TrustedDomainsPanel() {
     }
     setError(null)
     add.mutate(
-      { domain, label, kind: data.get('kind') === 'syndicat' ? 'syndicat' : 'presse' },
+      { domain, label, origin: data.get('kind') === 'syndicat' ? 'union' : 'press' },
       { onSuccess: () => form.reset() },
     )
   }
@@ -75,7 +62,7 @@ export function TrustedDomainsPanel() {
             <span className="flex-1">
               <span className="font-medium">{d.domain}</span>{' '}
               <span className="text-muted">
-                · {d.label} · {d.kind}
+                · {d.label} · {d.origin === 'union' ? 'syndicat' : 'presse'}
               </span>
             </span>
             <button

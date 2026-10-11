@@ -4,12 +4,9 @@
 // the browser, no third-party service. Disabled with "Do Not Track" / GPC, in admin and in dev.
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals'
 import { pageGroup, type PageGroup } from './pageGroup'
-import { supabase } from './supabase'
 
-// The database's track_visit function (PostgREST): no billed Edge Function call.
-const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/track_visit`
-const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-/** Enabled once the site_analytics migration and the beacon function are live. */
+const BEACON = '/api/analytics/beacon'
+const PING = '/api/analytics/ping'
 const ENABLED = true
 const PING_MS = 45_000
 const MAX_API_SAMPLES = 5
@@ -29,15 +26,11 @@ function optedOut(): boolean {
 
 function send(body: { page: PageGroup; view: boolean; metrics: Sample[] }) {
   // keepalive: the request survives the tab closing (measurements are sent then).
-  void fetch(ENDPOINT, {
+  void fetch(BEACON, {
     method: 'POST',
     keepalive: true,
-    headers: {
-      apikey: ANON_KEY,
-      authorization: `Bearer ${ANON_KEY}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({ p_page: body.page, p_view: body.view, p_metrics: body.metrics }),
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
   }).catch(() => {})
 }
 
@@ -87,14 +80,14 @@ export function startTelemetry(router: {
   onFCP(keep)
   onTTFB(keep)
 
-  // API latency: time to first byte of the first Supabase reads.
+  // API latency: time to first byte of the first reads of the API.
   const api: number[] = []
   try {
-    const host = new URL(import.meta.env.VITE_SUPABASE_URL).host
     new PerformanceObserver((list) => {
       for (const e of list.getEntries() as PerformanceResourceTiming[]) {
         if (api.length >= MAX_API_SAMPLES) return
-        if (!e.name.includes(host) || !e.name.includes('/rest/v1/')) continue
+        if (!new URL(e.name).pathname.startsWith('/api/') || !e.name.includes('/api/statuses'))
+          continue
         const ttfb = e.responseStart > 0 ? e.responseStart - e.startTime : e.duration
         if (ttfb > 0) api.push(Math.round(ttfb))
       }
@@ -119,10 +112,12 @@ export function startTelemetry(router: {
   let timer: number | undefined
   function ping() {
     if (!current || document.visibilityState !== 'visible') return
-    void supabase.rpc('ping_live', { p_session: session, p_page: current }).then(
-      () => {},
-      () => {},
-    )
+    void fetch(PING, {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session, page: current }),
+    }).catch(() => {})
   }
   const schedule = () => {
     window.clearInterval(timer)

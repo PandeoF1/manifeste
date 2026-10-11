@@ -1,7 +1,18 @@
-// Viewing periods of the map and the list. "direct" follows status_ttl_hours;
-// the others go back in time to the start of the movement (adjustable in the admin).
+// Viewing periods of the map and the list. "direct" follows status_ttl_hours; the others go
+// back in time to the start of the movement (adjustable in the admin). The names are the ones
+// in shared links (?periode=7j); the API's own names are in @manifeste/core.
+import type { Period as ApiPeriod } from '@manifeste/core'
+
 export const PERIODS = ['direct', '24h', '7j', 'tout'] as const
 export type Period = (typeof PERIODS)[number]
+
+/** The API's name for a period of the site. */
+export const API_PERIOD: Record<Period, ApiPeriod> = {
+  direct: 'live',
+  '24h': '24h',
+  '7j': '7d',
+  tout: 'all',
+}
 
 export interface PublicSettings {
   statusTtlHours: number
@@ -63,15 +74,15 @@ export function periodDescription(period: Period, settings: PublicSettings): str
   }
 }
 
-/** Tolerant reading of the app_settings table (text values). */
-export function parseSettings(rows: ReadonlyArray<{ key: string; value: string }>): PublicSettings {
-  const get = (key: string) => rows.find((r) => r.key === key)?.value
-  const ttl = Number(get('status_ttl_hours'))
-  const start = get('movement_start')
+/** The settings the API serves (snake_case, validated by the server), in the app's shape. */
+export function fromApiSettings(s: {
+  status_ttl_hours: number
+  movement_start: string
+  judge_tiers: boolean
+}): PublicSettings {
   return {
-    statusTtlHours: Number.isInteger(ttl) && ttl > 0 ? ttl : DEFAULT_SETTINGS.statusTtlHours,
-    movementStart:
-      start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : DEFAULT_SETTINGS.movementStart,
-    judgeTiers: get('judge_tiers') === 'on',
+    statusTtlHours: s.status_ttl_hours,
+    movementStart: s.movement_start,
+    judgeTiers: s.judge_tiers,
   }
 }

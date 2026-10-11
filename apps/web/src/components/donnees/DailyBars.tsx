@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ACTIVE_PHRASE } from '@shared/status.ts'
+import { ACTIVE_PHRASE } from '@/lib/labels'
 import type { Jour } from '@/queries/donnees'
 import { fmtDay, fmtDayLong, fmtInt, niceStep } from '@/lib/donneesFormat'
 

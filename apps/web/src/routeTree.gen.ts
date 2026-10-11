@@ -15,7 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as DonneesRouteImport } from './routes/donnees'
 import { Route as ListeRouteImport } from './routes/liste'
 import { Route as SignalerRouteImport } from './routes/signaler'
-import { Route as AdminDirectRouteImport } from './routes/admin_.direct'
+import { Route as AdminMotDePasseRouteImport } from './routes/admin_.mot-de-passe'
 import { Route as EmbedCarteRouteImport } from './routes/embed.carte'
 import { Route as EmbedChiffresRouteImport } from './routes/embed.chiffres'
 import { Route as LyceeUaiRouteImport } from './routes/lycee.$uai'
@@ -50,9 +50,9 @@ const SignalerRoute = SignalerRouteImport.update({
   path: '/signaler',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminDirectRoute = AdminDirectRouteImport.update({
-  id: '/admin_/direct',
-  path: '/admin/direct',
+const AdminMotDePasseRoute = AdminMotDePasseRouteImport.update({
+  id: '/admin_/mot-de-passe',
+  path: '/admin/mot-de-passe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmbedCarteRoute = EmbedCarteRouteImport.update({
@@ -78,7 +78,7 @@ export interface FileRoutesByFullPath {
   '/donnees': typeof DonneesRoute
   '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
-  '/admin/direct': typeof AdminDirectRoute
+  '/admin/mot-de-passe': typeof AdminMotDePasseRoute
   '/embed/carte': typeof EmbedCarteRoute
   '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
@@ -90,7 +90,7 @@ export interface FileRoutesByTo {
   '/donnees': typeof DonneesRoute
   '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
-  '/admin/direct': typeof AdminDirectRoute
+  '/admin/mot-de-passe': typeof AdminMotDePasseRoute
   '/embed/carte': typeof EmbedCarteRoute
   '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
@@ -103,7 +103,7 @@ export interface FileRoutesById {
   '/donnees': typeof DonneesRoute
   '/liste': typeof ListeRoute
   '/signaler': typeof SignalerRoute
-  '/admin_/direct': typeof AdminDirectRoute
+  '/admin_/mot-de-passe': typeof AdminMotDePasseRoute
   '/embed/carte': typeof EmbedCarteRoute
   '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
@@ -117,7 +117,7 @@ export interface FileRouteTypes {
     | '/donnees'
     | '/liste'
     | '/signaler'
-    | '/admin/direct'
+    | '/admin/mot-de-passe'
     | '/embed/carte'
     | '/embed/chiffres'
     | '/lycee/$uai'
@@ -129,7 +129,7 @@ export interface FileRouteTypes {
     | '/donnees'
     | '/liste'
     | '/signaler'
-    | '/admin/direct'
+    | '/admin/mot-de-passe'
     | '/embed/carte'
     | '/embed/chiffres'
     | '/lycee/$uai'
@@ -141,7 +141,7 @@ export interface FileRouteTypes {
     | '/donnees'
     | '/liste'
     | '/signaler'
-    | '/admin_/direct'
+    | '/admin_/mot-de-passe'
     | '/embed/carte'
     | '/embed/chiffres'
     | '/lycee/$uai'
@@ -154,7 +154,7 @@ export interface RootRouteChildren {
   DonneesRoute: typeof DonneesRoute
   ListeRoute: typeof ListeRoute
   SignalerRoute: typeof SignalerRoute
-  AdminDirectRoute: typeof AdminDirectRoute
+  AdminMotDePasseRoute: typeof AdminMotDePasseRoute
   EmbedCarteRoute: typeof EmbedCarteRoute
   EmbedChiffresRoute: typeof EmbedChiffresRoute
   LyceeUaiRoute: typeof LyceeUaiRoute
@@ -204,11 +204,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignalerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin_/direct': {
-      id: '/admin_/direct'
-      path: '/admin/direct'
-      fullPath: '/admin/direct'
-      preLoaderRoute: typeof AdminDirectRouteImport
+    '/admin_/mot-de-passe': {
+      id: '/admin_/mot-de-passe'
+      path: '/admin/mot-de-passe'
+      fullPath: '/admin/mot-de-passe'
+      preLoaderRoute: typeof AdminMotDePasseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/embed/carte': {
@@ -242,7 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   DonneesRoute: DonneesRoute,
   ListeRoute: ListeRoute,
   SignalerRoute: SignalerRoute,
-  AdminDirectRoute: AdminDirectRoute,
+  AdminMotDePasseRoute: AdminMotDePasseRoute,
   EmbedCarteRoute: EmbedCarteRoute,
   EmbedChiffresRoute: EmbedChiffresRoute,
   LyceeUaiRoute: LyceeUaiRoute,

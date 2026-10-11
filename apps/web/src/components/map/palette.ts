@@ -1,10 +1,10 @@
-import type { ReportStatus } from '@shared/status.ts'
+import type { ReportStatus } from '@manifeste/core'
 
 /** Signal colours: identical in both themes (shapes outlined in black). */
 export const MAP_STATUS_COLORS: Record<ReportStatus, string> = {
-  bloque: '#ff453a',
-  filtrant: '#ff9f0a',
-  leve: '#98a2b3',
+  blocked: '#ff453a',
+  filtering: '#ff9f0a',
+  lifted: '#98a2b3',
 }
 
 export interface MapBase {

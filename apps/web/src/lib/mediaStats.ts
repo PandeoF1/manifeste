@@ -311,3 +311,65 @@ export function topDemands(rows: ReadonlyArray<MediaRow>, limit = 12): Array<[st
   }
   return [...count].sort((a, b) => b[1] - a[1]).slice(0, limit)
 }
+
+/** One analysis as the API sends it (camelCase, English values). */
+export interface ApiMediaRow {
+  url: string
+  domain: string
+  title: string | null
+  publishedAt: Date | null
+  aboutMovement: boolean
+  mentionsDemands: boolean
+  demands: string[]
+  voices: string[]
+  focus: string
+  incidents: boolean
+  policeViolence: boolean
+  terms: string[]
+  tone: string
+  quoteDemands: string | null
+  quoteFraming: string | null
+  textChars: number | null
+}
+
+const FOCUS_FROM_API: Record<string, MediaRow['focus']> = {
+  demands: 'revendications',
+  mobilisation: 'mobilisation',
+  incidents: 'incidents',
+  mixed: 'mixte',
+}
+const TONE_FROM_API: Record<string, MediaRow['tone']> = {
+  favourable: 'favorable',
+  neutral: 'neutre',
+  unfavourable: 'defavorable',
+}
+const VOICE_FROM_API: Record<string, string> = {
+  students: 'lyceens',
+  teachers_unions: 'enseignants_syndicats',
+  parents: 'parents',
+  school_authorities: 'direction_rectorat',
+  police_prefecture: 'police_prefecture',
+  politicians: 'politiques',
+}
+
+/** The statistics and the exports keep their French vocabulary: this is the only place that translates. */
+export function fromApiMedia(r: ApiMediaRow): MediaRow {
+  return {
+    url: r.url,
+    domain: r.domain,
+    title: r.title,
+    published_at: r.publishedAt ? r.publishedAt.toISOString() : null,
+    about_movement: r.aboutMovement,
+    mentions_demands: r.mentionsDemands,
+    demands: r.demands,
+    voices: r.voices.map((v) => VOICE_FROM_API[v] ?? v),
+    focus: FOCUS_FROM_API[r.focus] ?? 'mixte',
+    incidents: r.incidents,
+    police_violence: r.policeViolence,
+    terms: r.terms,
+    tone: TONE_FROM_API[r.tone] ?? 'neutre',
+    quote_demands: r.quoteDemands,
+    quote_framing: r.quoteFraming,
+    text_chars: r.textChars,
+  }
+}

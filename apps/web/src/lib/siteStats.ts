@@ -251,3 +251,68 @@ export function formatAxis(iso: string, stepSeconds: number): string {
     d,
   )
 }
+
+/** The API's overview (camelCase, dates as Date) in the shape the dashboard draws. */
+export function fromApiOverview(o: {
+  live: number
+  livePages: Record<string, number>
+  todayVisitors: number
+  daily: Array<{ day: string; visitors: number; views: number }>
+  hourly: Array<{ hour: Date; views: number }>
+  pages: Array<{ page: string; views: number }>
+  vitals: Array<{
+    metric: string
+    n: number
+    p50: number | null
+    p75: number | null
+    p95: number | null
+    p75Prev: number | null
+  }>
+}): SiteStats {
+  return parseSiteStats({
+    live: o.live,
+    live_pages: o.livePages,
+    today_visitors: o.todayVisitors,
+    daily: o.daily,
+    hourly: o.hourly.map((h) => ({ hour: h.hour.toISOString(), views: h.views })),
+    pages: o.pages,
+    vitals: o.vitals.map((v) => ({ ...v, p75_prev: v.p75Prev })),
+  })
+}
+
+/** The API's series in the shape the charts draw. */
+export function fromApiSeries(s: {
+  range: string
+  stepSeconds: number
+  points: Array<{
+    t: Date
+    views: number
+    visitors: number | null
+    online: number | null
+    lcp: number | null
+    inp: number | null
+    api: number | null
+  }>
+  pages: Array<{ page: string; views: number }>
+  summary: {
+    views: number
+    peakOnline: number | null
+    peakOnlineAt: Date | null
+    lcpP75: number | null
+    apiP75: number | null
+  }
+}): Series {
+  return parseSeries({
+    range: s.range,
+    step_seconds: s.stepSeconds,
+    points: s.points.map((p) => ({ ...p, t: p.t.toISOString() })),
+    pages: s.pages,
+    summary: {
+      views: s.summary.views,
+      peak_online: s.summary.peakOnline,
+      peak_online_at: s.summary.peakOnlineAt?.toISOString() ?? null,
+      lcp_p75: s.summary.lcpP75,
+      api_p75: s.summary.apiP75,
+    },
+  })
+}

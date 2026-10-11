@@ -1,428 +1,315 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { EyeOff, Play, Radio, ScrollText, Trash2 } from 'lucide-react'
-import { formatRelative } from '@shared/status.ts'
-import {
-  SCRAPE_KINDS,
-  SCRAPE_KIND_LABELS,
-  SOURCE_PRESETS,
-  SOURCE_TYPES_FOR_SCRAPE,
-  newSourceSchema,
-  type NewSource,
-  type SourcePreset,
-} from '@shared/sources.ts'
-import { supabase } from '@/lib/supabase'
-import { SourceLog } from './SourceLog'
+import { EyeOff, History, Play, RotateCcw, Trash2 } from 'lucide-react'
+import { formatRelative } from '@/lib/labels'
 import { queryKeys } from '@/lib/queryKeys'
-import { runCollect, sourcesQuery, type CollectRunResult, type ScrapeSource } from '@/queries/admin'
+import {
+  addSource,
+  deleteSource,
+  patchSource,
+  presetsQuery,
+  resetSourceHealth,
+  runSource,
+  sourceRunsQuery,
+  sourcesQuery,
+  type NewSource,
+  type Source,
+} from '@/queries/admin'
 
-const PLACEHOLDER: Record<NewSource['kind'], string> = {
+type Kind = NewSource['kind']
+const SOURCE_KINDS: readonly Kind[] = ['telegram', 'rss', 'bluesky', 'mymaps']
+const KIND_LABELS: Record<Kind, string> = {
+  telegram: 'Canal Telegram public',
+  rss: 'Flux RSS / Atom',
+  bluesky: 'Compte Bluesky',
+  mymaps: 'Carte Google My Maps',
+}
+const PLACEHOLDER: Record<Kind, string> = {
   telegram: 'nom_du_canal ou https://t.me/nom_du_canal',
   rss: 'https://exemple.fr/feed.xml',
   bluesky: 'compte.bsky.social',
   mymaps: 'https://www.google.com/maps/d/viewer?mid=…',
 }
+const ORIGIN_LABELS = { press: 'Presse', union: 'Syndicat', aggregator: 'Collecteur' } as const
+const HEALTH: Record<Source['health'], { label: string; className: string }> = {
+  closed: { label: 'sain', className: 'border-leve text-fg' },
+  half_open: { label: 'essai', className: 'border-filtrant text-filtrant' },
+  open: { label: 'en pause', className: 'border-bloque text-bloque' },
+}
+const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
 export function SourcesPanel() {
   const queryClient = useQueryClient()
   const sources = useQuery(sourcesQuery)
-  const [kind, setKind] = useState<NewSource['kind']>('telegram')
-  const [formError, setFormError] = useState<string | null>(null)
-  const [lastRun, setLastRun] = useState<CollectRunResult | null>(null)
+  const presets = useQuery(presetsQuery)
+  const [kind, setKind] = useState<Kind>('telegram')
   const [logOpen, setLogOpen] = useState<string | null>(null)
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.sources() })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.admin.all })
-  // Validated signals per source (and how many are hidden).
-  const counts = useQuery({
-    queryKey: [...queryKeys.admin.all, 'source-report-counts'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_source_report_counts')
-      if (error) throw error
-      return new Map(data.map((r) => [r.source_id, r]))
-    },
-  })
-
-  const add = useMutation({
-    mutationFn: async (input: NewSource) => {
-      const { error } = await supabase.from('scrape_sources').insert(input)
-      if (error)
-        throw new Error(error.code === '23505' ? 'Cette source existe déjà.' : error.message)
-    },
+  const add = useMutation({ mutationFn: addSource, onSuccess: invalidate })
+  const patch = useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & Parameters<typeof patchSource>[1]) =>
+      patchSource(id, body),
     onSuccess: invalidate,
   })
-  const addMany = useMutation({
-    mutationFn: async (presets: ReadonlyArray<SourcePreset>) => {
-      const rows = presets.map(({ group: _group, ...row }) => row)
-      const { error } = await supabase
-        .from('scrape_sources')
-        .upsert(rows, { onConflict: 'kind,identifier', ignoreDuplicates: true })
-      if (error) throw new Error(error.message)
-    },
-    onSuccess: invalidate,
-  })
-  const update = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<ScrapeSource> }) => {
-      const { error } = await supabase.from('scrape_sources').update(patch).eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: (_data, { patch }) => {
-      void invalidate()
-      // Signals hidden / shown again: the map and the list change.
-      if ('reports_hidden' in patch) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
-      }
-    },
-  })
-  /** Confirmation before hiding a source's published signals (reversible). */
-  const askHide = (s: ScrapeSource, extra = '') => {
-    const n = counts.data?.get(s.id)?.total ?? 0
-    return window.confirm(
-      `${extra}Masquer ${n > 0 ? `les ${n} signal${n > 1 ? 'aux' : ''}` : 'les signaux'} de « ${s.label} » ? Ils disparaissent de la carte et de la liste, sans être supprimés (réversible).`,
-    )
-  }
-  const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('scrape_sources').delete().eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: invalidate,
-  })
-  const run = useMutation({
-    mutationFn: runCollect,
-    onSuccess: (data) => {
-      setLastRun(data)
-      void invalidate()
-      void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
-    },
-  })
+  const remove = useMutation({ mutationFn: deleteSource, onSuccess: invalidate })
+  const run = useMutation({ mutationFn: runSource, onSuccess: () => setTimeout(invalidate, 3000) })
+  const reset = useMutation({ mutationFn: resetSourceHealth, onSuccess: invalidate })
+  const error = add.error ?? patch.error ?? remove.error ?? run.error ?? reset.error
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = e.currentTarget
     const data = new FormData(form)
-    const parsed = newSourceSchema.safeParse({
-      kind: data.get('kind'),
-      identifier: data.get('identifier'),
-      label: data.get('label'),
-      source_type: data.get('source_type'),
-      trusted: data.get('trusted') === 'on',
-    })
-    if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? 'Formulaire invalide.')
-      return
-    }
-    setFormError(null)
-    add.mutate(parsed.data, { onSuccess: () => form.reset() })
+    add.mutate(
+      {
+        kind,
+        identifier: String(data.get('identifier') ?? ''),
+        label: String(data.get('label') ?? ''),
+        origin: String(data.get('origin')) as Source['origin'],
+        trusted: data.get('trusted') === 'on',
+      },
+      { onSuccess: () => form.reset() },
+    )
   }
 
-  const existing = new Set(sources.data?.map((s) => `${s.kind}:${s.identifier}`))
+  if (sources.isPending) return <div className="h-24 animate-pulse rounded-lg bg-surface" />
+  if (sources.isError) return <p className="text-bloque">Erreur de chargement.</p>
+
+  const groups = new Map<string, NonNullable<typeof presets.data>>()
+  for (const p of presets.data ?? []) groups.set(p.group, [...(groups.get(p.group) ?? []), p])
 
   return (
     <div className="space-y-6">
-      <section aria-labelledby="add-source" className="card">
-        <h2 id="add-source" className="text-base font-semibold">
-          Ajouter une source
-        </h2>
-        <form onSubmit={onSubmit} className="mt-3 grid gap-3 md:grid-cols-2">
+      <section className="card space-y-3 p-4">
+        <h2 className="font-semibold">Ajouter une source</h2>
+        <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
           <label className="field">
             Type
             <select
-              name="kind"
               className="input"
               value={kind}
-              onChange={(e) => setKind(e.target.value as NewSource['kind'])}
+              onChange={(e) => setKind(e.target.value as Kind)}
             >
-              {SCRAPE_KINDS.map((k) => (
+              {SOURCE_KINDS.map((k) => (
                 <option key={k} value={k}>
-                  {SCRAPE_KIND_LABELS[k]}
+                  {KIND_LABELS[k]}
                 </option>
               ))}
             </select>
-          </label>
-          <label className="field">
-            Identifiant
-            <input name="identifier" required className="input" placeholder={PLACEHOLDER[kind]} />
           </label>
           <label className="field">
             Libellé
-            <input
-              name="label"
-              required
-              maxLength={120}
-              className="input"
-              placeholder="Nom affiché dans l'admin"
-            />
+            <input name="label" className="input" required maxLength={120} />
+          </label>
+          <label className="field sm:col-span-2">
+            Identifiant
+            <input name="identifier" className="input" required placeholder={PLACEHOLDER[kind]} />
           </label>
           <label className="field">
-            Nature
-            <select name="source_type" className="input" defaultValue="collecteur">
-              {SOURCE_TYPES_FOR_SCRAPE.map((t) => (
-                <option key={t} value={t}>
-                  {t}
+            Origine
+            <select name="origin" className="input" defaultValue="aggregator">
+              {Object.entries(ORIGIN_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
                 </option>
               ))}
             </select>
           </label>
-          <label className="flex min-h-12 items-center gap-2 text-sm md:col-span-2">
-            <input name="trusted" type="checkbox" className="size-5" />
-            Source de confiance : ses signaux sont publiés sans modération
+          <label className="flex items-center gap-2 text-sm">
+            <input name="trusted" type="checkbox" /> De confiance (publié sans modération)
           </label>
-          {(formError || add.error) && (
-            <p role="alert" className="text-sm text-bloque md:col-span-2">
-              {formError ?? add.error?.message}
-            </p>
-          )}
-          <button type="submit" disabled={add.isPending} className="btn-primary md:col-span-2">
-            Ajouter
-          </button>
-        </form>
-        <Presets
-          existing={existing}
-          onAdd={(presets) => addMany.mutate(presets)}
-          busy={addMany.isPending}
-        />
-        {addMany.error && (
-          <p role="alert" className="mt-2 text-sm text-bloque">
-            {addMany.error.message}
-          </p>
-        )}
-      </section>
-
-      <section aria-labelledby="sources-list">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="sources-list" className="text-base font-semibold">
-            Sources surveillées ({sources.data?.length ?? 0})
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            <Link to="/admin/direct" className="btn-secondary">
-              <Radio size={16} aria-hidden="true" /> Mode direct
-            </Link>
-            <button
-              type="button"
-              className="btn-primary"
-              disabled={run.isPending}
-              onClick={() => run.mutate(undefined)}
-            >
-              <Play size={16} /> {run.isPending ? 'Collecte en cours…' : 'Lancer la collecte'}
+          <div className="sm:col-span-2">
+            <button className="btn-primary" disabled={add.isPending}>
+              Ajouter
             </button>
           </div>
-        </div>
-        {run.error && (
-          <p role="alert" className="mt-2 text-sm text-bloque">
-            Échec de la collecte : {run.error.message}
-          </p>
-        )}
-        {lastRun && <RunSummary run={lastRun} />}
-
-        {sources.isPending && <div className="mt-3 h-24 animate-pulse rounded-lg bg-surface" />}
-        {sources.data?.length === 0 && (
-          <p className="mt-3 text-sm text-muted">
-            Aucune source. Ajoutez-en une ou utilisez un préréglage.
-          </p>
-        )}
-        <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-surface">
-          {sources.data?.map((s) => (
-            <li key={s.id} className="p-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 font-medium">
-                    {s.label}
-                    {s.reports_hidden && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted">
-                        <EyeOff size={12} aria-hidden="true" /> signaux masqués
-                      </span>
-                    )}
-                  </div>
-                  <div className="truncate text-sm text-muted">
-                    {SCRAPE_KIND_LABELS[s.kind]} · {s.identifier}
-                  </div>
-                  <div className="text-xs text-muted">
-                    {s.last_run_at
-                      ? `dernier passage ${formatRelative(new Date(s.last_run_at))}`
-                      : 'jamais collectée'}
-                    {s.last_error && (
-                      <span className="text-bloque"> · erreur : {s.last_error}</span>
-                    )}
-                  </div>
+        </form>
+        {presets.data && presets.data.length > 0 && (
+          <details>
+            <summary className="cursor-pointer text-sm underline">
+              Sources prêtes à l'emploi ({presets.data.length})
+            </summary>
+            <div className="mt-2 space-y-3">
+              {[...groups].map(([group, list]) => (
+                <div key={group}>
+                  <h3 className="text-sm font-semibold">{group}</h3>
+                  <ul className="mt-1 divide-y divide-border rounded-lg border border-border">
+                    {list.map((p) => (
+                      <li
+                        key={`${p.kind}|${p.identifier}`}
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm"
+                      >
+                        <span className="min-w-0 flex-1 truncate">{p.label}</span>
+                        <button
+                          type="button"
+                          className="btn-secondary min-h-9 px-3 text-sm"
+                          disabled={add.isPending}
+                          onClick={() => add.mutate(p)}
+                        >
+                          Ajouter
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="size-5"
-                    checked={s.enabled}
-                    onChange={(e) => {
-                      const enabled = e.target.checked
-                      // Disable: offer to also hide what it has already published.
-                      const hide =
-                        !enabled &&
-                        !s.reports_hidden &&
-                        (counts.data?.get(s.id)?.total ?? 0) > 0 &&
-                        askHide(s, 'Collecte désactivée. ')
-                      update.mutate({
-                        id: s.id,
-                        patch: hide ? { enabled, reports_hidden: true } : { enabled },
-                      })
-                    }}
-                  />
-                  Active
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="size-5"
-                    checked={!s.reports_hidden}
-                    onChange={(e) => {
-                      const visible = e.target.checked
-                      if (!visible && !askHide(s)) return
-                      update.mutate({ id: s.id, patch: { reports_hidden: !visible } })
-                    }}
-                  />
-                  Signaux visibles
-                  {counts.data?.get(s.id) && (
-                    <span className="text-muted tabular-nums">
-                      ({counts.data.get(s.id)?.total})
+              ))}
+            </div>
+          </details>
+        )}
+      </section>
+
+      {error && (
+        <p role="alert" className="text-sm text-bloque">
+          Échec : {error.message}
+        </p>
+      )}
+
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+        {sources.data.map((s) => (
+          <li key={s.id} className="p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{s.label}</span>
+                  <span
+                    className={`rounded-full border px-2 text-xs ${HEALTH[s.health].className}`}
+                  >
+                    {s.enabled ? HEALTH[s.health].label : 'désactivée'}
+                  </span>
+                  {s.trusted && (
+                    <span className="rounded-full border border-border px-2 text-xs">
+                      confiance
                     </span>
                   )}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="size-5"
-                    checked={s.trusted}
-                    onChange={(e) =>
-                      update.mutate({ id: s.id, patch: { trusted: e.target.checked } })
-                    }
-                  />
-                  Confiance
-                </label>
-                <button
-                  type="button"
-                  className="btn-secondary min-h-10 px-3"
-                  aria-expanded={logOpen === s.id}
-                  onClick={() => setLogOpen(logOpen === s.id ? null : s.id)}
-                >
-                  <ScrollText size={16} aria-hidden="true" /> Journal
-                </button>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  aria-label={`Collecter ${s.label} maintenant`}
-                  disabled={run.isPending}
-                  onClick={() => run.mutate(s.id)}
-                >
-                  <Play size={18} />
-                </button>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  aria-label={`Supprimer ${s.label}`}
-                  onClick={() => {
-                    if (window.confirm(`Supprimer la source « ${s.label} » ?`)) remove.mutate(s.id)
-                  }}
-                >
-                  <Trash2 size={18} />
-                </button>
+                  {s.reportsHidden && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 text-xs">
+                      <EyeOff size={12} aria-hidden="true" /> signalements masqués
+                    </span>
+                  )}
+                </div>
+                <div className="truncate text-xs text-muted">
+                  {KIND_LABELS[s.kind]} · {s.identifier}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted">
+                  <span>
+                    {s.lastSuccessAt ? `lue ${formatRelative(s.lastSuccessAt)}` : 'jamais lue'}
+                  </span>
+                  <span className="tabular-nums">
+                    24 h : {s.stats.items24h} éléments, {s.stats.relevant24h} pertinents
+                  </span>
+                  <span className="tabular-nums">7 j : {s.stats.reports7d} signalements</span>
+                </div>
+                {s.lastError && (
+                  <p className="mt-1 text-xs text-bloque">
+                    {s.consecutiveFailures} échec{s.consecutiveFailures > 1 ? 's' : ''} de suite :{' '}
+                    {s.lastError}
+                    {s.nextAttemptAt &&
+                      s.health === 'open' &&
+                      ` · prochaine tentative ${dateFmt.format(s.nextAttemptAt)}`}
+                  </p>
+                )}
               </div>
-              {logOpen === s.id && <SourceLog sourceId={s.id} />}
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
-  )
-}
-
-function RunSummary({ run }: { run: CollectRunResult }) {
-  return (
-    <div className="mt-3 overflow-x-auto rounded-lg border border-border bg-surface p-3 text-sm">
-      <p className="text-muted">
-        Modèle {run.model} · {run.gemini_calls ?? '?'} appel{(run.gemini_calls ?? 0) > 1 ? 's' : ''}{' '}
-        Gemini · {(run.duration_ms / 1000).toFixed(1)} s
-        {run.tokens &&
-          ` · ${run.tokens.prompt.toLocaleString('fr-FR')} tokens en entrée, ${(run.tokens.output + run.tokens.thoughts).toLocaleString('fr-FR')} en sortie`}
-      </p>
-      <table className="mt-2 w-full text-left tabular-nums">
-        <thead className="text-muted">
-          <tr>
-            <th className="pr-3 font-normal">Source</th>
-            <th className="pr-3 font-normal">Nouveaux</th>
-            <th className="pr-3 font-normal">Pertinents</th>
-            <th className="pr-3 font-normal">Faits IA</th>
-            <th className="pr-3 font-normal">Signaux</th>
-            <th className="pr-3 font-normal">Non rattachés</th>
-            <th className="font-normal">Erreur</th>
-          </tr>
-        </thead>
-        <tbody>
-          {run.results.map((r) => (
-            <tr key={r.source_id}>
-              <td className="pr-3">{r.label}</td>
-              <td className="pr-3">{r.new_items}</td>
-              <td className="pr-3">{r.relevant}</td>
-              <td className="pr-3">{r.events}</td>
-              <td className="pr-3">{r.reports}</td>
-              <td className="pr-3">{r.unmatched}</td>
-              <td className="text-bloque">{r.error ?? ''}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-/** Recommended sources, addable in one click (one by one or all). */
-function Presets({
-  existing,
-  onAdd,
-  busy,
-}: {
-  existing: Set<string>
-  onAdd: (presets: ReadonlyArray<SourcePreset>) => void
-  busy: boolean
-}) {
-  const missing = SOURCE_PRESETS.filter((p) => !existing.has(`${p.kind}:${p.identifier}`))
-  if (missing.length === 0) return null
-  const groups = [...new Set(missing.map((p) => p.group))]
-  return (
-    <div className="mt-5 space-y-3 border-t border-border pt-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold">Sources recommandées</h3>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busy}
-          onClick={() => onAdd(missing)}
-        >
-          Ajouter les {missing.length} sources
-        </button>
-      </div>
-      {groups.map((g) => (
-        <div key={g}>
-          <p className="text-xs font-semibold tracking-wider text-muted uppercase">{g}</p>
-          <div className="mt-1 flex flex-wrap gap-2">
-            {missing
-              .filter((p) => p.group === g)
-              .map((p) => (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Lire maintenant"
+                title="Lire maintenant"
+                onClick={() => run.mutate(s.id)}
+              >
+                <Play size={18} />
+              </button>
+              {s.health !== 'closed' && (
                 <button
-                  key={p.identifier}
                   type="button"
-                  className="btn-secondary"
-                  disabled={busy}
-                  onClick={() => onAdd([p])}
-                  title={p.trusted ? 'Ajoutée comme source de confiance' : undefined}
+                  className="icon-btn"
+                  aria-label="Réarmer la source"
+                  title="Réarmer (fermer le disjoncteur)"
+                  onClick={() => reset.mutate(s.id)}
                 >
-                  + {p.label}
-                  {p.trusted ? ' ✓' : ''}
+                  <RotateCcw size={18} />
                 </button>
-              ))}
-          </div>
-        </div>
-      ))}
-      <p className="text-xs text-muted">
-        ✓ = source de confiance (signaux publiés sans modération).
-      </p>
+              )}
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Historique des lectures"
+                aria-expanded={logOpen === s.id}
+                onClick={() => setLogOpen(logOpen === s.id ? null : s.id)}
+              >
+                <History size={18} />
+              </button>
+              <label className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={s.enabled}
+                  onChange={(e) => patch.mutate({ id: s.id, enabled: e.target.checked })}
+                />{' '}
+                active
+              </label>
+              <label className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={s.trusted}
+                  onChange={(e) => patch.mutate({ id: s.id, trusted: e.target.checked })}
+                />{' '}
+                confiance
+              </label>
+              <label className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={s.reportsHidden}
+                  onChange={(e) => patch.mutate({ id: s.id, reportsHidden: e.target.checked })}
+                />{' '}
+                masquer
+              </label>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Supprimer la source"
+                onClick={() => {
+                  if (window.confirm(`Supprimer « ${s.label} » et tout ce qu'elle a collecté ?`))
+                    remove.mutate(s.id)
+                }}
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+            {logOpen === s.id && <Runs id={s.id} />}
+          </li>
+        ))}
+      </ul>
     </div>
+  )
+}
+
+function Runs({ id }: { id: string }) {
+  const runs = useQuery(sourceRunsQuery(id))
+  if (runs.isPending) return <div className="mt-2 h-12 animate-pulse rounded bg-bg" />
+  if (!runs.data?.length)
+    return <p className="mt-2 text-sm text-muted">Aucune lecture enregistrée.</p>
+  return (
+    <table className="mt-2 w-full text-left text-xs">
+      <thead className="text-muted">
+        <tr>
+          <th className="py-1 font-normal">Début</th>
+          <th className="font-normal">Déclencheur</th>
+          <th className="text-right font-normal">Lus</th>
+          <th className="text-right font-normal">Nouveaux</th>
+          <th className="pl-3 font-normal">Résultat</th>
+        </tr>
+      </thead>
+      <tbody>
+        {runs.data.map((r) => (
+          <tr key={String(r.startedAt)} className="border-t border-border">
+            <td className="py-1">{dateFmt.format(new Date(r.startedAt))}</td>
+            <td>{r.trigger === 'manual' ? 'manuel' : 'planifié'}</td>
+            <td className="text-right tabular-nums">{r.fetched}</td>
+            <td className="text-right tabular-nums">{r.newItems}</td>
+            <td className={`pl-3 ${r.error ? 'text-bloque' : ''}`}>{r.error ?? 'ok'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }

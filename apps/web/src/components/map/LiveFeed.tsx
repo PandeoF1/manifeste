@@ -1,13 +1,13 @@
-import { formatRelative, STATUS_LABELS } from '@shared/status.ts'
+import { formatRelative, STATUS_LABELS } from '@/lib/labels'
 import { SourceConfidenceInline } from '@/components/status/SourceConfidence'
 import { MobilisationIcon, StatusIcon } from '@/components/status/StatusIcon'
 import type { SchoolStatus } from '@/queries/statuses'
 import { useNow } from '@/lib/useNow'
 
 const TEXT: Record<SchoolStatus['status'], string> = {
-  bloque: 'text-bloque',
-  filtrant: 'text-filtrant',
-  leve: 'text-leve',
+  blocked: 'text-bloque',
+  filtering: 'text-filtrant',
+  lifted: 'text-leve',
 }
 
 /** Feed of the latest signals. Also serves as a full text alternative to the map. */
@@ -24,8 +24,8 @@ export function LiveFeed({
 }) {
   const now = useNow()
   const all = mobilisation.length
-    ? [...statuses, ...mobilisation].sort((a, b) =>
-        b.last_signal_at.localeCompare(a.last_signal_at),
+    ? [...statuses, ...mobilisation].sort(
+        (a, b) => b.lastSignalAt.getTime() - a.lastSignalAt.getTime(),
       )
     : statuses
   if (all.length === 0) {
@@ -59,10 +59,10 @@ export function LiveFeed({
               >
                 {s.mobilisation ? 'Mobilisation signalée' : STATUS_LABELS[s.status]}
               </span>
-              <time dateTime={s.last_signal_at} className="text-muted">
-                {formatRelative(new Date(s.last_signal_at), now)}
+              <time dateTime={s.lastSignalAt.toISOString()} className="text-muted">
+                {formatRelative(new Date(s.lastSignalAt), now)}
               </time>
-              <SourceConfidenceInline count={s.source_count} />
+              <SourceConfidenceInline count={s.sourceCount} />
             </span>
           </button>
         </li>

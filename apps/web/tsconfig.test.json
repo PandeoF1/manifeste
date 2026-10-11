@@ -19,9 +19,8 @@
     "types": ["bun", "vite/client"],
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../../legacy/supabase/functions/_shared/*"]
+      "@server/*": ["../server/src/*"]
     }
   },
-  "include": ["tests", "../../legacy/supabase/functions/_shared"],
-  "exclude": ["../../legacy/supabase/functions/_shared/service.ts"]
+  "include": ["tests"]
 }

@@ -1,7 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Info, List, Map as MapIcon, Megaphone } from 'lucide-react'
-import { blockedPhrase } from '@shared/status.ts'
+import { blockedPhrase } from '@/lib/labels'
 import { statusesQuery } from '@/queries/statuses'
 import { StatusIcon } from '@/components/status/StatusIcon'
 import { RightsButton } from './RightsDialog'
@@ -18,13 +18,13 @@ const NAV = [
 function MiniCounter() {
   const { data } = useQuery(statusesQuery)
   if (!data) return null
-  const bloque = data.filter((s) => s.status === 'bloque').length
+  const bloque = data.filter((s) => s.status === 'blocked').length
   return (
     <span
       className="hidden items-center gap-1.5 text-sm lg:inline-flex"
       aria-label={`${bloque} établissements ${blockedPhrase(bloque)}`}
     >
-      <StatusIcon status="bloque" size={14} />
+      <StatusIcon status="blocked" size={14} />
       <strong className="tabular-nums text-bloque">{bloque}</strong> {blockedPhrase(bloque)}
     </span>
   )

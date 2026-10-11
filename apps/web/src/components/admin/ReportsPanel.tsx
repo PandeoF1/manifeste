@@ -1,17 +1,20 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, ExternalLink, Hourglass, Pencil, Search, Sparkles, Trash2 } from 'lucide-react'
-import { REPORT_STATUSES, STATUS_LABELS, type ReportStatus } from '@shared/status.ts'
+import { Ban, EyeOff, ExternalLink, Hourglass, Pencil, Search, Undo2, Trash2 } from 'lucide-react'
+import { REPORT_STATUSES, type ReportStatus } from '@manifeste/core'
+import { ORIGIN_LABELS, STATUS_LABELS } from '@/lib/labels'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { queryKeys } from '@/lib/queryKeys'
 import {
   deleteReport,
+  reportToUnmatched,
   reportsQuery,
-  sendBackToAi,
+  setHidden,
   updateReport,
   type AdminReport,
-  type ReportPatch,
 } from '@/queries/admin'
+
+type ReportPatch = Parameters<typeof updateReport>[1]
 import { ActionMenu } from './ActionMenu'
 import { SchoolSearch } from './SchoolSearch'
 
@@ -19,25 +22,18 @@ const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle
 type Moderation = AdminReport['moderation']
 
 const MODERATION_LABELS: Record<Moderation, string> = {
-  validated: 'Publié',
+  approved: 'Publié',
   pending: 'En attente',
   rejected: 'Rejeté',
 }
 const MODERATION_CLASS: Record<Moderation, string> = {
-  validated: 'border-leve text-fg',
+  approved: 'border-leve text-fg',
   pending: 'border-filtrant text-filtrant',
   rejected: 'border-border text-muted line-through',
 }
-const SOURCE_TYPE_LABELS: Record<AdminReport['source_type'], string> = {
-  presse: 'Presse',
-  syndicat: 'Syndicat',
-  utilisateur: 'Sur place',
-  collecteur: 'Collecte',
-}
 
 /** Value for <input type="datetime-local"> (browser local time). */
-function toLocalInput(iso: string): string {
-  const d = new Date(iso)
+function toLocalInput(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
@@ -49,7 +45,7 @@ function normalize(s: string) {
 /** All signals: search, filter by state, actions menu per row. */
 export function ReportsPanel() {
   const queryClient = useQueryClient()
-  const reports = useQuery(reportsQuery)
+  const reports = useQuery(reportsQuery())
   const [filter, setFilter] = useState<Moderation | 'all'>('all')
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
@@ -67,23 +63,29 @@ export function ReportsPanel() {
       invalidate()
     },
   })
+  const hide = useMutation({
+    mutationFn: ({ id, hidden }: { id: string; hidden: boolean }) => setHidden(id, hidden),
+    onSuccess: () => {
+      setNotice('Visibilité modifiée.')
+      invalidate()
+    },
+  })
   const remove = useMutation({
-    mutationFn: deleteReport,
+    mutationFn: (r: AdminReport) => deleteReport(r.id),
     onSuccess: () => {
       setNotice('Signal supprimé.')
       invalidate()
     },
   })
-  const backToAi = useMutation({
-    mutationFn: sendBackToAi,
-    onSuccess: (res) => {
-      const outcome = res.outcomes[0]
-      setNotice(outcome ? `Réanalyse : ${outcome.result}` : 'Renvoyé en « Non rattachés ».')
+  const backToQueue = useMutation({
+    mutationFn: (r: AdminReport) => reportToUnmatched(r.id),
+    onSuccess: () => {
+      setNotice('Renvoyé en « Non rattachés ».')
       invalidate()
     },
     onError: invalidate,
   })
-  const error = update.error ?? remove.error ?? backToAi.error
+  const error = update.error ?? remove.error ?? backToQueue.error ?? hide.error
 
   const items = useMemo(() => {
     const query = normalize(q.trim())
@@ -92,14 +94,14 @@ export function ReportsPanel() {
       .filter(
         (r) =>
           !query ||
-          normalize(
-            `${r.schools?.name ?? ''} ${r.schools?.city ?? ''} ${r.source_domain ?? ''}`,
-          ).includes(query),
+          normalize(`${r.schoolName ?? ''} ${r.schoolCity ?? ''} ${r.sourceDomain ?? ''}`).includes(
+            query,
+          ),
       )
   }, [reports.data, filter, q])
 
   const counts = useMemo(() => {
-    const c: Record<Moderation | 'all', number> = { all: 0, validated: 0, pending: 0, rejected: 0 }
+    const c: Record<Moderation | 'all', number> = { all: 0, approved: 0, pending: 0, rejected: 0 }
     for (const r of reports.data ?? []) {
       c.all++
       c[r.moderation]++
@@ -129,7 +131,7 @@ export function ReportsPanel() {
           />
         </label>
         <div role="group" aria-label="Filtrer par état" className="flex flex-wrap gap-1">
-          {(['all', 'validated', 'pending', 'rejected'] as const).map((f) => (
+          {(['all', 'approved', 'pending', 'rejected'] as const).map((f) => (
             <button
               key={f}
               type="button"
@@ -146,7 +148,6 @@ export function ReportsPanel() {
       <div aria-live="polite" className="text-sm">
         {notice && !error && <p className="text-muted">{notice}</p>}
         {error && <p className="text-bloque">Échec : {error.message}</p>}
-        {backToAi.isPending && <p className="text-muted">Réanalyse par l'IA en cours…</p>}
       </div>
 
       {items.length === 0 && <p className="text-muted">Aucun signal.</p>}
@@ -156,15 +157,15 @@ export function ReportsPanel() {
             <div className="flex flex-wrap items-center gap-3">
               <div className="min-w-0 flex-1">
                 <div className="font-medium">
-                  {r.schools?.name ?? r.school_uai}{' '}
-                  <span className="font-normal text-muted">· {r.schools?.city}</span>
+                  {r.schoolName ?? r.schoolUai}{' '}
+                  <span className="font-normal text-muted">· {r.schoolCity}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
                   <StatusBadge status={r.status} />
-                  <span>{dateFmt.format(new Date(r.observed_at))}</span>
+                  <span>{dateFmt.format(r.observedAt)}</span>
                   <span>
-                    {r.scrape_sources?.label ?? SOURCE_TYPE_LABELS[r.source_type]}
-                    {r.source_domain ? ` · ${r.source_domain}` : ''}
+                    {r.sourceLabel ?? ORIGIN_LABELS[r.origin]}
+                    {r.sourceDomain ? ` · ${r.sourceDomain}` : ''}
                   </span>
                   <span
                     className={`rounded-full border px-2 text-xs ${MODERATION_CLASS[r.moderation]}`}
@@ -174,16 +175,16 @@ export function ReportsPanel() {
                   {r.hidden && (
                     <span
                       className="rounded-full border border-border px-2 text-xs text-muted"
-                      title="Source masquée : invisible sur le site public"
+                      title="Masqué : invisible sur le site public"
                     >
-                      Masqué (source)
+                      Masqué
                     </span>
                   )}
                 </div>
               </div>
-              {r.source_url && (
+              {r.sourceUrl && (
                 <a
-                  href={r.source_url}
+                  href={r.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
                   className="icon-btn"
@@ -193,7 +194,7 @@ export function ReportsPanel() {
                 </a>
               )}
               <ActionMenu
-                label={`Actions pour ${r.schools?.name ?? 'ce signal'}`}
+                label={`Actions pour ${r.schoolName ?? 'ce signal'}`}
                 actions={[
                   {
                     label: 'Modifier',
@@ -206,7 +207,7 @@ export function ReportsPanel() {
                     onSelect: () =>
                       update.mutate({
                         id: r.id,
-                        patch: { moderation: r.moderation === 'pending' ? 'validated' : 'pending' },
+                        patch: { moderation: r.moderation === 'pending' ? 'approved' : 'pending' },
                       }),
                   },
                   {
@@ -217,18 +218,24 @@ export function ReportsPanel() {
                       update.mutate({
                         id: r.id,
                         patch: {
-                          moderation: r.moderation === 'rejected' ? 'validated' : 'rejected',
+                          moderation: r.moderation === 'rejected' ? 'approved' : 'rejected',
                         },
                       }),
                   },
                   {
-                    label: "Renvoyer à l'IA",
-                    icon: <Sparkles size={16} aria-hidden="true" />,
-                    disabled: !r.source_url,
-                    hint: r.source_url
-                      ? "L'IA relit l'article et refait le rattachement"
-                      : 'Signalement sur place sans lien : rien à relire',
-                    onSelect: () => backToAi.mutate(r.id),
+                    label: r.hidden ? 'Réafficher' : 'Masquer',
+                    icon: <EyeOff size={16} aria-hidden="true" />,
+                    onSelect: () => hide.mutate({ id: r.id, hidden: !r.hidden }),
+                  },
+                  {
+                    label: 'Renvoyer en « Non rattachés »',
+                    icon: <Undo2 size={16} aria-hidden="true" />,
+                    disabled: r.origin === 'on_site' || !r.sourceUrl,
+                    hint:
+                      r.origin === 'on_site'
+                        ? 'Signalement sur place : rien à rattacher'
+                        : 'Retire le signalement et remet le fait dans la file',
+                    onSelect: () => backToQueue.mutate(r),
                   },
                   {
                     label: 'Supprimer définitivement',
@@ -237,7 +244,7 @@ export function ReportsPanel() {
                     onSelect: () => {
                       if (
                         window.confirm(
-                          `Supprimer définitivement ce signal (${r.schools?.name ?? r.school_uai}) ?`,
+                          `Supprimer définitivement ce signal (${r.schoolName ?? r.schoolUai}) ?`,
                         )
                       ) {
                         remove.mutate(r)
@@ -274,7 +281,7 @@ function EditForm({
   onCancel: () => void
 }) {
   const [status, setStatus] = useState<ReportStatus>(report.status)
-  const [observed, setObserved] = useState(toLocalInput(report.observed_at))
+  const [observed, setObserved] = useState(toLocalInput(report.observedAt))
   const [moderation, setModeration] = useState<Moderation>(report.moderation)
   const [school, setSchool] = useState<{ uai: string; label: string } | null>(null)
   const [changingSchool, setChangingSchool] = useState(false)
@@ -284,9 +291,8 @@ function EditForm({
     const patch: ReportPatch = {}
     if (status !== report.status) patch.status = status
     if (moderation !== report.moderation) patch.moderation = moderation
-    if (school) patch.school_uai = school.uai
-    const observedIso = new Date(observed).toISOString()
-    if (observed !== toLocalInput(report.observed_at)) patch.observed_at = observedIso
+    if (school) patch.schoolUai = school.uai
+    if (observed !== toLocalInput(report.observedAt)) patch.observedAt = new Date(observed)
     if (Object.keys(patch).length === 0) return onCancel()
     onSave(patch)
   }
@@ -314,7 +320,7 @@ function EditForm({
             type="datetime-local"
             className="input"
             value={observed}
-            max={toLocalInput(new Date().toISOString())}
+            max={toLocalInput(new Date())}
             onChange={(e) => setObserved(e.target.value)}
             required
           />
@@ -337,8 +343,7 @@ function EditForm({
       <div className="text-sm">
         Établissement :{' '}
         <strong>
-          {school?.label ??
-            `${report.schools?.name ?? report.school_uai} (${report.schools?.city ?? ''})`}
+          {school?.label ?? `${report.schoolName ?? report.schoolUai} (${report.schoolCity ?? ''})`}
         </strong>{' '}
         <button type="button" className="underline" onClick={() => setChangingSchool((v) => !v)}>
           {changingSchool ? 'Annuler' : "Changer d'établissement"}
@@ -346,7 +351,7 @@ function EditForm({
       </div>
       {changingSchool && (
         <SchoolSearch
-          initial={report.schools?.city ?? ''}
+          initial={report.schoolCity ?? ''}
           busy={busy}
           actionLabel="Choisir"
           onPick={(uai, label) => {

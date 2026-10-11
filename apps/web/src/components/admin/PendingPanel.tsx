@@ -3,47 +3,39 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ExternalLink, Image as ImageIcon, MapPin, X } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { PhotoRedactor } from '@/components/report/PhotoRedactor'
+import type { StaffRole } from '@/lib/auth'
+import { ORIGIN_LABELS } from '@/lib/labels'
 import { loadImage, toJpeg } from '@/lib/photo'
 import { queryKeys } from '@/lib/queryKeys'
-import {
-  approveAsModerator,
-  moderate,
-  originalPhotoUrl,
-  pendingQueryFor,
-  type Decision,
-  type PendingReport,
-  type StaffRole,
-} from '@/queries/admin'
+import { decideReport, originalPhotoUrl, pendingQuery, type PendingReport } from '@/queries/admin'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 
-/**
- * Moderation queue. The admin validates or rejects; the moderator can only validate (the database
- * refuses everything else; this mode only avoids offering useless buttons).
- */
+type Decision = { kind: 'approve'; photo?: Blob } | { kind: 'reject' }
+
+/** Moderation queue. Moderators and admins both approve and reject; the server audits every decision. */
 export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
   const queryClient = useQueryClient()
-  const moderator = role === 'moderator'
-  const pending = useQuery(pendingQueryFor(moderator))
-  const pendingKey = moderator ? queryKeys.admin.moderatorPending() : queryKeys.admin.pending()
+  const pending = useQuery(pendingQuery)
   const [cursor, setCursor] = useState(0)
   const items = pending.data ?? []
   const current = items[Math.min(cursor, items.length - 1)]
 
   const decide = useMutation({
-    mutationFn: ({ report, decision }: { report: PendingReport; decision: Decision }) => {
-      if (!moderator) return moderate(report, decision)
-      if (decision.kind === 'reject') throw new Error('Le rejet est réservé aux administrateurs.')
-      return approveAsModerator(report, decision.photo)
-    },
+    mutationFn: ({ report, decision }: { report: PendingReport; decision: Decision }) =>
+      decideReport(
+        report.id,
+        decision.kind,
+        decision.kind === 'approve' ? decision.photo : undefined,
+      ),
     onMutate: async ({ report }) => {
-      await queryClient.cancelQueries({ queryKey: pendingKey })
-      queryClient.setQueryData(pendingKey, (old: PendingReport[] | undefined) =>
+      await queryClient.cancelQueries({ queryKey: queryKeys.admin.pending() })
+      queryClient.setQueryData(queryKeys.admin.pending(), (old: PendingReport[] | undefined) =>
         old?.filter((r) => r.id !== report.id),
       )
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: pendingKey })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.pending() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
     },
   })
@@ -57,16 +49,15 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'j') setCursor((c) => Math.min(c + 1, Math.max(0, items.length - 1)))
       else if (e.key === 'k') setCursor((c) => Math.max(c - 1, 0))
-      else if (!current || current.report_submissions?.photo_path) return
-      else if (e.key === 'v') decide.mutate({ report: current, decision: { kind: 'validate' } })
-      else if (e.key === 'r' && !moderator)
-        decide.mutate({ report: current, decision: { kind: 'reject' } })
-      else if (e.key === 'o' && current.source_url)
-        window.open(current.source_url, '_blank', 'noopener,noreferrer')
+      else if (!current || current.hasPhoto) return
+      else if (e.key === 'v') decide.mutate({ report: current, decision: { kind: 'approve' } })
+      else if (e.key === 'r') decide.mutate({ report: current, decision: { kind: 'reject' } })
+      else if (e.key === 'o' && current.sourceUrl)
+        window.open(current.sourceUrl, '_blank', 'noopener,noreferrer')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [current, items.length, decide, moderator])
+  }, [current, items.length, decide])
 
   if (pending.isPending) return <div className="h-24 animate-pulse rounded-lg bg-surface" />
   if (pending.isError) return <p className="text-bloque">Erreur de chargement.</p>
@@ -75,19 +66,10 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
   return (
     <div>
       <p className="text-sm text-muted">
-        Raccourcis : <kbd>j</kbd>/<kbd>k</kbd> naviguer · <kbd>v</kbd> valider
-        {moderator ? (
-          ''
-        ) : (
-          <>
-            {' '}
-            · <kbd>r</kbd> rejeter
-          </>
-        )}{' '}
-        · <kbd>o</kbd> ouvrir la source. Les signalements avec photo se valident à la main, après
-        floutage.
-        {moderator &&
-          ' Tu peux valider ; un signalement à rejeter, laisse-le : un administrateur s’en charge.'}
+        Raccourcis : <kbd>j</kbd>/<kbd>k</kbd> naviguer · <kbd>v</kbd> valider · <kbd>r</kbd>{' '}
+        rejeter · <kbd>o</kbd> ouvrir la source. Les signalements avec photo se valident à la main,
+        après floutage.
+        {role === 'moderator' && ' Chaque décision est enregistrée dans le journal.'}
       </p>
       {decide.error && (
         <p role="alert" className="mt-2 text-sm text-bloque">
@@ -97,7 +79,6 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
       <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-surface">
         {items.map((r) => {
           const active = r.id === current?.id
-          const sub = r.report_submissions
           return (
             <li
               key={r.id}
@@ -108,36 +89,35 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
               <div className="flex flex-wrap items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">
-                    {r.schools?.name ?? r.school_uai}{' '}
-                    <span className="font-normal text-muted">· {r.schools?.city}</span>
+                    {r.schoolName ?? r.schoolUai}{' '}
+                    <span className="font-normal text-muted">· {r.schoolCity}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
                     <StatusBadge status={r.status} />
-                    <span>{dateFmt.format(new Date(r.observed_at))}</span>
+                    <span>{dateFmt.format(r.observedAt)}</span>
                     <span>
-                      {r.source_type === 'utilisateur'
+                      {r.origin === 'on_site'
                         ? 'Signalement sur place'
-                        : (r.scrape_sources?.label ?? r.source_type)}
-                      {r.source_domain ? ` · ${r.source_domain}` : ''}
+                        : (r.sourceLabel ?? ORIGIN_LABELS[r.origin])}
+                      {r.sourceDomain ? ` · ${r.sourceDomain}` : ''}
                     </span>
                     {r.certainty && <span>certitude {r.certainty}</span>}
-                    {r.source_type !== 'utilisateur' && <JudgeOpinion r={r} />}
-                    {sub && (
+                    {r.origin !== 'on_site' && <JudgeOpinion r={r} />}
+                    {r.distanceM !== null && (
                       <span className="inline-flex items-center gap-1">
-                        <MapPin size={14} aria-hidden="true" /> à {sub.distance_m} m de
-                        l'établissement
+                        <MapPin size={14} aria-hidden="true" /> à {r.distanceM} m de l'établissement
                       </span>
                     )}
-                    {sub?.photo_path && (
+                    {r.hasPhoto && (
                       <span className="inline-flex items-center gap-1 text-fg">
                         <ImageIcon size={14} aria-hidden="true" /> photo
                       </span>
                     )}
                   </div>
                 </div>
-                {r.source_url && (
+                {r.sourceUrl && (
                   <a
-                    href={r.source_url}
+                    href={r.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
                     className="icon-btn"
@@ -146,34 +126,31 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
                     <ExternalLink size={18} />
                   </a>
                 )}
-                {!sub?.photo_path && (
+                {!r.hasPhoto && (
                   <>
                     <button
                       type="button"
                       className="icon-btn text-leve"
                       aria-label="Valider"
-                      onClick={() => decide.mutate({ report: r, decision: { kind: 'validate' } })}
+                      onClick={() => decide.mutate({ report: r, decision: { kind: 'approve' } })}
                     >
                       <Check size={20} />
                     </button>
-                    {!moderator && (
-                      <button
-                        type="button"
-                        className="icon-btn text-bloque"
-                        aria-label="Rejeter"
-                        onClick={() => decide.mutate({ report: r, decision: { kind: 'reject' } })}
-                      >
-                        <X size={20} />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="icon-btn text-bloque"
+                      aria-label="Rejeter"
+                      onClick={() => decide.mutate({ report: r, decision: { kind: 'reject' } })}
+                    >
+                      <X size={20} />
+                    </button>
                   </>
                 )}
               </div>
-              {active && sub?.photo_path && (
+              {active && r.hasPhoto && (
                 <PhotoReview
-                  path={sub.photo_path}
+                  id={r.id}
                   busy={decide.isPending}
-                  canReject={!moderator}
                   onDecide={(decision) => decide.mutate({ report: r, decision })}
                 />
               )}
@@ -186,20 +163,18 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
 }
 
 function PhotoReview({
-  path,
+  id,
   busy,
-  canReject,
   onDecide,
 }: {
-  path: string
+  id: string
   busy: boolean
-  canReject: boolean
   onDecide: (d: Decision) => void
 }) {
   const original = useQuery({
-    queryKey: ['admin', 'photo', path],
+    queryKey: ['admin', 'photo', id],
     queryFn: async () => {
-      const res = await fetch(await originalPhotoUrl(path))
+      const res = await fetch(originalPhotoUrl(id), { credentials: 'include' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return loadImage(await res.blob())
     },
@@ -222,7 +197,7 @@ function PhotoReview({
           className="btn-primary"
           disabled={busy || !redacted}
           onClick={async () =>
-            redacted && onDecide({ kind: 'validate', photo: await toJpeg(redacted) })
+            redacted && onDecide({ kind: 'approve', photo: await toJpeg(redacted) })
           }
         >
           <Check size={18} /> Valider et publier la photo floutée
@@ -231,44 +206,35 @@ function PhotoReview({
           type="button"
           className="btn-secondary"
           disabled={busy}
-          onClick={() => onDecide({ kind: 'validate' })}
+          onClick={() => onDecide({ kind: 'approve' })}
         >
           Valider sans publier la photo
         </button>
-        {canReject && (
-          <button
-            type="button"
-            className="btn-secondary text-bloque"
-            disabled={busy}
-            onClick={() => onDecide({ kind: 'reject' })}
-          >
-            <X size={18} /> Rejeter
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn-secondary text-bloque"
+          disabled={busy}
+          onClick={() => onDecide({ kind: 'reject' })}
+        >
+          <X size={18} /> Rejeter
+        </button>
       </div>
       <p className="text-xs text-muted">
         Vérifie qu'aucun visage, plaque ou signe distinctif n'est reconnaissable. Dans tous les cas,
-        l'original est supprimé définitivement{canReject ? '' : ' (dans l’heure)'}.
+        l'original est supprimé définitivement.
       </p>
     </div>
   )
 }
 
-/** The judge's (Jev) opinion on the report: probability that the text really says "blocked", and nature. */
+/** The judge's opinion on the report: probability that the text really says "blocked", and nature. */
 function JudgeOpinion({ r }: { r: PendingReport }) {
-  if (r.judge_score === null)
-    return (
-      <span>
-        Jev : pas d’avis
-        {r.judged_at
-          ? ' (article illisible ou trop court)'
-          : ' (texte trop court, ou pas encore jugé)'}
-      </span>
-    )
-  const pct = Math.round(r.judge_score * 100)
+  if (!r.judge || r.judge.probability === null)
+    return <span>Jev : pas d’avis (texte trop court, ou pas encore jugé)</span>
+  const pct = Math.round(r.judge.probability * 100)
   return (
     <span className="font-medium text-fg">
-      Jev : {pct} %{r.judge_nature ? ` · ${r.judge_nature}` : ''}
+      Jev : {pct} %{r.judge.nature ? ` · ${r.judge.nature}` : ''}
     </span>
   )
 }

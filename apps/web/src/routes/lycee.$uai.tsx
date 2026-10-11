@@ -1,22 +1,15 @@
+import { ORIGIN_LABELS } from '@/lib/labels'
 import { useEffect } from 'react'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { ExternalLink, Map as MapIcon, Megaphone } from 'lucide-react'
-import { STATUS_SENTENCE, formatRelative } from '@shared/status.ts'
+import { STATUS_SENTENCE, formatRelative } from '@/lib/labels'
 import { ShareButton } from '@/components/ShareButton'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { SourceConfidence } from '@/components/status/SourceConfidence'
 import { useReportsRealtime } from '@/lib/realtime'
 import { useNow } from '@/lib/useNow'
-import { publicPhotoUrl } from '@/lib/photoUrl'
 import { schoolDetailQuery, schoolHistoryQuery, schoolStatusQuery } from '@/queries/school'
-
-const SOURCE_TYPE_LABEL = {
-  presse: 'Presse',
-  syndicat: 'Syndicat',
-  utilisateur: 'Sur place, vérifié',
-  collecteur: 'Collecte automatique',
-} as const
 
 const dayFmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 const timeFmt = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -82,7 +75,7 @@ function SchoolPage() {
   // History grouped by day.
   const days = new Map<string, NonNullable<typeof history.data>>()
   for (const r of history.data ?? []) {
-    const key = dayFmt.format(new Date(r.observed_at))
+    const key = dayFmt.format(new Date(r.observedAt))
     days.set(key, [...(days.get(key) ?? []), r])
   }
 
@@ -93,7 +86,7 @@ function SchoolPage() {
         <p className="text-muted">
           {[school.postcode, school.city].filter(Boolean).join(' ')}
           {school.academy ? ` · académie de ${school.academy}` : ''}
-          {school.level === 'lycee' && school.kind ? ` · lycée ${school.kind}` : ''}
+          {school.level === 'secondary' && school.kind ? ` · lycée ${school.kind}` : ''}
         </p>
       </header>
 
@@ -110,10 +103,10 @@ function SchoolPage() {
             </p>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
               <span>
-                Dernier signal {formatRelative(new Date(current.last_signal_at), now)} (
-                {timeFmt.format(new Date(current.last_signal_at))})
+                Dernier signal {formatRelative(new Date(current.lastSignalAt), now)} (
+                {timeFmt.format(new Date(current.lastSignalAt))})
               </span>
-              <SourceConfidence count={current.source_count} />
+              <SourceConfidence count={current.sourceCount} />
             </p>
           </>
         ) : (
@@ -164,17 +157,20 @@ function SchoolPage() {
                     className="absolute top-2 -left-[23px] size-3 rounded-full border-2 border-bg bg-border"
                   />
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <time dateTime={r.observed_at} className="font-semibold tabular-nums">
-                      {timeFmt.format(new Date(r.observed_at))}
+                    <time
+                      dateTime={r.observedAt.toISOString()}
+                      className="font-semibold tabular-nums"
+                    >
+                      {timeFmt.format(new Date(r.observedAt))}
                     </time>
                     <StatusBadge status={r.status} />
                     <span className="text-sm text-muted">
-                      {SOURCE_TYPE_LABEL[r.source_type]}
-                      {r.source_domain ? ` · ${r.source_domain}` : ''}
+                      {ORIGIN_LABELS[r.origin]}
+                      {r.sourceDomain ? ` · ${r.sourceDomain}` : ''}
                     </span>
-                    {r.source_url && (
+                    {r.sourceUrl && (
                       <a
-                        href={r.source_url}
+                        href={r.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer nofollow"
                         className="inline-flex min-h-11 items-center gap-1 text-sm underline"
@@ -183,10 +179,10 @@ function SchoolPage() {
                       </a>
                     )}
                   </div>
-                  {r.photo_public_path && (
+                  {r.photoUrl && (
                     <img
-                      src={publicPhotoUrl(r.photo_public_path)}
-                      alt={`Photo vérifiée et floutée, ${school.name}, ${timeFmt.format(new Date(r.observed_at))}`}
+                      src={r.photoUrl}
+                      alt={`Photo vérifiée et floutée, ${school.name}, ${timeFmt.format(new Date(r.observedAt))}`}
                       loading="lazy"
                       className="mt-2 max-h-80 w-full rounded-lg border border-border object-cover"
                     />

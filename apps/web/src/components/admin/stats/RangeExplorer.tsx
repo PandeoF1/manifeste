@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
-import { queryKeys } from '@/lib/queryKeys'
+import { siteSeriesQuery } from '@/queries/admin'
 import {
   METRIC_INFO,
   PAGE_LABEL,
@@ -9,25 +8,13 @@ import {
   formatAxis,
   formatBucket,
   formatMetric,
-  parseSeries,
+  fromApiSeries,
   type RangeId,
 } from '@/lib/siteStats'
 import { TrendChart } from './TrendChart'
 
 const nf = new Intl.NumberFormat('fr-FR')
 const fmtInt = (v: number) => nf.format(Math.round(v))
-
-const seriesQuery = (range: RangeId) => ({
-  queryKey: [...queryKeys.admin.all, 'site-series', range],
-  queryFn: async () => {
-    const { data, error } = await supabase.rpc('admin_analytics_series', { p_range: range })
-    if (error) throw error
-    return parseSeries(data)
-  },
-  // Short periods move fast; long ones hardly at all.
-  refetchInterval: range === '2h' ? 15_000 : range === '24h' ? 60_000 : 300_000,
-  placeholderData: keepPreviousData,
-})
 
 const STEP_LABEL: Record<RangeId, string> = {
   '2h': 'tranches de 5 min',
@@ -41,7 +28,11 @@ const STEP_LABEL: Record<RangeId, string> = {
 export function RangeExplorer() {
   const [range, setRange] = useState<RangeId>('24h')
   const [hover, setHover] = useState<number | null>(null)
-  const q = useQuery(seriesQuery(range))
+  const q = useQuery({
+    ...siteSeriesQuery(range),
+    select: fromApiSeries,
+    placeholderData: keepPreviousData,
+  })
   const s = q.data
   const daily = (s?.stepSeconds ?? 0) >= 86_400
   const pts = (pick: (p: NonNullable<typeof s>['points'][number]) => number | null) =>

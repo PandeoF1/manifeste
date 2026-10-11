@@ -13,11 +13,11 @@ const SOURCE_ID = 'schools'
 const STATUS_COLOR = [
   'match',
   ['get', 'status'],
-  'bloque',
-  MAP_STATUS_COLORS.bloque,
-  'filtrant',
-  MAP_STATUS_COLORS.filtrant,
-  MAP_STATUS_COLORS.leve,
+  'blocked',
+  MAP_STATUS_COLORS.blocked,
+  'filtering',
+  MAP_STATUS_COLORS.filtering,
+  MAP_STATUS_COLORS.lifted,
 ] as const
 
 interface Props {
@@ -155,7 +155,7 @@ function Inset({ item, selectedUai, onSelect, onGoto, theme, styleUrl }: InsetPr
           'circle-color': STATUS_COLOR as never,
           'circle-radius': 11,
           'circle-blur': 1,
-          'circle-opacity': ['match', ['get', 'status'], 'leve', 0.25, 0.7],
+          'circle-opacity': ['match', ['get', 'status'], 'lifted', 0.25, 0.7],
         },
       })
       map.addLayer({
@@ -225,7 +225,7 @@ function Inset({ item, selectedUai, onSelect, onGoto, theme, styleUrl }: InsetPr
       map.setFilter('selected', ['==', ['get', 'uai'], selectedUai ?? ''])
   }, [selectedUai])
 
-  const blocked = rows.filter((r) => r.status === 'bloque').length
+  const blocked = rows.filter((r) => r.status === 'blocked').length
   const summary = `${label} : ${rows.length} établissement${rows.length > 1 ? 's' : ''}${blocked ? `, dont ${blocked} bloqué${blocked > 1 ? 's' : ''}` : ''}`
 
   return (

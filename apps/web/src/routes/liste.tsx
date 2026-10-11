@@ -3,7 +3,8 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
 import { z } from 'zod'
-import { REPORT_STATUSES, STATUS_LABELS, formatRelative } from '@shared/status.ts'
+import { REPORT_STATUSES } from '@manifeste/core'
+import { STATUS_LABELS, formatRelative } from '@/lib/labels'
 import { SourceConfidenceInline } from '@/components/status/SourceConfidence'
 import { MobilisationIcon, StatusIcon } from '@/components/status/StatusIcon'
 import {
@@ -42,9 +43,9 @@ function normalize(s: string) {
 }
 
 const TEXT: Record<SchoolStatus['status'], string> = {
-  bloque: 'text-bloque',
-  filtrant: 'text-filtrant',
-  leve: 'text-leve',
+  blocked: 'text-bloque',
+  filtering: 'text-filtrant',
+  lifted: 'text-leve',
 }
 
 function ListPage() {
@@ -91,7 +92,7 @@ function ListPage() {
       .filter((s) => !search.academie || s.academy === search.academie)
       .filter((s) => !search.dep || s.department === search.dep)
       .filter((s) => !q || normalize(`${s.name} ${s.city}`).includes(q))
-      .sort((a, b) => b.last_signal_at.localeCompare(a.last_signal_at))
+      .sort((a, b) => b.lastSignalAt.getTime() - a.lastSignalAt.getTime())
   }, [statuses, mobilises, settings.judgeTiers, search])
 
   const set = (patch: Partial<z.infer<typeof searchSchema>>) =>
@@ -247,12 +248,12 @@ function ListPage() {
                 >
                   {s.mobilisation ? 'Mobilisation signalée' : STATUS_LABELS[s.status]}
                 </span>
-                <time dateTime={s.last_signal_at} className="block text-muted">
-                  {formatRelative(new Date(s.last_signal_at), now)}
+                <time dateTime={s.lastSignalAt.toISOString()} className="block text-muted">
+                  {formatRelative(new Date(s.lastSignalAt), now)}
                 </time>
-                <SourceConfidenceInline count={s.source_count} />
-                {s.signal_days != null && s.signal_days > 1 && (
-                  <span className="block text-muted">{s.signal_days} jours mobilisé</span>
+                <SourceConfidenceInline count={s.sourceCount} />
+                {s.signalDays != null && s.signalDays > 1 && (
+                  <span className="block text-muted">{s.signalDays} jours mobilisé</span>
                 )}
               </span>
             </Link>

@@ -54,11 +54,13 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/embed\//, /^\/(sitemap\.xml|robots\.txt)$/],
         runtimeCaching: [
           {
-            // Public reads: network first (live data), cache when offline.
+            // Public reads: network first (live data), cache when offline. The staff API never.
             urlPattern: ({ url, request }) =>
               request.method === 'GET' &&
-              url.hostname.endsWith('.supabase.co') &&
-              url.pathname.startsWith('/rest/v1/'),
+              url.pathname.startsWith('/api/') &&
+              !url.pathname.startsWith('/api/staff') &&
+              !url.pathname.startsWith('/api/auth') &&
+              !url.pathname.startsWith('/api/ws'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-lecture',
@@ -69,9 +71,7 @@ export default defineConfig({
           },
           {
             // Published (blurred) photos: immutable.
-            urlPattern: ({ url }) =>
-              url.hostname.endsWith('.supabase.co') &&
-              url.pathname.startsWith('/storage/v1/object/public/'),
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/photos/'),
             handler: 'CacheFirst',
             options: {
               cacheName: 'photos',
@@ -100,7 +100,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@shared': fileURLToPath(new URL('../../legacy/supabase/functions/_shared', import.meta.url)),
+    },
+  },
+  // In development the API runs apart (bun --filter @manifeste/server dev): same origin for the browser.
+  server: {
+    proxy: {
+      '/api': { target: 'http://localhost:3000', ws: true, changeOrigin: false },
     },
   },
   build: { chunkSizeWarningLimit: 1200 },

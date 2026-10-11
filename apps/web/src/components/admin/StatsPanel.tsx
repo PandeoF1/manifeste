@@ -1,35 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
 import { Activity, CheckCircle2, AlertTriangle, XCircle, ArrowDown, ArrowUp } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { siteOverviewQuery } from '@/queries/admin'
 import { RangeExplorer } from './stats/RangeExplorer'
-import { queryKeys } from '@/lib/queryKeys'
 import {
   METRIC_INFO,
   METRIC_ORDER,
   PAGE_LABEL,
   RATING_LABEL,
   formatMetric,
-  parseSiteStats,
+  fromApiOverview,
   rate,
   type Rating,
   type VitalStat,
 } from '@/lib/siteStats'
 
-const statsQuery = {
-  queryKey: [...queryKeys.admin.all, 'site-stats'],
-  queryFn: async () => {
-    const { data, error } = await supabase.rpc('admin_analytics', { p_days: 30 })
-    if (error) throw error
-    return parseSiteStats(data)
-  },
-  refetchInterval: 10_000,
-}
-
 const nf = new Intl.NumberFormat('fr-FR')
 
 /** Anonymous site statistics: online, unique visitors, page views, performance. */
 export function StatsPanel() {
-  const stats = useQuery(statsQuery)
+  const stats = useQuery({ ...siteOverviewQuery, select: fromApiOverview })
   if (stats.isPending) return <div className="mt-4 h-64 animate-pulse rounded-xl bg-surface" />
   if (stats.isError)
     return (

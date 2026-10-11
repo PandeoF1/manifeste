@@ -1,5 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import type { ReportStatus } from '@shared/status.ts'
+import type { ReportStatus } from '@manifeste/core'
 import { MAP_STATUS_COLORS } from './palette'
 
 const SIZE = 28
@@ -22,7 +22,7 @@ function draw(status: ReportStatus, ratio: number): ImageData {
 
   const s = SIZE
   ctx.beginPath()
-  if (status === 'bloque') {
+  if (status === 'blocked') {
     const a = s * 0.29
     const b = s - a
     ctx.moveTo(a, 2)
@@ -33,7 +33,7 @@ function draw(status: ReportStatus, ratio: number): ImageData {
     ctx.lineTo(a, s - 2)
     ctx.lineTo(2, b)
     ctx.lineTo(2, a)
-  } else if (status === 'filtrant') {
+  } else if (status === 'filtering') {
     ctx.moveTo(s / 2, 2)
     ctx.lineTo(s - 1.5, s - 3)
     ctx.lineTo(1.5, s - 3)
@@ -46,9 +46,9 @@ function draw(status: ReportStatus, ratio: number): ImageData {
 
   ctx.fillStyle = '#ffffff'
   ctx.strokeStyle = '#ffffff'
-  if (status === 'bloque') {
+  if (status === 'blocked') {
     ctx.fillRect(s * 0.25, s * 0.44, s * 0.5, s * 0.12)
-  } else if (status === 'filtrant') {
+  } else if (status === 'filtering') {
     ctx.fillStyle = '#05070b'
     ctx.fillRect(s / 2 - 1.5, s * 0.34, 3, s * 0.3)
     ctx.fillRect(s / 2 - 1.5, s * 0.7, 3, 3)
@@ -65,7 +65,7 @@ function draw(status: ReportStatus, ratio: number): ImageData {
 
 export function addMarkerImages(map: MapLibreMap) {
   const ratio = Math.min(3, Math.max(1, Math.round(window.devicePixelRatio || 1)))
-  for (const status of ['bloque', 'filtrant', 'leve'] as const) {
+  for (const status of ['blocked', 'filtering', 'lifted'] as const) {
     const id = `status-${status}`
     if (map.hasImage(id)) map.removeImage(id)
     map.addImage(id, draw(status, ratio), { pixelRatio: ratio })

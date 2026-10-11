@@ -2,18 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { X, ExternalLink, FileText, Megaphone } from 'lucide-react'
 import { ShareButton } from '@/components/ShareButton'
-import { formatRelative } from '@shared/status.ts'
+import { ORIGIN_LABELS, formatRelative } from '@/lib/labels'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { SourceConfidence } from '@/components/status/SourceConfidence'
 import { schoolReportsQuery, type SchoolStatus } from '@/queries/statuses'
-import { publicPhotoUrl } from '@/lib/photoUrl'
-
-const SOURCE_TYPE_LABEL = {
-  presse: 'Presse',
-  syndicat: 'Syndicat',
-  utilisateur: 'Sur place, vérifié',
-  collecteur: 'Collecte automatique',
-} as const
 
 const timeFmt = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
@@ -28,7 +20,7 @@ export function SchoolPanel({
   mobilisation?: boolean
 }) {
   const reports = useQuery(schoolReportsQuery(school.uai))
-  const last = new Date(school.last_signal_at)
+  const last = new Date(school.lastSignalAt)
 
   return (
     <section
@@ -68,7 +60,7 @@ export function SchoolPanel({
         <span className="text-sm text-muted">
           dernier signal à {timeFmt.format(last)} ({formatRelative(last)})
         </span>
-        <SourceConfidence count={school.source_count} />
+        <SourceConfidence count={school.sourceCount} />
       </div>
 
       {mobilisation && (
@@ -102,36 +94,32 @@ export function SchoolPanel({
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <time dateTime={r.observed_at} className="tabular-nums">
-                      {timeFmt.format(new Date(r.observed_at))}
+                    <time dateTime={r.observedAt.toISOString()} className="tabular-nums">
+                      {timeFmt.format(new Date(r.observedAt))}
                     </time>
                     <StatusBadge status={r.status} />
                   </div>
                   <div className="truncate text-muted">
-                    {SOURCE_TYPE_LABEL[r.source_type]}
-                    {r.source_domain ? ` · ${r.source_domain}` : ''}
+                    {ORIGIN_LABELS[r.origin]}
+                    {r.sourceDomain ? ` · ${r.sourceDomain}` : ''}
                   </div>
                 </div>
-                {r.source_url && (
+                {r.sourceUrl && (
                   <a
-                    href={r.source_url}
+                    href={r.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
                     className="grid size-12 shrink-0 place-items-center rounded-full hover:bg-bg"
-                    aria-label={`Ouvrir la source (${r.source_domain ?? 'lien'})`}
+                    aria-label={`Ouvrir la source (${r.sourceDomain ?? 'lien'})`}
                   >
                     <ExternalLink size={18} />
                   </a>
                 )}
               </div>
-              {r.photo_public_path && (
-                <a
-                  href={publicPhotoUrl(r.photo_public_path)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+              {r.photoUrl && (
+                <a href={r.photoUrl} target="_blank" rel="noopener noreferrer">
                   <img
-                    src={publicPhotoUrl(r.photo_public_path)}
+                    src={r.photoUrl}
                     alt={`Photo vérifiée et floutée, ${school.name}`}
                     loading="lazy"
                     className="mt-2 max-h-56 w-full rounded-lg border border-border object-cover"

@@ -12,7 +12,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '../../apps/web/src/lib/database.types.ts'
+import type { Database } from './database.types.ts'
 import {
   buildSites,
   implantationSchema,

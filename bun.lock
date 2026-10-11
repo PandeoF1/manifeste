@@ -52,11 +52,14 @@
       "name": "@manifeste/web",
       "version": "0.2.0",
       "dependencies": {
-        "@supabase/supabase-js": "^2.117.2",
+        "@elysiajs/eden": "1.4.9",
+        "@manifeste/core": "workspace:*",
         "@tanstack/query-async-storage-persister": "^5.104.1",
         "@tanstack/react-query": "^5.104.1",
         "@tanstack/react-query-persist-client": "^5.104.1",
         "@tanstack/react-router": "^1.170.41",
+        "better-auth": "1.7.7",
+        "elysia": "1.4.30",
         "idb-keyval": "^6.3.0",
         "lucide-react": "^1.52.0",
         "maplibre-gl": "^6.12.0",
@@ -68,6 +71,7 @@
       },
       "devDependencies": {
         "@fontsource/inter": "^5.3.0",
+        "@manifeste/server": "workspace:*",
         "@resvg/resvg-js": "^2.6.2",
         "@tailwindcss/vite": "^4.3.3",
         "@tanstack/router-plugin": "^1.168.42",

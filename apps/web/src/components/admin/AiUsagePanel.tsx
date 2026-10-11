@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Cpu } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { queryKeys } from '@/lib/queryKeys'
+import { aiUsageQuery } from '@/queries/admin'
 import {
   TASK_LABEL,
   byTask,
   compactTokens,
   dailyBuckets,
-  parseAiUsage,
+  fromApiUsage,
   seriesFor,
   totals,
 } from '@/lib/aiUsage'
@@ -21,16 +20,6 @@ const RANGES = [
   { days: 90, label: '90 jours' },
 ] as const
 
-const aiUsageQuery = (days: number) => ({
-  queryKey: [...queryKeys.admin.all, 'ai-usage', days],
-  queryFn: async () => {
-    const { data, error } = await supabase.rpc('admin_ai_usage', { p_days: days })
-    if (error) throw error
-    return parseAiUsage(data)
-  },
-  refetchInterval: 60_000,
-})
-
 /** Current calendar day in Paris ("2026-10-08"), like the days returned by the database. */
 const parisToday = () =>
   new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date())
@@ -38,7 +27,7 @@ const parisToday = () =>
 /** AI (Gemini) token consumption: per day and per model, and per task. */
 export function AiUsagePanel() {
   const [days, setDays] = useState<number>(30)
-  const usage = useQuery(aiUsageQuery(days))
+  const usage = useQuery({ ...aiUsageQuery(days), select: fromApiUsage })
 
   return (
     <div className="mt-4 space-y-6">
@@ -89,7 +78,7 @@ export function AiUsageCharts({
   rows,
   days,
 }: {
-  rows: ReturnType<typeof parseAiUsage>
+  rows: ReturnType<typeof fromApiUsage>
   days: number
 }) {
   const t = totals(rows)

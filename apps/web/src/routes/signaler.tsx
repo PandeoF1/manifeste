@@ -3,8 +3,9 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Camera, Check, LocateFixed, MapPin, ShieldCheck } from 'lucide-react'
 import { z } from 'zod'
-import { REPORT_STATUSES, STATUS_LABELS, type ReportStatus } from '@shared/status.ts'
-import { roundCoord, submissionFieldsSchema } from '@shared/submission.ts'
+import { REPORT_STATUSES, type ReportStatus } from '@manifeste/core'
+import { STATUS_LABELS } from '@/lib/labels'
+import { parseSubmission, roundCoord } from '@manifeste/core'
 import { StatusIcon } from '@/components/status/StatusIcon'
 import { PhotoRedactor } from '@/components/report/PhotoRedactor'
 import { Turnstile, turnstileEnabled } from '@/components/report/Turnstile'
@@ -26,9 +27,9 @@ type Position = { lat: number; lng: number; accuracy: number }
 type School = { uai: string; name: string; city: string; distance_m?: number }
 
 const STATUS_HELP: Record<ReportStatus, string> = {
-  bloque: "L'entrée de l'établissement est bloquée",
-  filtrant: 'Barrage filtrant, entrée partielle',
-  leve: 'Le blocus est terminé',
+  blocked: "L'entrée de l'établissement est bloquée",
+  filtering: 'Barrage filtrant, entrée partielle',
+  lifted: 'Le blocus est terminé',
 }
 
 function ReportPage() {
@@ -103,29 +104,29 @@ function ReportPage() {
     if (!school && !customSchool) return setFormError("Choisis l'établissement concerné.")
     if (!status) return setFormError('Choisis la situation.')
     if (turnstileEnabled && !token) return setFormError('Termine la vérification anti-robot.')
-    const fields = submissionFieldsSchema.safeParse({
+    const raw = {
       ...(customSchool
-        ? { new_school_name: customSchool.name, new_school_city: customSchool.city }
-        : { school_uai: school?.uai }),
+        ? { newSchoolName: customSchool.name, newSchoolCity: customSchool.city }
+        : { schoolUai: school?.uai }),
       status,
       lat: position.lat,
       lng: position.lng,
-      source_url: sourceUrl,
-      turnstile_token: token ?? undefined,
-    })
-    if (!fields.success)
-      return setFormError(fields.error.issues[0]?.message ?? 'Formulaire invalide.')
+      sourceUrl,
+      ...(token && { turnstileToken: token }),
+    }
+    // The same rules as the server: a refusal here saves a round trip.
+    if (!parseSubmission(raw)) return setFormError('Le formulaire contient une erreur.')
 
     const form = new FormData()
-    if (fields.data.school_uai) form.set('school_uai', fields.data.school_uai)
-    if (fields.data.new_school_name) form.set('new_school_name', fields.data.new_school_name)
-    if (fields.data.new_school_city) form.set('new_school_city', fields.data.new_school_city)
-    form.set('status', fields.data.status)
+    if ('schoolUai' in raw && raw.schoolUai) form.set('schoolUai', raw.schoolUai)
+    if ('newSchoolName' in raw) form.set('newSchoolName', raw.newSchoolName)
+    if ('newSchoolCity' in raw) form.set('newSchoolCity', raw.newSchoolCity)
+    form.set('status', status)
     // Rounded to ~100 m on the phone: the exact position never leaves the device.
-    form.set('lat', String(roundCoord(fields.data.lat)))
-    form.set('lng', String(roundCoord(fields.data.lng)))
-    if (fields.data.source_url) form.set('source_url', fields.data.source_url)
-    if (token) form.set('turnstile_token', token)
+    form.set('lat', String(roundCoord(position.lat)))
+    form.set('lng', String(roundCoord(position.lng)))
+    if (sourceUrl) form.set('sourceUrl', sourceUrl)
+    if (token) form.set('turnstileToken', token)
     if (redacted) form.set('photo', await toJpeg(redacted), 'photo.jpg')
     submit.mutate(form)
   }

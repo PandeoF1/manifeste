@@ -97,7 +97,7 @@ function heatColor(theme: Theme): ExpressionSpecification {
 }
 
 function glowOpacity(theme: Theme): ExpressionSpecification {
-  return ['*', POP_ALPHA, ['match', ['get', 'status'], 'leve', 0.2, MAP_BASES[theme].glowOpacity]]
+  return ['*', POP_ALPHA, ['match', ['get', 'status'], 'lifted', 0.2, MAP_BASES[theme].glowOpacity]]
 }
 
 /** Glow of mobilisations: that of blockades, a bit more discreet. */
@@ -119,11 +119,11 @@ function applyTheme(map: MapLibreMap, theme: Theme) {
 const STATUS_COLOR: ExpressionSpecification = [
   'match',
   ['get', 'status'],
-  'bloque',
-  MAP_STATUS_COLORS.bloque,
-  'filtrant',
-  MAP_STATUS_COLORS.filtrant,
-  MAP_STATUS_COLORS.leve,
+  'blocked',
+  MAP_STATUS_COLORS.blocked,
+  'filtering',
+  MAP_STATUS_COLORS.filtering,
+  MAP_STATUS_COLORS.lifted,
 ]
 
 function toGeoJSON(
@@ -140,13 +140,13 @@ function toGeoJSON(
         uai: r.uai,
         status: r.status,
         // Blocked drawn above the others.
-        rank: r.status === 'bloque' ? 2 : r.status === 'filtrant' ? 1 : 0,
+        rank: r.status === 'blocked' ? 2 : r.status === 'filtering' ? 1 : 0,
         // Weight in the heat map: a lifted school does not count.
-        weight: r.status === 'bloque' ? 1 : r.status === 'filtrant' ? 0.6 : 0,
+        weight: r.status === 'blocked' ? 1 : r.status === 'filtering' ? 0.6 : 0,
         recent:
-          r.status !== 'leve' &&
+          r.status !== 'lifted' &&
           !dying.has(r.uai) &&
-          now - new Date(r.last_signal_at).getTime() < RECENT_MS,
+          now - new Date(r.lastSignalAt).getTime() < RECENT_MS,
       },
     })),
   }
@@ -285,9 +285,9 @@ export default function MapView({
           'circle-color': [
             'match',
             ['get', 'status'],
-            'bloque',
+            'blocked',
             '#ffd2cc',
-            'filtrant',
+            'filtering',
             '#ffe2b0',
             '#c9ced8',
           ],

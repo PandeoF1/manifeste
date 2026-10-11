@@ -4,57 +4,56 @@ import {
   compactTokens,
   dailyBuckets,
   modelLabel,
-  parseAiUsage,
+  fromApiUsage,
   seriesFor,
   totals,
 } from '@/lib/aiUsage'
-import { recordAiUsage, usageRows } from '@shared/ai-usage.ts'
 
 const raw = [
   {
     day: '2026-10-07',
-    task: 'extraction',
+    task: 'extract',
     model: 'gemini-3.8-flash',
     calls: 2,
-    prompt_tokens: 20000,
-    output_tokens: 4000,
-    thoughts_tokens: 1000,
+    promptTokens: 20000,
+    outputTokens: 4000,
+    thoughtsTokens: 1000,
   },
   {
     day: '2026-10-08',
-    task: 'extraction',
+    task: 'extract',
     model: 'gemini-3.5-flash-lite',
     calls: 3,
-    prompt_tokens: 30000,
-    output_tokens: 6000,
-    thoughts_tokens: 0,
+    promptTokens: 30000,
+    outputTokens: 6000,
+    thoughtsTokens: 0,
   },
   {
     day: '2026-10-08',
     task: 'media',
     model: 'gemini-3.5-flash-lite',
     calls: 1,
-    prompt_tokens: 9000,
-    output_tokens: 3000,
-    thoughts_tokens: 0,
+    promptTokens: 9000,
+    outputTokens: 3000,
+    thoughtsTokens: 0,
   },
   {
     day: '2026-10-08',
     task: 'inconnue',
     model: 'x',
     calls: 9,
-    prompt_tokens: 1,
-    output_tokens: 1,
-    thoughts_tokens: 0,
+    promptTokens: 1,
+    outputTokens: 1,
+    thoughtsTokens: 0,
   },
 ]
 
-describe('reading admin_ai_usage', () => {
+describe('reading the API usage rows', () => {
   it('counts thinking as output and ignores unknown tasks', () => {
-    const rows = parseAiUsage(raw)
+    const rows = fromApiUsage(raw)
     expect(rows).toHaveLength(3)
     expect(rows[0]).toMatchObject({ prompt: 20000, output: 5000, thoughts: 1000 })
-    expect(parseAiUsage(null)).toEqual([])
+    expect(fromApiUsage([])).toEqual([])
   })
 })
 
@@ -89,7 +88,7 @@ describe('series per model', () => {
 })
 
 describe('aggregation', () => {
-  const rows = parseAiUsage(raw)
+  const rows = fromApiUsage(raw)
   const series = seriesFor(rows.map((r) => r.model))
   it('one counter per day, zero on days without calls', () => {
     const b = dailyBuckets(rows, series, 'prompt', 3, '2026-10-08')
@@ -100,55 +99,12 @@ describe('aggregation', () => {
   })
   it('totals and ranking of tasks', () => {
     expect(totals(rows)).toMatchObject({ calls: 6, prompt: 59000, output: 14000 })
-    expect(byTask(rows).map((t) => t.task)).toEqual(['extraction', 'media'])
+    expect(byTask(rows).map((t) => t.task)).toEqual(['extract', 'media'])
   })
   it('abbreviates large numbers', () => {
     expect(compactTokens(950)).toBe('950')
     expect(compactTokens(1500)).toBe('1,5 k')
     expect(compactTokens(42000)).toBe('42 k')
     expect(compactTokens(2_700_000)).toBe('2,7 M')
-  })
-})
-
-describe('recording', () => {
-  const usage = {
-    a: { calls: 2, promptTokens: 10, outputTokens: 3, thoughtsTokens: 1 },
-    b: { calls: 0, promptTokens: 0, outputTokens: 0, thoughtsTokens: 0 },
-  }
-  it('only records the models that answered', () => {
-    expect(usageRows('media', usage)).toEqual([
-      {
-        task: 'media',
-        model: 'a',
-        calls: 2,
-        prompt_tokens: 10,
-        output_tokens: 3,
-        thoughts_tokens: 1,
-      },
-    ])
-  })
-  it('never makes the collection fail', async () => {
-    const calls: unknown[] = []
-    await recordAiUsage(
-      { rpc: async (fn, args) => (calls.push([fn, args]), { error: { message: 'absente' } }) },
-      usageRows('media', usage),
-    )
-    await recordAiUsage(
-      {
-        rpc: () => {
-          throw new Error('réseau')
-        },
-      },
-      usageRows('media', usage),
-    )
-    await recordAiUsage(
-      {
-        rpc: async () => {
-          throw new Error('jamais appelée')
-        },
-      },
-      [],
-    )
-    expect(calls).toHaveLength(1)
   })
 })

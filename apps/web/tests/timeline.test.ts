@@ -8,7 +8,7 @@ import {
   fmtTick,
   hourChoices,
   mobilisationAt,
-  parseTimeline,
+  fromApiTimeline,
   rangeStart,
   statusesAt,
   type TimelineData,
@@ -25,17 +25,17 @@ const school = (uai: string, department = '75') => ({
   academy: 'Paris',
   lat: 48.85,
   lng: 2.35,
-  level: 'lycee' as const,
+  level: 'secondary' as const,
 })
 
 const data: TimelineData = {
   schools: [school('A'), school('B', '31')],
   events: [
-    { u: 'A', s: 'bloque', t: t0, k: 'dom:presse' },
-    { u: 'B', s: 'filtrant', t: t0 + 1 * H, k: 'dom:x' },
-    { u: 'A', s: 'bloque', t: t0 + 2 * H, k: 'src:1' },
-    { u: 'A', s: 'leve', t: t0 + 3 * H, k: 'dom:presse' },
-    { u: 'B', s: 'bloque', t: t0 + 8 * H, k: 'dom:x' },
+    { u: 'A', s: 'blocked', t: t0, k: 'dom:presse' },
+    { u: 'B', s: 'filtering', t: t0 + 1 * H, k: 'dom:x' },
+    { u: 'A', s: 'blocked', t: t0 + 2 * H, k: 'src:1' },
+    { u: 'A', s: 'lifted', t: t0 + 3 * H, k: 'dom:presse' },
+    { u: 'B', s: 'blocked', t: t0 + 8 * H, k: 'dom:x' },
   ],
 }
 
@@ -47,20 +47,20 @@ describe('statusesAt', () => {
   it('status = latest report of the window, most recent first', () => {
     const rows = statusesAt(data, t0 + 1.5 * H, 5)
     expect(rows.map((r) => [r.uai, r.status])).toEqual([
-      ['B', 'filtrant'],
-      ['A', 'bloque'],
+      ['B', 'filtering'],
+      ['A', 'blocked'],
     ])
   })
 
   it('a lifted school stays shown as lifted', () => {
     const rows = statusesAt(data, t0 + 4 * H, 5)
-    expect(rows.find((r) => r.uai === 'A')?.status).toBe('leve')
+    expect(rows.find((r) => r.uai === 'A')?.status).toBe('lifted')
   })
 
   it('counts the distinct sources of the window', () => {
     const rows = statusesAt(data, t0 + 2.5 * H, 5)
-    expect(rows.find((r) => r.uai === 'A')?.source_count).toBe(2)
-    expect(rows.find((r) => r.uai === 'B')?.source_count).toBe(1)
+    expect(rows.find((r) => r.uai === 'A')?.sourceCount).toBe(2)
+    expect(rows.find((r) => r.uai === 'B')?.sourceCount).toBe(1)
   })
 
   it('a report leaves the window after `hours`', () => {
@@ -72,57 +72,61 @@ describe('statusesAt', () => {
   it('a longer window keeps older signals', () => {
     const rows = statusesAt(data, t0 + 9 * H, 24)
     expect(rows.map((r) => r.uai).sort()).toEqual(['A', 'B'])
-    expect(rows.find((r) => r.uai === 'B')?.status).toBe('bloque')
+    expect(rows.find((r) => r.uai === 'B')?.status).toBe('blocked')
   })
 
   it('never looks at the future', () => {
     const rows = statusesAt(data, t0 + 0.5 * H, 5)
     expect(rows).toHaveLength(1)
-    expect(rows[0]?.last_signal_at).toBe(new Date(t0).toISOString())
+    expect(rows[0]?.lastSignalAt).toEqual(new Date(t0))
   })
 
   it('ignores a report whose school is unknown', () => {
-    const odd: TimelineData = { schools: [], events: [{ u: 'Z', s: 'bloque', t: t0, k: 'k' }] }
+    const odd: TimelineData = { schools: [], events: [{ u: 'Z', s: 'blocked', t: t0, k: 'k' }] }
     expect(statusesAt(odd, t0 + H, 5)).toEqual([])
   })
 })
 
-describe('parseTimeline', () => {
-  it('accepts the database response and sorts the events', () => {
-    const parsed = parseTimeline({
-      schools: [school('A')],
-      events: [
-        { u: 'A', s: 'leve', t: 2000, k: 'k' },
-        { u: 'A', s: 'bloque', t: 1000, k: 'k' },
-      ],
-    })
-    expect(parsed.events.map((e) => e.t)).toEqual([1000, 2000])
+describe('fromApiTimeline', () => {
+  const api = (
+    events: Array<{
+      uai: string
+      status: 'blocked' | 'filtering' | 'lifted'
+      at: number
+      sourceKey: string
+      mobilisation: boolean
+    }>,
+  ) => ({
+    schools: [
+      { ...school('A'), department: '75' },
+      { ...school('B'), lat: null, lng: null },
+    ],
+    events,
   })
 
-  it('ignores invalid rows without losing the others', () => {
-    const parsed = parseTimeline({
-      schools: [school('A'), { uai: 'B', name: null }],
-      events: [
-        { u: 'A', s: 'autre', t: 1, k: 'k' },
-        { u: 'A', s: 'bloque', t: 2, k: 'k' },
-      ],
-    })
-    expect(parsed.schools.map((s) => s.uai)).toEqual(['A'])
-    expect(parsed.events).toHaveLength(1)
+  it('turns the API events into the compact form and sorts them', () => {
+    const parsed = fromApiTimeline(
+      api([
+        { uai: 'A', status: 'lifted', at: 2000, sourceKey: 'k', mobilisation: false },
+        { uai: 'A', status: 'blocked', at: 1000, sourceKey: 'k', mobilisation: true },
+      ]),
+    )
+    expect(parsed.events).toEqual([
+      { u: 'A', s: 'blocked', t: 1000, k: 'k', m: true },
+      { u: 'A', s: 'lifted', t: 2000, k: 'k' },
+    ])
   })
 
-  it('accepts a report without a source (on-site report)', () => {
-    const parsed = parseTimeline({
-      schools: [school('A')],
-      events: [{ u: 'A', s: 'bloque', t: 1, k: null }],
-    })
-    expect(parsed.events).toHaveLength(1)
-    expect(statusesAt(parsed, 2, 5)[0]?.source_count).toBe(0)
+  it('leaves out schools that have no position: they cannot be on the map', () => {
+    expect(fromApiTimeline(api([])).schools.map((s) => s.uai)).toEqual(['A'])
   })
 
-  it('rejects a response with the wrong shape', () => {
-    expect(() => parseTimeline([])).toThrow()
-    expect(() => parseTimeline({ schools: [] })).toThrow()
+  it('a report without a source (on-site report) counts no source', () => {
+    const parsed = fromApiTimeline(
+      api([{ uai: 'A', status: 'blocked', at: 1, sourceKey: '', mobilisation: false }]),
+    )
+    expect(parsed.events[0]?.k).toBeNull()
+    expect(statusesAt(parsed, 2, 5)[0]?.sourceCount).toBe(0)
   })
 })
 
@@ -131,8 +135,8 @@ describe('bucketize', () => {
     const buckets = bucketize(data.events, t0, t0 + 4 * H, H)
     expect(buckets).toHaveLength(4)
     expect(buckets.map((b) => b.total)).toEqual([1, 1, 1, 1])
-    expect(buckets[1]).toMatchObject({ filtrant: 1, bloque: 0 })
-    expect(buckets[3]).toMatchObject({ leve: 1 })
+    expect(buckets[1]).toMatchObject({ filtering: 1, blocked: 0 })
+    expect(buckets[3]).toMatchObject({ lifted: 1 })
   })
 
   it('ignores what is outside the window', () => {
@@ -142,7 +146,7 @@ describe('bucketize', () => {
 
   it('a report exactly at the end falls in the last slot', () => {
     const buckets = bucketize(data.events, t0 + 5 * H, t0 + 8 * H, H)
-    expect(buckets[buckets.length - 1]?.bloque).toBe(1)
+    expect(buckets[buckets.length - 1]?.blocked).toBe(1)
   })
 })
 
@@ -221,10 +225,10 @@ describe('mobilisationAt', () => {
   const withMob: TimelineData = {
     schools: [school('A'), school('B', '31'), school('C')],
     events: [
-      { u: 'A', s: 'bloque', t: t0, k: null },
-      { u: 'A', s: 'bloque', t: t0 + H, k: null, m: true },
-      { u: 'B', s: 'bloque', t: t0 + 2 * H, k: null, m: true },
-      { u: 'C', s: 'leve', t: t0 + 2 * H, k: null, m: true },
+      { u: 'A', s: 'blocked', t: t0, k: null },
+      { u: 'A', s: 'blocked', t: t0 + H, k: null, m: true },
+      { u: 'B', s: 'blocked', t: t0 + 2 * H, k: null, m: true },
+      { u: 'C', s: 'lifted', t: t0 + 2 * H, k: null, m: true },
     ],
   }
 

@@ -58,9 +58,9 @@ const Bars = memo(function Bars({ buckets, max }: { buckets: Bucket[]; max: numb
       {buckets.map((b, i) => {
         if (b.total === 0) return null
         const scale = Math.max(100 / max, 5 / b.total)
-        const hBloque = b.bloque * scale
-        const hFiltrant = b.filtrant * scale
-        const hLeve = b.leve * scale
+        const hBloque = b.blocked * scale
+        const hFiltrant = b.filtering * scale
+        const hLeve = b.lifted * scale
         return (
           <g key={b.start}>
             <rect

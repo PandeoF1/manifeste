@@ -203,13 +203,22 @@ export const mediaAnalyses = pgTable(
     publishedAt: timestamp({ withTimezone: true }),
     aboutMovement: boolean().notNull(),
     mentionsDemands: boolean().notNull(),
-    demands: text().array().notNull().default(sql`'{}'`),
-    voices: text().array().notNull().default(sql`'{}'`),
+    demands: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    voices: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     /** demands | mobilisation | incidents | mixed */
     focus: text().notNull(),
     incidents: boolean().notNull(),
     policeViolence: boolean().notNull(),
-    terms: text().array().notNull().default(sql`'{}'`),
+    terms: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     /** favourable | neutral | unfavourable */
     tone: text().notNull(),
     quoteDemands: text(),

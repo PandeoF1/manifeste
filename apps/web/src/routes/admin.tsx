@@ -1,96 +1,59 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
-import { LoginForm } from '@/components/admin/LoginForm'
 import { AiUsagePanel } from '@/components/admin/AiUsagePanel'
+import { AuditPanel } from '@/components/admin/AuditPanel'
+import { EnrollTotp } from '@/components/admin/EnrollTotp'
 import { JudgePanel } from '@/components/admin/JudgePanel'
+import { LoginForm } from '@/components/admin/LoginForm'
 import { MediaPanel } from '@/components/admin/MediaPanel'
 import { PendingPanel } from '@/components/admin/PendingPanel'
-import { ProposalsPanel, proposalsQuery } from '@/components/admin/ProposalsPanel'
+import { PipelineTab } from '@/components/admin/pipeline/PipelineTab'
+import { ProposalsPanel } from '@/components/admin/ProposalsPanel'
 import { ReportsPanel } from '@/components/admin/ReportsPanel'
 import { SettingsPanel } from '@/components/admin/SettingsPanel'
 import { SourcesPanel } from '@/components/admin/SourcesPanel'
 import { StatsPanel } from '@/components/admin/StatsPanel'
+import { TeamPanel } from '@/components/admin/TeamPanel'
 import { TrustedDomainsPanel } from '@/components/admin/TrustedDomainsPanel'
 import { UnmatchedPanel } from '@/components/admin/UnmatchedPanel'
-import { supabase } from '@/lib/supabase'
-import { pendingQueryFor, staffRole, useSession } from '@/queries/admin'
-
-const TABS = [
-  'sources',
-  'moderation',
-  'lycees',
-  'signaux',
-  'non-rattaches',
-  'domaines',
-  'stats',
-  'ia',
-  'medias',
-  'juge',
-  'reglages',
-] as const
-type Tab = (typeof TABS)[number]
-
-const TAB_LABELS: Record<Tab, string> = {
-  sources: 'Sources',
-  moderation: 'Modération',
-  lycees: 'Établissements proposés',
-  signaux: 'Signaux',
-  'non-rattaches': 'Non rattachés',
-  domaines: 'Domaines de confiance',
-  stats: 'Stats',
-  ia: 'Coût IA',
-  medias: 'Médias',
-  juge: 'Juge (Jev)',
-  reglages: 'Réglages',
-}
+import { TABS, TAB_LABELS, tabsFor, visibleTab, type Tab } from '@/lib/adminTabs'
+import { pendingQuery, proposalsQuery, useSession, useSignOut } from '@/queries/admin'
 
 export const Route = createFileRoute('/admin')({
-  validateSearch: z.object({ tab: z.enum(TABS).catch('sources') }),
+  validateSearch: z.object({ tab: z.enum(TABS).catch('pipeline') }),
   component: AdminPage,
   head: () => ({ meta: [{ name: 'robots', content: 'noindex' }] }),
 })
 
-/** Moderator's tabs: validate, handle proposed schools, read stats and media. */
-const MODERATOR_TABS: readonly Tab[] = ['moderation', 'lycees', 'non-rattaches', 'stats', 'medias']
-
 function AdminPage() {
   const session = useSession()
+  const signOut = useSignOut()
   const search = Route.useSearch()
 
   if (session.isPending) return <div className="flex-1 animate-pulse bg-surface" />
-  if (!session.data) return <LoginForm />
-  const role = staffRole(session.data)
-  if (!role) {
-    return (
-      <main className="p-6">
-        <p>Ce compte n'a pas accès à l'administration.</p>
-        <button
-          type="button"
-          className="btn-secondary mt-3"
-          onClick={() => void supabase.auth.signOut()}
-        >
-          Se déconnecter
-        </button>
-      </main>
-    )
-  }
+  const user = session.data
+  if (!user) return <LoginForm />
+  // The server refuses an admin without a second factor on every call: ask for it first.
+  if (user.role === 'admin' && !user.twoFactorEnabled) return <EnrollTotp />
 
-  const moderator = role === 'moderator'
-  const tabs = moderator ? MODERATOR_TABS : TABS
-  const tab: Tab = moderator && !tabs.includes(search.tab) ? 'moderation' : search.tab
+  const moderator = user.role === 'moderator'
+  const tabs = tabsFor(user.role)
+  const tab: Tab = visibleTab(
+    user.role,
+    search.tab === 'pipeline' && moderator ? 'moderation' : search.tab,
+  )
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto p-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold">{moderator ? 'Modération' : 'Administration'}</h1>
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={() => void supabase.auth.signOut()}
-        >
-          Se déconnecter
-        </button>
+        <div className="flex items-center gap-3 text-sm text-muted">
+          <span className="hidden sm:inline">{user.email}</span>
+          <button type="button" className="btn-secondary" onClick={() => void signOut()}>
+            Se déconnecter
+          </button>
+        </div>
       </div>
       <nav aria-label="Sections" className="mt-4 flex gap-1 overflow-x-auto border-b border-border">
         {tabs.map((t) => (
@@ -106,36 +69,33 @@ function AdminPage() {
             }}
           >
             {TAB_LABELS[t]}
-            {t === 'moderation' && <PendingCount moderator={moderator} />}
-            {t === 'lycees' && <ProposalCount />}
+            {t === 'moderation' && <Count query={pendingQuery} />}
+            {t === 'lycees' && <Count query={proposalsQuery} />}
           </Link>
         ))}
       </nav>
       <div className="mt-4">
-        {tab === 'sources' && <SourcesPanel />}
-        {tab === 'moderation' && <PendingPanel role={role} />}
+        {tab === 'pipeline' && <PipelineTab />}
+        {tab === 'moderation' && <PendingPanel role={user.role} />}
         {tab === 'lycees' && <ProposalsPanel canReject={!moderator} />}
-        {tab === 'signaux' && <ReportsPanel />}
         {tab === 'non-rattaches' && <UnmatchedPanel canManage={!moderator} />}
+        {tab === 'signaux' && <ReportsPanel />}
+        {tab === 'sources' && <SourcesPanel />}
         {tab === 'domaines' && <TrustedDomainsPanel />}
         {tab === 'stats' && <StatsPanel />}
         {tab === 'ia' && <AiUsagePanel />}
         {tab === 'medias' && <MediaPanel />}
         {tab === 'juge' && <JudgePanel />}
         {tab === 'reglages' && <SettingsPanel />}
+        {tab === 'journal' && <AuditPanel />}
+        {tab === 'equipe' && <TeamPanel selfId={user.id} />}
       </div>
     </main>
   )
 }
 
-function PendingCount({ moderator }: { moderator: boolean }) {
-  const { data } = useQuery(pendingQueryFor(moderator))
-  if (!data?.length) return null
-  return <span className="ml-1 rounded-full bg-bloque px-2 text-xs text-white">{data.length}</span>
-}
-
-function ProposalCount() {
-  const { data } = useQuery(proposalsQuery)
+function Count({ query }: { query: typeof pendingQuery | typeof proposalsQuery }) {
+  const { data } = useQuery(query as typeof pendingQuery)
   if (!data?.length) return null
   return <span className="ml-1 rounded-full bg-bloque px-2 text-xs text-white">{data.length}</span>
 }

@@ -114,6 +114,13 @@ export class AnalyticsStaffService {
       this.db,
       sql`select page, sum(views)::int as views from analytics_page_views where slot >= now() - ${interval}::interval group by page order by 2 desc`,
     )
+    const [vitals] = await rows<{ lcp: number | null; api: number | null }>(
+      this.db,
+      sql`select
+            percentile_cont(0.75) within group (order by value) filter (where metric = 'LCP') as lcp,
+            percentile_cont(0.75) within group (order by value) filter (where metric = 'API') as api
+          from analytics_vitals where at >= now() - ${interval}::interval`,
+    )
     const peak = points.reduce<(typeof points)[number] | null>(
       (m, p) => ((p.online ?? -1) > (m?.online ?? -1) ? p : m),
       null,
@@ -127,6 +134,8 @@ export class AnalyticsStaffService {
         views: points.reduce((n, p) => n + p.views, 0),
         peakOnline: peak?.online ?? null,
         peakOnlineAt: peak?.online != null ? new Date(peak.t) : null,
+        lcpP75: vitals?.lcp ?? null,
+        apiP75: vitals?.api ?? null,
       },
     }
   }
@@ -142,10 +151,6 @@ export const analyticsStaffModule = (auth: Auth, service: AnalyticsStaffService)
     })
     .get('/series', ({ query }) => service.series(query.range), {
       staff: { stats: ['view'] },
-      query: t.Object({
-        range: t.Union(
-          Object.keys(RANGES).map((r) => t.Literal(r)) as [ReturnType<typeof t.Literal<'24h'>>],
-        ),
-      }),
+      query: t.Object({ range: t.UnionEnum(['2h', '24h', '7d', '30d', '90d']) }),
       detail: { tags: ['staff'], summary: 'Curves for a zoom level (2h, 24h, 7d, 30d, 90d)' },
     })

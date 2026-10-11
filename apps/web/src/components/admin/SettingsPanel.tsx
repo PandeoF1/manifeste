@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
+import { putSetting, resetSetting, settingsAdminQuery } from '@/queries/admin'
 
 const FIELDS = [
   {
@@ -29,12 +29,8 @@ const FIELDS = [
   {
     key: 'judge_tiers',
     label: 'Niveaux du juge (Jev)',
-    help: 'Désactivé : rien ne change. Activé : la carte, les chiffres, l’historique et les données ouvertes ne comptent plus comme bloqués que les signalements confirmés par le juge (et ceux qu’il n’a pas pu lire) ; les mobilisations signalées (rassemblement, incident…) s’affichent à part en gris, les récits et aperçus sont écartés. Rien n’est supprimé : repasser sur Désactivé rétablit tout. Voir l’onglet « Juge (Jev) » avant d’activer.',
-    type: 'select',
-    options: [
-      ['off', 'Désactivé'],
-      ['on', 'Activé'],
-    ],
+    help: 'Désactivé : rien ne change. Activé : la carte, les chiffres, l’historique et les données ouvertes ne comptent plus comme bloqués que les signalements confirmés par le juge (et ceux qu’il n’a pas pu lire) ; les mobilisations signalées (rassemblement, incident…) s’affichent à part en gris, les récits et aperçus sont écartés. Rien n’est supprimé : repasser sur Désactivé rétablit tout. Voir l’onglet « Juge » avant d’activer.',
+    type: 'boolean',
   },
   {
     key: 'judge_keep',
@@ -50,43 +46,38 @@ const FIELDS = [
   },
 ] as const
 
-const rawSettingsQuery = {
-  queryKey: [...queryKeys.admin.all, 'settings'],
-  queryFn: async () => {
-    const { data, error } = await supabase.from('app_settings').select('key, value')
-    if (error) throw error
-    return Object.fromEntries(data.map((r) => [r.key, r.value])) as Record<string, string>
-  },
-}
-
-/** Site settings, editable without a redeploy (validated on the database side). */
+/** Site settings, editable without a redeploy (validated by the server against each setting's schema). */
 export function SettingsPanel() {
   const queryClient = useQueryClient()
-  const settings = useQuery(rawSettingsQuery)
+  const settings = useQuery(settingsAdminQuery)
   const [saved, setSaved] = useState(false)
 
+  const refresh = () => {
+    setSaved(true)
+    void queryClient.invalidateQueries({ queryKey: queryKeys.admin.all })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.settings })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
+  }
   const save = useMutation({
-    mutationFn: async (changes: Array<[string, string]>) => {
-      for (const [key, value] of changes) {
-        const { error } = await supabase.rpc('admin_set_setting', { p_key: key, p_value: value })
-        if (error) throw new Error(error.message)
-      }
+    mutationFn: async (changes: Array<[string, unknown]>) => {
+      for (const [key, value] of changes) await putSetting(key, value)
     },
-    onSuccess: () => {
-      setSaved(true)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.all })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.settings })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.statuses.all })
-    },
+    onSuccess: refresh,
   })
+  const reset = useMutation({ mutationFn: resetSetting, onSuccess: refresh })
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaved(false)
     const data = new FormData(e.currentTarget)
-    const changes = FIELDS.map(
-      (f) => [f.key, String(data.get(f.key) ?? '').trim()] as [string, string],
-    ).filter(([key, value]) => value !== '' && value !== settings.data?.[key])
+    const changes: Array<[string, unknown]> = []
+    for (const f of FIELDS) {
+      const current = settings.data?.find((s) => s.key === f.key)?.value
+      const raw = String(data.get(f.key) ?? '').trim()
+      if (raw === '') continue
+      const value = f.type === 'boolean' ? raw === 'on' : f.type === 'date' ? raw : Number(raw)
+      if (value !== current) changes.push([f.key, value])
+    }
     if (changes.length) save.mutate(changes)
     else setSaved(true)
   }
@@ -95,40 +86,51 @@ export function SettingsPanel() {
   if (settings.error)
     return <p className="text-bloque">Réglages illisibles : {settings.error.message}</p>
 
+  const byKey = new Map(settings.data.map((s) => [s.key, s]))
   return (
     <form onSubmit={onSubmit} className="card max-w-xl space-y-5">
-      {FIELDS.map((f) => (
-        <label key={f.key} className="field">
-          {f.label}
-          {f.type === 'select' ? (
-            <select
-              name={f.key}
-              className="input"
-              defaultValue={settings.data[f.key] ?? f.options[0][0]}
-            >
-              {f.options.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              name={f.key}
-              type={f.type === 'decimal' ? 'number' : f.type}
-              className="input"
-              defaultValue={settings.data[f.key] ?? ''}
-              required
-              {...(f.type === 'number' ? { min: f.min, max: f.max, step: 1 } : {})}
-              {...(f.type === 'decimal' ? { min: 0.05, max: 1, step: 0.05 } : {})}
-            />
-          )}
-          <span className="text-xs font-normal text-muted">{f.help}</span>
-        </label>
-      ))}
-      {save.error && (
+      {FIELDS.map((f) => {
+        const s = byKey.get(f.key)
+        return (
+          <label key={f.key} className="field">
+            {f.label}
+            {f.type === 'boolean' ? (
+              <select
+                name={f.key}
+                className="input"
+                defaultValue={s?.value === true ? 'on' : 'off'}
+              >
+                <option value="off">Désactivé</option>
+                <option value="on">Activé</option>
+              </select>
+            ) : (
+              <input
+                name={f.key}
+                type={f.type === 'decimal' ? 'number' : f.type}
+                className="input"
+                defaultValue={String(s?.value ?? '')}
+                required
+                {...(f.type === 'number' ? { min: f.min, max: f.max, step: 1 } : {})}
+                {...(f.type === 'decimal' ? { min: 0.05, max: 1, step: 0.05 } : {})}
+              />
+            )}
+            <span className="text-xs font-normal text-muted">
+              {f.help}
+              {s && !s.isDefault && (
+                <>
+                  {' '}
+                  <button type="button" className="underline" onClick={() => reset.mutate(f.key)}>
+                    Revenir à la valeur par défaut ({String(s.default)})
+                  </button>
+                </>
+              )}
+            </span>
+          </label>
+        )
+      })}
+      {(save.error ?? reset.error) && (
         <p role="alert" className="text-sm text-bloque">
-          {save.error.message}
+          {(save.error ?? reset.error)?.message}
         </p>
       )}
       {saved && !save.isPending && (

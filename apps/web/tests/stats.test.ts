@@ -3,31 +3,34 @@ import { computeStats } from '@/queries/stats'
 
 const now = Date.parse('2026-10-05T10:00:00Z')
 const row = (
-  status: 'bloque' | 'filtrant' | 'leve',
+  status: 'blocked' | 'filtering' | 'lifted',
   department: string | null,
   minutesAgo: number,
 ) => ({
   status,
   department,
-  last_signal_at: new Date(now - minutesAgo * 60_000).toISOString(),
+  lastSignalAt: new Date(now - minutesAgo * 60_000),
 })
 
 describe('computeStats', () => {
   it('counts statuses, departments and signals of the last hour', () => {
     const stats = computeStats(
       [
-        row('bloque', '75', 10),
-        row('bloque', '75', 90),
-        row('filtrant', '93', 30),
-        row('leve', '69', 5),
-        row('bloque', null, 200),
+        row('blocked', '75', 10),
+        row('blocked', '75', 90),
+        row('filtering', '93', 30),
+        row('lifted', '69', 5),
+        row('blocked', null, 200),
       ],
       now,
     )
-    expect(stats).toEqual({ bloque: 3, filtrant: 1, leve: 1, departments: 2, lastHour: 2 })
+    expect(stats).toEqual({ blocked: 3, filtering: 1, lifted: 1, departments: 2, lastHour: 2 })
   })
 
   it('ignores lifted schools for departments and the last hour', () => {
-    expect(computeStats([row('leve', '13', 1)], now)).toMatchObject({ departments: 0, lastHour: 0 })
+    expect(computeStats([row('lifted', '13', 1)], now)).toMatchObject({
+      departments: 0,
+      lastHour: 0,
+    })
   })
 })

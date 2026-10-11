@@ -1,332 +1,247 @@
+/** Every call the admin makes, typed against the server. Queries here, actions as plain functions. */
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { api, unwrap } from '@/lib/api'
+import { authClient, staffUser, type StaffSessionUser } from '@/lib/auth'
 import { queryKeys } from '@/lib/queryKeys'
-import type { Tables } from '@/lib/database.types'
-export { isAdminSession, staffRole, type StaffRole } from '@/lib/staffRole'
 
-export type ScrapeSource = Tables<'scrape_sources'>
-export type TrustedDomain = Tables<'trusted_domains'>
-export type Unmatched = Tables<'unmatched_extractions'>
-export type PendingReport = Tables<'reports'> & {
-  schools: { name: string; city: string } | null
-  scrape_sources: { label: string } | null
-  report_submissions: Pick<Tables<'report_submissions'>, 'photo_path' | 'distance_m'> | null
-}
+// --- Session --------------------------------------------------------------------------------
 
 export const sessionQuery = queryOptions({
   queryKey: queryKeys.session,
-  queryFn: async () => (await supabase.auth.getSession()).data.session,
-  staleTime: Infinity,
+  queryFn: async (): Promise<StaffSessionUser | null> => {
+    const { data } = await authClient.getSession()
+    return staffUser(data?.user)
+  },
+  staleTime: 5 * 60_000,
+  retry: false,
 })
 
 export function useSession() {
-  const queryClient = useQueryClient()
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      queryClient.setQueryData(queryKeys.session, session)
-      if (!session) queryClient.removeQueries({ queryKey: queryKeys.admin.all })
-    })
-    return () => data.subscription.unsubscribe()
-  }, [queryClient])
   return useQuery(sessionQuery)
 }
 
-export const sourcesQuery = queryOptions({
-  queryKey: queryKeys.admin.sources(),
-  queryFn: async (): Promise<ScrapeSource[]> => {
-    const { data, error } = await supabase
-      .from('scrape_sources')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (error) throw error
-    return data
-  },
-})
+export function useSignOut() {
+  const queryClient = useQueryClient()
+  return async () => {
+    await authClient.signOut()
+    queryClient.setQueryData(queryKeys.session, null)
+    queryClient.removeQueries({ queryKey: queryKeys.admin.all })
+  }
+}
+
+// --- Moderation ---------------------------------------------------------------------------------
+
+const staff = api.api.staff
 
 export const pendingQuery = queryOptions({
   queryKey: queryKeys.admin.pending(),
-  queryFn: async (): Promise<PendingReport[]> => {
-    const { data, error } = await supabase
-      .from('reports')
-      .select(
-        '*, schools(name, city), scrape_sources(label), report_submissions(photo_path, distance_m)',
-      )
-      .eq('moderation', 'pending')
-      .order('observed_at', { ascending: false })
-      .limit(200)
-    if (error) throw error
-    return data as PendingReport[]
-  },
+  queryFn: () => unwrap(staff.reports.pending.get()),
   refetchInterval: 60_000,
 })
+export type PendingReport = Awaited<
+  ReturnType<NonNullable<(typeof pendingQuery)['queryFn']>>
+>[number]
 
-/** Row returned by moderator_pending_reports (no position, no internal source). */
-interface ModeratorRow {
-  id: string
-  school_uai: string
-  school_name: string | null
-  school_city: string | null
-  status: PendingReport['status']
-  observed_at: string
-  source_type: PendingReport['source_type']
-  source_domain: string | null
-  source_url: string | null
-  source_label: string | null
-  certainty: PendingReport['certainty']
-  distance_m: number | null
-  photo_path: string | null
-  judge_score: number | null
-  judge_nature: string | null
-  judged_at: string | null
-}
+export const reportsQuery = (
+  filter: { q?: string; moderation?: 'pending' | 'approved' | 'rejected' } = {},
+) =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.reports(), filter],
+    queryFn: () => unwrap(staff.reports.get({ query: { ...filter, limit: 300 } })),
+  })
+export type AdminReport = Awaited<
+  ReturnType<NonNullable<ReturnType<typeof reportsQuery>['queryFn']>>
+>[number]
 
-/** Moderator's queue: same fields as the admin's, without position or source details. */
-export const moderatorPendingQuery = queryOptions({
-  queryKey: queryKeys.admin.moderatorPending(),
-  queryFn: async (): Promise<PendingReport[]> => {
-    const { data, error } = await supabase.rpc('moderator_pending_reports')
-    if (error) throw new Error(error.message)
-    const rows = (Array.isArray(data) ? data : []) as unknown as ModeratorRow[]
-    return rows.map(
-      (r) =>
-        ({
-          id: r.id,
-          school_uai: r.school_uai,
-          status: r.status,
-          observed_at: r.observed_at,
-          source_type: r.source_type,
-          source_domain: r.source_domain,
-          source_url: r.source_url,
-          certainty: r.certainty,
-          judge_score: r.judge_score,
-          judge_nature: r.judge_nature,
-          judged_at: r.judged_at,
-          schools: r.school_name ? { name: r.school_name, city: r.school_city ?? '' } : null,
-          scrape_sources: r.source_label ? { label: r.source_label } : null,
-          report_submissions:
-            r.distance_m == null ? null : { photo_path: r.photo_path, distance_m: r.distance_m },
-        }) as PendingReport,
-    )
+export const decideReport = async (id: string, decision: 'approve' | 'reject', photo?: Blob) =>
+  unwrap(
+    staff.reports({ id }).decision.post({
+      decision,
+      ...(photo && { photo: new File([photo], 'photo.jpg', { type: photo.type || 'image/jpeg' }) }),
+    }),
+  )
+
+export const originalPhotoUrl = (id: string) => `/api/staff/reports/${id}/original-photo`
+
+export const updateReport = (
+  id: string,
+  patch: {
+    schoolUai?: string
+    status?: 'blocked' | 'filtering' | 'lifted'
+    observedAt?: Date
+    moderation?: 'pending' | 'approved' | 'rejected'
   },
-  refetchInterval: 60_000,
-})
+) => unwrap(staff.reports({ id }).patch(patch))
+export const setHidden = (id: string, hidden: boolean) =>
+  unwrap(staff.reports({ id }).hidden.post({ hidden }))
+export const deleteReport = async (id: string) =>
+  void (await unwrap(staff.reports({ id }).delete()).catch(() => null))
+export const reportToUnmatched = (id: string) =>
+  unwrap(staff.reports({ id })['to-unmatched'].post())
 
-/** Queue according to the role (same data shape; only the key type differs). */
-export const pendingQueryFor = (moderator: boolean) =>
-  (moderator ? moderatorPendingQuery : pendingQuery) as unknown as typeof pendingQuery
+// --- Unmatched facts and proposed schools -------------------------------------------------------------
 
 export const unmatchedQuery = queryOptions({
   queryKey: queryKeys.admin.unmatched(),
-  queryFn: async (): Promise<Unmatched[]> => {
-    const { data, error } = await supabase
-      .from('unmatched_extractions')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200)
-    if (error) throw error
-    return data
-  },
+  queryFn: () => unwrap(staff.unmatched.get()),
+  refetchInterval: 60_000,
 })
+export type Unmatched = Awaited<ReturnType<NonNullable<(typeof unmatchedQuery)['queryFn']>>>[number]
+export const candidatesQuery = (id: string) =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.unmatched(), id, 'candidates'],
+    queryFn: () => unwrap(staff.unmatched({ id }).candidates.get()),
+  })
+export const linkUnmatched = (id: string, uai: string) =>
+  unwrap(staff.unmatched({ id }).link.post({ uai }))
+export const dismissUnmatched = (id: string) => unwrap(staff.unmatched({ id }).dismiss.post())
+
+export const proposalsQuery = queryOptions({
+  queryKey: [...queryKeys.admin.all, 'proposals'],
+  queryFn: () => unwrap(staff.proposals.get()),
+  refetchInterval: 60_000,
+})
+export type Proposal = Awaited<ReturnType<NonNullable<(typeof proposalsQuery)['queryFn']>>>[number]
+export const resolveProposal = (
+  id: string,
+  body: { linkUai?: string; name?: string; city?: string; newUai?: string },
+) => unwrap(staff.proposals({ id }).resolve.post(body))
+export const rejectProposal = async (id: string) => void (await staff.proposals({ id }).delete())
+export const proposalPhotoUrl = (id: string) => `/api/staff/proposals/${id}/photo`
+
+// --- Sources and trust ------------------------------------------------------------------------
+
+export const sourcesQuery = queryOptions({
+  queryKey: queryKeys.admin.sources(),
+  queryFn: () => unwrap(staff.sources.get()),
+  refetchInterval: 30_000,
+})
+export type Source = Awaited<ReturnType<NonNullable<(typeof sourcesQuery)['queryFn']>>>[number]
+export const presetsQuery = queryOptions({
+  queryKey: [...queryKeys.admin.sources(), 'presets'],
+  queryFn: () => unwrap(staff.sources.presets.get()),
+})
+export const sourceRunsQuery = (id: string) =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.sources(), id, 'runs'],
+    queryFn: () => unwrap(staff.sources({ id }).runs.get()),
+  })
+export type NewSource = Parameters<typeof staff.sources.post>[0]
+export const addSource = (body: NewSource) => unwrap(staff.sources.post(body))
+export const patchSource = (
+  id: string,
+  body: { label?: string; trusted?: boolean; enabled?: boolean; reportsHidden?: boolean },
+) => unwrap(staff.sources({ id }).patch(body))
+export const deleteSource = async (id: string) => void (await staff.sources({ id }).delete())
+export const runSource = (id: string) => unwrap(staff.sources({ id }).run.post())
+export const resetSourceHealth = (id: string) =>
+  unwrap(staff.sources({ id })['reset-health'].post())
 
 export const trustedDomainsQuery = queryOptions({
   queryKey: queryKeys.admin.trustedDomains(),
-  queryFn: async (): Promise<TrustedDomain[]> => {
-    const { data, error } = await supabase.from('trusted_domains').select('*').order('domain')
-    if (error) throw error
-    return data
-  },
+  queryFn: () => unwrap(staff['trusted-domains'].get()),
 })
+export const addTrustedDomain = (body: {
+  domain: string
+  label: string
+  origin: 'press' | 'union'
+}) => unwrap(staff['trusted-domains'].post(body))
+export const removeTrustedDomain = async (domain: string) =>
+  void (await staff['trusted-domains']({ domain }).delete())
 
-export interface CollectRunResult {
-  model: string
-  gemini_calls?: number
-  /** Tokens of the run; thinking is billed as output. */
-  tokens?: { prompt: number; output: number; thoughts: number }
-  duration_ms: number
-  results: Array<{
-    source_id: string
-    label: string
-    fetched: number
-    new_items: number
-    relevant: number
-    events: number
-    reports: number
-    duplicates: number
-    unmatched: number
-    low_certainty: number
-    error: string | null
-  }>
-}
+// --- Settings, audit, team ----------------------------------------------------------------------
 
-export async function runCollect(sourceId?: string): Promise<CollectRunResult> {
-  const { data, error } = await supabase.functions.invoke<CollectRunResult>('collect', {
-    body: sourceId ? { source_id: sourceId } : {},
-  })
-  if (error) throw error
-  if (!data) throw new Error('Réponse vide')
-  return data
-}
-
-/** Temporary URL (5 min) of an original photo, readable by staff only. */
-export async function originalPhotoUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from('submissions').createSignedUrl(path, 300)
-  if (error) throw error
-  return data.signedUrl
-}
-
-export type Decision = { kind: 'validate'; photo?: Blob } | { kind: 'reject' }
-
-/**
- * Applies the staff decision. For a report with a photo:
- * - the blurred version (if published) goes to the public "photos" bucket;
- * - the original is deleted in every case.
- */
-export async function moderate(report: PendingReport, decision: Decision): Promise<void> {
-  let photoPublicPath: string | null = null
-  if (decision.kind === 'validate' && decision.photo) {
-    photoPublicPath = `${report.id}.jpg`
-    // No "upsert": it requires read and update rights on the bucket, which staff
-    // do not have (insert and delete only). The old version is removed, then the new one published.
-    await supabase.storage.from('photos').remove([photoPublicPath])
-    const { error } = await supabase.storage
-      .from('photos')
-      .upload(photoPublicPath, decision.photo, { contentType: 'image/jpeg' })
-    if (error) throw error
-  }
-  const { error } = await supabase
-    .from('reports')
-    .update({
-      moderation: decision.kind === 'validate' ? 'validated' : 'rejected',
-      photo_public_path: photoPublicPath,
-    })
-    .eq('id', report.id)
-  if (error) throw error
-
-  const original = report.report_submissions?.photo_path
-  if (original) {
-    const { error: removeError } = await supabase.storage.from('submissions').remove([original])
-    if (removeError) throw removeError
-    await supabase
-      .from('report_submissions')
-      .update({ photo_path: null })
-      .eq('report_id', report.id)
-  }
-}
-
-/**
- * Validation by a moderator: the only allowed action. The blurred photo, if published, is
- * stored as <id>.jpg (no replace or delete: the database refuses it), then the
- * report is validated by a function that only accepts this "pending" to "validated" change.
- * The original is removed by the hourly purge.
- */
-export async function approveAsModerator(report: PendingReport, photo?: Blob): Promise<void> {
-  let photoPublicPath: string | null = null
-  if (photo) {
-    photoPublicPath = `${report.id}.jpg`
-    const { error } = await supabase.storage
-      .from('photos')
-      .upload(photoPublicPath, photo, { contentType: 'image/jpeg' })
-    if (error) throw new Error(`Photo : ${error.message}`)
-  }
-  const { error } = await supabase.rpc('moderator_approve_report', {
-    p_id: report.id,
-    p_photo_public_path: photoPublicPath,
-  })
-  if (error) throw new Error(error.message)
-}
-
-export interface ReanalyzeResult {
-  model: string | null
-  linked: number
-  total: number
-  outcomes: Array<{
-    id: string
-    school_name: string
-    city: string | null
-    result: string
-    uai?: string
-  }>
-}
-
-/** AI re-analysis (reanalyze Edge Function): all extractions, or a list. */
-export async function reanalyze(ids?: string[]): Promise<ReanalyzeResult> {
-  const { data, error } = await supabase.functions.invoke<ReanalyzeResult>('reanalyze', {
-    body: ids ? { ids } : {},
-  })
-  if (error) throw error
-  if (!data) throw new Error('Réponse vide')
-  return data
-}
-
-export type AdminReport = Tables<'reports'> & {
-  schools: { name: string; city: string } | null
-  scrape_sources: { label: string } | null
-}
-
-/** All recent signals (published, pending, rejected), for the "Signals" tab. */
-export const reportsQuery = queryOptions({
-  queryKey: queryKeys.admin.reports(),
-  queryFn: async (): Promise<AdminReport[]> => {
-    const { data, error } = await supabase
-      .from('reports')
-      .select('*, schools(name, city), scrape_sources(label)')
-      .order('observed_at', { ascending: false })
-      .limit(300)
-    if (error) throw error
-    return data as AdminReport[]
-  },
+export const settingsAdminQuery = queryOptions({
+  queryKey: [...queryKeys.admin.all, 'settings'],
+  queryFn: () => unwrap(staff.settings.get()),
 })
+export const putSetting = (key: string, value: unknown) =>
+  unwrap(staff.settings({ key }).put({ value }))
+export const resetSetting = (key: string) => unwrap(staff.settings({ key }).delete())
 
-export interface ReportPatch {
-  school_uai?: string
-  status?: Tables<'reports'>['status']
-  observed_at?: string
-  moderation?: Tables<'reports'>['moderation']
-}
-
-export async function updateReport(id: string, patch: ReportPatch): Promise<void> {
-  const { error } = await supabase.rpc('admin_update_report', {
-    p_id: id,
-    p_school_uai: patch.school_uai ?? null,
-    p_status: patch.status ?? null,
-    p_observed_at: patch.observed_at ?? null,
-    p_moderation: patch.moderation ?? null,
-  })
-  if (error) throw new Error(error.message)
-}
-
-export async function deleteReport(report: AdminReport): Promise<void> {
-  if (report.photo_public_path) {
-    await supabase.storage.from('photos').remove([report.photo_public_path])
-  }
-  const { error } = await supabase.rpc('admin_delete_report', { p_id: report.id })
-  if (error) throw new Error(error.message)
-}
-
-/** Sends the signal back to "Unmatched" then runs the AI re-analysis on it. */
-export async function sendBackToAi(id: string): Promise<ReanalyzeResult> {
-  const { data, error } = await supabase.rpc('admin_report_to_unmatched', { p_id: id })
-  if (error) throw new Error(error.message)
-  return reanalyze([data])
-}
-
-export type CollectorRun = Tables<'collector_runs'> & {
-  collector_item_logs: Tables<'collector_item_logs'>[]
-}
-
-/** Latest runs of a source, with what became of each item (7 days max). */
-export const sourceLogQuery = (sourceId: string) =>
+export const auditQuery = (action?: string) =>
   queryOptions({
-    queryKey: [...queryKeys.admin.all, 'source-log', sourceId] as const,
-    queryFn: async (): Promise<CollectorRun[]> => {
-      const { data, error } = await supabase
-        .from('collector_runs')
-        .select('*, collector_item_logs(*)')
-        .eq('source_id', sourceId)
-        .order('ran_at', { ascending: false })
-        .limit(30)
-      if (error) throw error
-      return data as CollectorRun[]
-    },
+    queryKey: [...queryKeys.admin.all, 'audit', action ?? ''],
+    queryFn: () => unwrap(staff.audit.get({ query: { limit: 200, ...(action && { action }) } })),
   })
+
+export const membersQuery = queryOptions({
+  queryKey: [...queryKeys.admin.all, 'members'],
+  queryFn: () => unwrap(staff.members.get()),
+})
+export const inviteMember = (body: { email: string; name: string; role: 'admin' | 'moderator' }) =>
+  unwrap(staff.members.post(body))
+export const newPasswordLink = (id: string) => unwrap(staff.members({ id })['password-link'].post())
+
+// --- Pipeline, AI, statistics ----------------------------------------------------------------------
+
+export const pipelineOverviewQuery = queryOptions({
+  queryKey: [...queryKeys.admin.all, 'pipeline', 'overview'],
+  queryFn: () => unwrap(staff.pipeline.overview.get()),
+  refetchInterval: 10_000,
+})
+export const pipelineEventsQuery = (stage?: string) =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.all, 'pipeline', 'events', stage ?? ''],
+    queryFn: () =>
+      unwrap(staff.pipeline.events.get({ query: { limit: 200, ...(stage && { stage }) } })),
+    refetchInterval: 5_000,
+  })
+export const laneItemsQuery = (state: 'failed' | 'unreadable' | 'deferred') =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.all, 'pipeline', 'lane', state],
+    queryFn: () => unwrap(staff.pipeline.items.get({ query: { state, limit: 100 } })),
+    refetchInterval: 15_000,
+  })
+export const throughputQuery = (hours: number) =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.all, 'pipeline', 'throughput', hours],
+    queryFn: () => unwrap(staff.pipeline.throughput.get({ query: { hours } })),
+    refetchInterval: 60_000,
+  })
+export const retryItems = (body: { itemIds?: string[]; states?: Array<'failed' | 'unreadable'> }) =>
+  unwrap(staff.pipeline.retry.post(body))
+export const runPipelineNow = () => unwrap(staff.pipeline.run.post())
+export type OperationBody = Parameters<typeof staff.pipeline.operations.post>[0]
+export const runOperation = (body: OperationBody) => unwrap(staff.pipeline.operations.post(body))
+
+export const aiStatusQuery = queryOptions({
+  queryKey: [...queryKeys.admin.all, 'ai', 'status'],
+  queryFn: () => unwrap(staff.ai.status.get()),
+  refetchInterval: 30_000,
+})
+export const aiUsageQuery = (days: number) =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.all, 'ai', 'usage', days],
+    queryFn: () => unwrap(staff.ai.usage.get({ query: { days } })),
+    refetchInterval: 60_000,
+  })
+
+export const siteOverviewQuery = queryOptions({
+  queryKey: [...queryKeys.admin.all, 'site-stats'],
+  queryFn: () => unwrap(staff.analytics.overview.get({ query: { days: 30 } })),
+  refetchInterval: 10_000,
+})
+export const siteSeriesQuery = (range: '2h' | '24h' | '7d' | '30d' | '90d') =>
+  queryOptions({
+    queryKey: [...queryKeys.admin.all, 'site-series', range],
+    queryFn: () => unwrap(staff.analytics.series.get({ query: { range } })),
+    refetchInterval: range === '2h' ? 15_000 : range === '24h' ? 60_000 : 300_000,
+  })
+
+export const judgeReportsQuery = queryOptions({
+  queryKey: [...queryKeys.admin.all, 'judge'],
+  queryFn: () => unwrap(staff.judge.reports.get({ query: { days: 60 } })),
+  staleTime: 60_000,
+})
+export type JudgedReport = Awaited<
+  ReturnType<NonNullable<(typeof judgeReportsQuery)['queryFn']>>
+>[number]
+
+export const mediaQuery = queryOptions({
+  queryKey: [...queryKeys.admin.all, 'media'],
+  queryFn: () => unwrap(staff.media.get({ query: { days: 90 } })),
+  staleTime: 60_000,
+})
+export type MediaRow = Awaited<ReturnType<NonNullable<(typeof mediaQuery)['queryFn']>>>[number]
+export const deleteMedia = async (id: string) => void (await staff.media({ id }).delete())

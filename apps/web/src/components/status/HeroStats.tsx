@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { History } from 'lucide-react'
-import { STATUS_LABELS, blockedPhrase, formatRelative } from '@shared/status.ts'
+import { STATUS_LABELS, blockedPhrase, formatRelative } from '@/lib/labels'
 import type { NationalStats } from '@/queries/statuses'
 import { useCountUp } from '@/lib/useCountUp'
 import { useNow } from '@/lib/useNow'
@@ -57,8 +57,8 @@ export function HeroStats({
   picker,
   mobilises = 0,
 }: Props) {
-  const bloque = useCountUp(stats.bloque)
-  const filtrant = useCountUp(stats.filtrant)
+  const bloque = useCountUp(stats.blocked)
+  const filtrant = useCountUp(stats.filtering)
   const plural = (n: number) => (n > 1 ? 's' : '')
 
   return (
@@ -75,8 +75,8 @@ export function HeroStats({
       {/* Screen readers: one full sentence, updated without announcing the animation. */}
       <p className="sr-only" aria-live="polite">
         {history ? `${history[0]?.toUpperCase()}${history.slice(1)}, ` : ''}
-        {stats.bloque} établissement{plural(stats.bloque)} {history ? 'ont été ' : ''}
-        {blockedPhrase(stats.bloque)}, {stats.filtrant} en barrage filtrant, dans{' '}
+        {stats.blocked} établissement{plural(stats.blocked)} {history ? 'ont été ' : ''}
+        {blockedPhrase(stats.blocked)}, {stats.filtering} en barrage filtrant, dans{' '}
         {stats.departments} département{plural(stats.departments)}.
       </p>
       <div aria-hidden="true">
@@ -87,14 +87,14 @@ export function HeroStats({
             {bloque}
           </span>
           <span className={`font-bold leading-tight ${compact ? 'text-base' : 'text-xl'}`}>
-            établissement{plural(stats.bloque)}
+            établissement{plural(stats.blocked)}
             {compact ? ' ' : <br />}
-            {history ? (stats.bloque > 1 ? 'ont été ' : 'a été ') : ''}
-            {blockedPhrase(stats.bloque)}
+            {history ? (stats.blocked > 1 ? 'ont été ' : 'a été ') : ''}
+            {blockedPhrase(stats.blocked)}
           </span>
         </p>
         <p className={`flex items-center gap-2 ${compact ? 'mt-0.5 text-sm' : 'mt-3 text-lg'}`}>
-          <StatusIcon status="filtrant" size={compact ? 14 : 18} />
+          <StatusIcon status="filtering" size={compact ? 14 : 18} />
           <strong className="tabular-nums text-filtrant">{filtrant}</strong> en barrage filtrant
         </p>
         {mobilises > 0 && (
@@ -127,13 +127,13 @@ export function Legend({ mobilisation = false }: { mobilisation?: boolean }) {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted" aria-label="Légende">
       <li className="flex items-center gap-1.5">
-        <StatusIcon status="bloque" size={14} /> {STATUS_LABELS.bloque}
+        <StatusIcon status="blocked" size={14} /> {STATUS_LABELS.blocked}
       </li>
       <li className="flex items-center gap-1.5">
-        <StatusIcon status="filtrant" size={14} /> Barrage filtrant
+        <StatusIcon status="filtering" size={14} /> Barrage filtrant
       </li>
       <li className="flex items-center gap-1.5">
-        <StatusIcon status="leve" size={14} /> Levé
+        <StatusIcon status="lifted" size={14} /> Levé
       </li>
       {mobilisation && (
         <li className="flex items-center gap-1.5">

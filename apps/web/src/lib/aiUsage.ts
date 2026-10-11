@@ -1,13 +1,12 @@
-// "AI cost" tab: reads admin_ai_usage and aggregates it for the charts.
+// "AI" tab: the API's usage rows, aggregated for the charts.
 
-export type AiTask = 'extraction' | 'media' | 'reanalyse' | 'backfill' | 'judge'
+export type AiTask = 'extract' | 'media' | 'reanalyse' | 'judge'
 
 export const TASK_LABEL: Record<AiTask, string> = {
-  extraction: 'Extraction (collecte)',
+  extract: 'Extraction (collecte)',
   media: 'Analyse des médias',
   reanalyse: 'Réanalyse des non rattachés',
-  backfill: 'Rattrapage (script)',
-  judge: 'Juge Jev (estimation)',
+  judge: 'Juge (second avis)',
 }
 
 export interface UsageRow {
@@ -22,21 +21,30 @@ export interface UsageRow {
   thoughts: number
 }
 
-const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 const TASKS = Object.keys(TASK_LABEL)
 
-export function parseAiUsage(raw: unknown): UsageRow[] {
-  if (!Array.isArray(raw)) return []
-  return (raw as Array<Record<string, unknown>>)
-    .filter((r) => TASKS.includes(String(r.task)))
+/** What the API returns for one day, task and model. */
+export interface ApiUsage {
+  day: string
+  task: string
+  model: string
+  calls: number
+  promptTokens: number
+  outputTokens: number
+  thoughtsTokens: number
+}
+
+export function fromApiUsage(rows: readonly ApiUsage[]): UsageRow[] {
+  return rows
+    .filter((r) => TASKS.includes(r.task))
     .map((r) => ({
-      day: String(r.day),
+      day: r.day,
       task: r.task as AiTask,
-      model: String(r.model),
-      calls: num(r.calls),
-      prompt: num(r.prompt_tokens),
-      thoughts: num(r.thoughts_tokens),
-      output: num(r.output_tokens) + num(r.thoughts_tokens),
+      model: r.model,
+      calls: r.calls,
+      prompt: r.promptTokens,
+      thoughts: r.thoughtsTokens,
+      output: r.outputTokens + r.thoughtsTokens,
     }))
 }
 

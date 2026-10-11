@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ACTIVE_PHRASE, blockedPhrase } from '@shared/status.ts'
+import { ACTIVE_PHRASE, blockedPhrase } from '@/lib/labels'
 import { CONTACT_EMAIL } from '@/config/legal'
 import { departmentName } from '@/config/departments'
 import {
