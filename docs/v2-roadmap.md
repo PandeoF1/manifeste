@@ -41,15 +41,15 @@ Phases of the rework described in [ADR 0001](adr/0001-v2-architecture.md).
 - `bench/` runner: `bun parser/run.ts --variants legacy,branch,v2 --labelled` (from `bench/`) → JSON + markdown table
   (text recall/precision, school-mention recall, date accuracy, blocked detection, p50/p95), stored in `benchmark_runs`.
 
-### Phase 4: AI layer
+### Phase 4: AI layer (done, except the live model review)
 
-- `apps/server/src/ai/{config.ts, ports.ts, providers/{gemini,openai-compatible,anthropic,jev,replay}.ts,
-tasks/*, prompts/<task>/v<n>.ts, accounting.ts}`, porting `_shared/{gemini,extraction,judge,media,reanalysis}.ts`.
-  Recorded-response tests for each adapter. Budgets and kill switch.
-- Golden datasets from `audit-manuel-echantillon.json`, `compare-judge-sample-relu.csv` and the eval caches →
-  `bench/datasets/*.jsonl`. `bun run bench ai --task extract --variants ... [--live]`: precision/recall per
-  nature/status, date accuracy, match accuracy, latency, cost.
-- **Model review report** (extract: Flash-Lite vs Flash; judge: Jev vs Gemini; media), with a recommendation backed by numbers.
+- `packages/ai` (a package rather than `apps/server/src/ai`, so the benchmarks run the very same code): ports,
+  adapters (Gemini, OpenAI-compatible, Anthropic, Jev, replay at model and HTTP level), the chain with its
+  retry/fallback policy, TypeBox-validated config with kill switch, daily budget and prices, versioned prompts,
+  extract/judge/reanalyse/media tasks. Server wiring: `ai_usage` accounting, `/api/staff/ai/*`. See `docs/ai.md`.
+- Golden dataset `bench/datasets/ai/reports.jsonl` (223 hand-labelled reports) and `bench/ai/run.ts`
+  (judge and extraction, offline replay or `--live`, budget cap, AUC / threshold sweep / kept rates / cost / latency).
+- **Model review report**: `docs/ai-model-review.md` has the procedure; the live run needs API keys and is still to do.
 
 ### Phase 5: Ingestion system
 

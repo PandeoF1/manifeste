@@ -8,10 +8,12 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "bun test",
     "parser": "bun parser/run.ts",
+    "ai": "bun ai/run.ts",
     "corpus:push": "bun corpus-sync.ts push",
     "corpus:pull": "bun corpus-sync.ts pull"
   },
   "dependencies": {
+    "@manifeste/ai": "workspace:*",
     "@manifeste/core": "workspace:*",
     "@manifeste/parser": "workspace:*"
   }

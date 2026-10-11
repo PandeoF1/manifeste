@@ -42,6 +42,9 @@ async function listRemote(): Promise<Set<string>> {
 async function listLocal(): Promise<Set<string>> {
   const keys = new Set<string>()
   for (const file of await readdir(join(dir, 'cache')).catch(() => [])) keys.add(`cache/${file}`)
+  // AI recordings contain article text, so they travel with the corpus and never go in git.
+  for (const file of await readdir(join(dir, 'recordings')).catch(() => []))
+    keys.add(`recordings/${file}`)
   if (await Bun.file(join(dir, 'urls.json')).exists()) keys.add('urls.json')
   return keys
 }
@@ -50,13 +53,17 @@ const remote = await listRemote()
 const local = await listLocal()
 
 if (command === 'push') {
-  // urls.json changes whenever pages are added, so it always goes up; pages are immutable.
-  const todo = [...local].filter((k) => k === 'urls.json' || !remote.has(k))
+  // urls.json and the recordings change whenever a run adds to them, so they always go up; pages are immutable.
+  const mutable = (k: string) => k === 'urls.json' || k.startsWith('recordings/')
+  const todo = [...local].filter((k) => mutable(k) || !remote.has(k))
   for (const key of todo) await bucket.write(key, Bun.file(join(dir, key)))
   console.log(`pushed ${todo.length} files (${remote.size} already there)`)
 } else if (command === 'pull') {
   await mkdir(join(dir, 'cache'), { recursive: true })
-  const todo = [...remote].filter((k) => k === 'urls.json' || !local.has(k))
+  await mkdir(join(dir, 'recordings'), { recursive: true })
+  const todo = [...remote].filter(
+    (k) => k === 'urls.json' || k.startsWith('recordings/') || !local.has(k),
+  )
   for (const key of todo) await Bun.write(join(dir, key), await bucket.file(key).arrayBuffer())
   console.log(`pulled ${todo.length} files into ${dir}`)
 } else {

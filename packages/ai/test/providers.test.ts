@@ -3,7 +3,11 @@ import {
   anthropicModel,
   geminiModel,
   openAiCompatibleModel,
+  httpStoreFromJson,
+  httpStoreToJson,
   recording,
+  recordingFetch,
+  replayFetch,
   replayModel,
   requestKey,
   storeFromJson,
@@ -198,5 +202,30 @@ describe('Gemini schema dialect', () => {
       required: ['b', 'a', 'list'],
       propertyOrdering: ['b', 'a', 'list'],
     })
+  })
+})
+
+describe('HTTP replay', () => {
+  const body = { candidates: [{ content: { parts: [{ text: '{"answer":"x","score":null}' }] } }] }
+
+  test('records a real exchange without the key, then replays it through the same adapter', async () => {
+    const store = new Map()
+    const { fetch } = fakeFetch(json(body))
+    const live = geminiModel({ apiKey: 'secret', model: 'm', fetch: recordingFetch(fetch, store) })
+    await live.generate(request)
+    expect(JSON.stringify([...store])).not.toContain('secret')
+
+    const offline = geminiModel({
+      apiKey: 'another-key',
+      model: 'm',
+      fetch: replayFetch(httpStoreFromJson(httpStoreToJson(store))),
+    })
+    expect((await offline.generate(request)).json).toEqual({ answer: 'x', score: null })
+  })
+
+  test('an unrecorded request is an unmistakable error, not an answer', async () => {
+    const model = geminiModel({ apiKey: 'k', model: 'm', fetch: replayFetch(new Map()) })
+    const error = await model.generate(request).catch((e) => e)
+    expect(error).toBeInstanceOf(AiError)
   })
 })

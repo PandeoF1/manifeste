@@ -31,11 +31,17 @@ export {
   type OpenAiCompatibleOptions,
 } from './providers/openai-compatible.ts'
 export {
+  httpStoreFromJson,
+  httpStoreToJson,
   recording,
+  recordingFetch,
+  replayFetch,
   replayModel,
   requestKey,
   storeFromJson,
   storeToJson,
+  type HttpRecordingStore,
+  type RecordedResponse,
   type Recording,
   type RecordingStore,
 } from './providers/replay.ts'

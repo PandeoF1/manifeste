@@ -59,6 +59,40 @@ The 340 pages `v2` flags as blocked are real: paywalls (131), Google News stubs 
 client-rendered pages with no text (189), challenge pages (2). They were previously fed to the
 AI as if they were articles.
 
+## AI: judge and extraction
+
+Compares judges (Jev, general LLMs) and extraction prompts/models on **223 hand-labelled
+reports** (`datasets/ai/reports.jsonl`: the article, the school and status the pipeline claimed,
+and a human verdict `yes | no | unsure`; the 55 `unsure` ones are left out). Labels come from the
+manual audit of 200 published reports and the judge sample; `ai/build-datasets.ts` documents the
+conversion. Articles are read from the saved corpus with the parser under test, so a better
+parser also moves these numbers; reports without a saved page are counted, not hidden.
+
+```bash
+cd bench
+bun ai/run.ts --task judge   --variants jev-recorded                  # frozen Jev answers, free
+bun ai/run.ts --task judge   --variants jev,llm:gemini:gemini-3.5-flash,llm:anthropic:claude-haiku-5-5 --live
+bun ai/run.ts --task extract --variants v1@gemini:gemini-3.5-flash-lite,v1-strict@gemini:gemini-3.5-flash-lite --live
+bun ai/run.ts --task extract --variants v1@gemini:gemini-3.5-flash-lite   # replays what --live recorded
+```
+
+- **Offline** (default): every HTTP exchange comes from a recording, so a run is free, fast and
+  deterministic, and the adapters' real code runs. A request with no recording is unanswered and
+  the `cases answered` row says so.
+- **`--live`**: real API calls (keys from `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `JEV_API_KEY`,
+  `OPENAI_BASE_URL` + `OPENAI_API_KEY`), every exchange recorded, and a hard stop at `--max-usd`
+  (default 1) of estimated spend. Each variant is a chain of one model: a fallback would blur the
+  comparison. Use `--rpm` to stay under a free-tier rate limit.
+- Recordings hold article text, so they live in `<corpus>/recordings/` (synced with the corpus by
+  `corpus:push|pull`), never in git. Summaries (no article text) go to `results/ai/`.
+
+Metrics. Judge: **AUC** (chance that a true report outranks a false one, threshold-free), the best
+threshold that keeps ≥ 95 % of true reports and how many false ones it drops, and how often the
+judge calls a false report a "blockade". Extraction: true reports kept (must not drop), false
+reports kept (must drop), status correct among kept; plus cost and latency per variant.
+
+The decision rule for changing the production model or prompt is in `docs/ai.md`.
+
 ## Corpus
 
 Raw press HTML is copyrighted and large, so it is **not in git**. The 1,951 saved pages live in

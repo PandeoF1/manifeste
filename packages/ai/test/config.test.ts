@@ -120,3 +120,27 @@ describe('createAi', () => {
     expect(replayModel('replay', 'm', new Map()).provider).toBe('replay')
   })
 })
+
+describe('OpenAI-compatible servers', () => {
+  test('a configured server validates; a model pointing at a missing one fails', () => {
+    const base: AiConfig = {
+      ...withKeys,
+      credentials: {
+        ...withKeys.credentials,
+        openaiCompatible: { local: { baseUrl: 'http://localhost:11434/v1', apiKey: 'x' } },
+      },
+    }
+    const use = (server: string): AiConfig => ({
+      ...base,
+      tasks: {
+        ...base.tasks,
+        media: { models: [{ provider: 'openai-compatible', model: 'llama', server }] },
+      },
+    })
+    expect(() => validateAiConfig(use('local'))).not.toThrow()
+    expect(() => validateAiConfig(use('elsewhere'))).toThrow(/openai-compatible\/elsewhere/)
+    const bad = structuredClone(base)
+    bad.credentials.openaiCompatible.local = { baseUrl: 'not a url', apiKey: 'x' }
+    expect(() => validateAiConfig(bad)).toThrow(AiConfigError)
+  })
+})
