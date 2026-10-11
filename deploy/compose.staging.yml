@@ -2,7 +2,7 @@
 # Its own Postgres resource (PostGIS); AI providers use cheap or replayed settings (phase 4).
 services:
   app:
-    image: ${IMAGE:-ghcr.io/pandeof1/manifest:staging}
+    image: ${IMAGE:-ghcr.io/pandeof1/manifeste:staging}
     restart: unless-stopped
     volumes:
       - photos:/data

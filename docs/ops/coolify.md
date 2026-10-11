@@ -61,7 +61,7 @@ create database preview_template owner preview;   -- fill with a sanitized datas
 
 - New resource > Docker Compose > this repository, branch `main`, file `deploy/compose.prod.yml`.
 - Domain on the `api` service: `https://manifeste.pandeo.fr` (port 3000).
-- Environment: `IMAGE` only to roll back (default `ghcr.io/pandeof1/manifest:production`, the tag
+- Environment: `IMAGE` only to roll back (default `ghcr.io/pandeof1/manifeste:production`, the tag
   the deploy workflow moves; set a `:<sha>` tag to pin an older build),
   `DATABASE_URL` (internal URL of `manifeste-db`), `AUTH_SECRET` (`openssl rand -hex 32`),
   `PUBLIC_URL=https://manifeste.pandeo.fr`, and for Grafana Cloud `OTEL_EXPORTER_OTLP_ENDPOINT` +
@@ -92,7 +92,7 @@ Same as production with `deploy/compose.staging.yml`, branch `rework/elysia-back
 
 ## 5. GitHub
 
-- Packages: the deploy workflow pushes `ghcr.io/<owner>/manifest:<sha>` and moves `:staging` or
+- Packages: the deploy workflow pushes `ghcr.io/<owner>/manifeste:<sha>` and moves `:staging` or
   `:production` to it. If the package is
   private, add a GHCR pull token to Coolify (Settings > Docker registries).
 - Environments `Staging` and `Production` (required reviewers on Production), each with

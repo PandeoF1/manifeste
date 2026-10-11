@@ -1,13 +1,13 @@
 name: Deploy v2
 
 # The tested image goes to ghcr.io, then Coolify is asked to redeploy with it.
-#   push to rework/elysia-backend -> Staging (automatic)
+#   push to develop or rework/elysia-backend -> Staging (automatic)
 #   manual run                    -> Production (GitHub environment with required reviewers)
 # Secrets per GitHub environment: COOLIFY_WEBHOOK (the resource's deploy webhook URL) and
 # COOLIFY_TOKEN (a Coolify API token with deploy rights). See docs/ops/coolify.md.
 on:
   push:
-    branches: [rework/elysia-backend]
+    branches: [develop, rework/elysia-backend]
   workflow_dispatch:
     inputs:
       environment:
@@ -58,8 +58,6 @@ jobs:
             ${{ steps.meta.outputs.moving }}
           build-args: |
             APP_VERSION=${{ github.sha }}
-            VITE_SUPABASE_URL=${{ vars.VITE_SUPABASE_URL }}
-            VITE_SUPABASE_ANON_KEY=${{ vars.VITE_SUPABASE_ANON_KEY }}
             VITE_TURNSTILE_SITE_KEY=${{ vars.VITE_TURNSTILE_SITE_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

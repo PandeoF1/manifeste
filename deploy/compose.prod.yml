@@ -2,7 +2,7 @@
 # database resource (PostGIS image, scheduled backups to R2): DATABASE_URL points at it.
 # The deploy workflow pushes the tested image as :production; set IMAGE to a sha tag to roll back.
 x-app: &app
-  image: ${IMAGE:-ghcr.io/pandeof1/manifest:production}
+  image: ${IMAGE:-ghcr.io/pandeof1/manifeste:production}
   restart: unless-stopped
   # Photos: written by the api, swept by the worker.
   volumes:
