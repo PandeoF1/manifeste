@@ -61,7 +61,7 @@ Phases of the rework described in [ADR 0001](adr/0001-v2-architecture.md).
 - Staff API: `/api/staff/sources`, `/api/staff/pipeline/*`. The moderation and unmatched queues come with the admin (phase 6).
 - Not ported: the "upload" adapter (unused).
 
-### Phase 6: Front end (public, then admin)
+### Phase 6: Front end (public, then admin) - done
 
 - Eden client in `apps/web/src/lib/api.ts`. Rewrite `src/queries/*`, replace `realtime.ts`/`useTraceStream.ts` with WS,
   auth via better-auth client, `signaler` flow. Playwright smoke tests (map, list, school, données, embed, report) on previews.
@@ -69,7 +69,7 @@ Phases of the rework described in [ADR 0001](adr/0001-v2-architecture.md).
   health, benchmark comparisons, per-item trace waterfall, retry/replay. Moderation, unmatched, sources, trusted
   domains, AI, judge, media, settings, stats pages are ported (following the `dataviz` conventions).
 
-### Phase 7: Data migration
+### Phase 7: Data migration - done
 
 - `bun run migrate:supabase [--dry-run]`: explicit per-table mapping (schools, sources, trusted domains, reports +
   judge columns → `judgements`, unmatched, settings, ai_usage, media analyses, moderation audit, staff → invites with
@@ -78,10 +78,10 @@ Phases of the rework described in [ADR 0001](adr/0001-v2-architecture.md).
   invariants (every validated report has a school; tier counts equal the old ones; settings parse).
 - It runs repeatedly against staging.
 
-### Phase 8: Shadow run + cutover
+### Phase 8: Shadow run + cutover - runbook written, execution is up to the operator (see `docs/ops/cutover.md`)
 
 - v2 prod ingests in parallel for 3–7 days (AI cost about +$6). A daily diff of v2 reports vs Supabase reports goes into a report.
-- Cutover: final migration run → Cloudflare DNS switch → Supabase kept read-only for 2 weeks as the rollback path → then
+- Cutover: final migration run → Cloudflare Worker routing switch → Supabase kept read-only for 2 weeks as the rollback path → then
   decommission Supabase, the Vercel project and the edge functions.
 
 ## Verification (each phase)

@@ -70,3 +70,13 @@ CI fails when the schema and the migrations drift apart.
 `docker build -t manifeste .` produces one image: `bun index.js` (server), `bun migrate.js`
 (one-shot migrations), `bun staff.js …` (staff CLI). The server is bundled with `bun build`,
 so the image carries no `node_modules`.
+
+## End-to-end tests
+
+`bun run test:e2e` starts a real server and database (`e2e/server.ts`) and runs the Playwright suites in `e2e/tests`. Install the browser once with `bunx playwright install chromium`. Plain `bun test` at the root also picks up e2e files: run tests per workspace.
+
+## Operations CLIs
+
+- `bun apps/server/src/cli/ingest.ts <backfill|reextract|rejudge|rematch|tick> [--run]`: pipeline operations (dry run by default).
+- `bun run migrate:supabase [--dry-run]` and `bun run shadow:compare`: see `docs/ops/cutover.md`.
+- `bun apps/server/src/cli/staff.ts invite <email> <name> <role>`: invite staff.
