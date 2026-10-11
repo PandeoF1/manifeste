@@ -1,0 +1,2 @@
+CREATE INDEX "ingest_items_url" ON "ingest_items" USING btree ("url");--> statement-breakpoint
+CREATE INDEX "ingest_items_state_published" ON "ingest_items" USING btree ("state","published_at" DESC NULLS LAST);

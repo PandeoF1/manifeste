@@ -4,6 +4,7 @@
  * "batchexecute" service (the method of the google-news-url-decoder libraries). Undocumented:
  * every failure is silent and the Google link is kept.
  */
+import { readText } from '@manifeste/core'
 import { mapLimit } from './http.ts'
 import type { FetchLike } from './types.ts'
 
@@ -106,7 +107,7 @@ export async function resolveGoogleNewsUrls(
         })
         if (!res.ok) return
         // The attributes are at the end of the page (~600 kB): read it all, looking at the end first.
-        const html = await res.text()
+        const html = await readText(res, 1_500_000)
         const p = parseDecodingParams(id, html.slice(-150_000)) ?? parseDecodingParams(id, html)
         if (p) params.push({ ...p, url })
       } catch {
@@ -131,7 +132,7 @@ export async function resolveGoogleNewsUrls(
         signal: AbortSignal.timeout(10_000),
       })
       if (!res.ok) return
-      const [url] = parseBatchResponse(await res.text(), 1)
+      const [url] = parseBatchResponse(await readText(res, 200_000), 1)
       if (url) resolved.set(p.url, url)
     } catch {
       // service unavailable: Google link kept
