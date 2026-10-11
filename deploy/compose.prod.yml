@@ -17,6 +17,12 @@ x-app: &app
     OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
     OTEL_SERVICE_NAME: manifeste
     TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    JEV_API_KEY: ${JEV_API_KEY:-}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    AI_ENABLED: ${AI_ENABLED:-}
+    AI_DAILY_BUDGET_USD: ${AI_DAILY_BUDGET_USD:-}
+    INGEST_ENABLED: ${INGEST_ENABLED:-true}
 
 services:
   # One-shot: applies migrations before the new api/worker start.
