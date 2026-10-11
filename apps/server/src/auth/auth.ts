@@ -17,6 +17,23 @@ const linkCapture = new AsyncLocalStorage<{ url?: string }>()
 
 export const PASSWORD_LINK_TTL_SECONDS = 72 * 3600
 
+/** Origin the visitor used, from the proxy headers; https in production (TLS ends at Cloudflare). */
+export function requestOrigin(request: Request): string[] {
+  const host = (
+    request.headers.get('x-forwarded-host') ??
+    request.headers.get('host') ??
+    new URL(request.url).host
+  )
+    .split(',')[0]
+    ?.trim()
+  if (!host) return []
+  const proto =
+    process.env.NODE_ENV === 'production'
+      ? 'https'
+      : (request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() ?? 'http')
+  return [`${proto}://${host}`]
+}
+
 export function createAuth(deps: { db: Database; config: Config; log: Logger }) {
   const { db, config, log } = deps
   return betterAuth({
@@ -27,6 +44,9 @@ export function createAuth(deps: { db: Database; config: Config; log: Logger }) 
         log[level]({ args: args.length ? args : undefined }, message),
     },
     baseURL: config.PUBLIC_URL,
+    // The page's own origin is always trusted (same-origin, which is what the CSRF check wants), so a
+    // PUBLIC_URL that disagrees with the domain behind the proxy cannot lock the staff out.
+    trustedOrigins: (request) => (request ? [config.PUBLIC_URL, ...requestOrigin(request)] : []),
     basePath: '/api/auth',
     secret: config.AUTH_SECRET,
     database: drizzleAdapter(db, {
