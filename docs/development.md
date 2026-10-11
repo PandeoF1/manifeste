@@ -80,3 +80,7 @@ so the image carries no `node_modules`.
 - `bun apps/server/src/cli/ingest.ts <backfill|reextract|rejudge|rematch|tick> [--run]`: pipeline operations (dry run by default).
 - `bun run migrate:supabase [--dry-run]` and `bun run shadow:compare`: see `docs/ops/cutover.md`.
 - `bun apps/server/src/cli/staff.ts invite <email> <name> <role>`: invite staff.
+
+## Running the app
+
+`bun run dev` starts the API (port 3000, with `ROLE=all`: api + worker, so the pipeline runs) and Vite (port 5173, proxying `/api`) together. Local defaults come from `apps/server/.env.development` (override with `.env.local`). Postgres must be up first and the `manifeste_dev` database must exist (`docker compose -f compose.dev.yml up -d`). `bun run dev:api` and `bun run dev:web` start one side only; `bun run test:e2e` runs the browser tests.

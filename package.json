@@ -17,7 +17,10 @@
     "e2e"
   ],
   "scripts": {
-    "dev": "bun run --filter '@manifeste/web' dev",
+    "dev": "bun run --parallel --filter '@manifeste/server' --filter '@manifeste/web' dev",
+    "dev:web": "bun run --filter '@manifeste/web' dev",
+    "dev:api": "bun run --filter '@manifeste/server' dev",
+    "test:e2e": "bun run --filter '@manifeste/e2e' test:e2e",
     "build": "bun run --filter '@manifeste/web' build",
     "lint": "eslint .",
     "format": "prettier --write .",
