@@ -26,6 +26,8 @@ import { StatusesService } from './modules/statuses/service.ts'
 import { timelineModule } from './modules/timeline/index.ts'
 import { TimelineService } from './modules/timeline/service.ts'
 import { aiModule } from './modules/ai/index.ts'
+import { moderationModule } from './modules/moderation/index.ts'
+import { ModerationService } from './modules/moderation/service.ts'
 import { pipelineModule } from './modules/pipeline/index.ts'
 import { PipelineService } from './modules/pipeline/service.ts'
 import { sourcesModule } from './modules/sources/index.ts'
@@ -91,6 +93,7 @@ export function createApp(ctx: AppContext) {
     )
     .use(staffModule(auth, new StaffService(db, auth, config.PUBLIC_URL)))
     .use(aiModule(auth, ctx.ai, ctx.aiUsage))
+    .use(moderationModule(auth, new ModerationService(db, ctx.blobs, ctx.bus, settings)))
     .use(sourcesModule(auth, new SourcesService(db, queue)))
     .use(pipelineModule(auth, new PipelineService(db, queue, new IngestService(ctx))))
 

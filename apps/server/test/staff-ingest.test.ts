@@ -260,3 +260,12 @@ describe('/api/staff/pipeline/operations', () => {
     expect(res.status).toBe(403)
   })
 })
+
+describe('optional filters have no hidden default', () => {
+  test('listing items without a state returns every state', async () => {
+    const all = (await (await as(admin, '/api/staff/pipeline/items')).json()) as Array<{
+      state: string
+    }>
+    expect(new Set(all.map((i) => i.state)).size).toBeGreaterThan(1)
+  })
+})

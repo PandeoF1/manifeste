@@ -1,4 +1,5 @@
 import { t } from 'elysia'
+import { optionalEnum } from '../../lib/typebox.ts'
 import { ITEM_STATES, STAGES } from '@manifeste/core'
 import { OPERATION_KINDS } from '../../ingest/operations.ts'
 
@@ -23,7 +24,7 @@ export const PipelineModel = {
     traceId: t.Nullable(t.String()),
   }),
   itemsQuery: t.Object({
-    state: t.Optional(t.UnionEnum([...ITEM_STATES])),
+    state: optionalEnum(ITEM_STATES),
     sourceId: t.Optional(t.String({ format: 'uuid' })),
     limit: t.Optional(t.Numeric({ minimum: 1, maximum: 200, default: 50 })),
   }),
