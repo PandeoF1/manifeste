@@ -54,6 +54,8 @@ const Env = t.Object({
   AI_ENABLED: t.Optional(t.String()),
   /** Estimated USD per UTC day above which AI calls are refused (0 = no cap). */
   AI_DAILY_BUDGET_USD: t.Optional(t.String()),
+  /** Run the ingestion pipeline in this worker. Off lets a staging copy share a database without double-reading sources. */
+  INGEST_ENABLED: t.Boolean({ default: true }),
   LOG_LEVEL: t.Union(
     ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'].map((l) => t.Literal(l)),
     { default: 'info' },

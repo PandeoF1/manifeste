@@ -10,6 +10,7 @@ import {
   real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 import { user } from './auth.ts'
@@ -82,6 +83,10 @@ export const reports = pgTable(
       .on(t.createdAt)
       .where(sql`${t.moderation} = 'pending'`),
     index('reports_source').on(t.sourceId),
+    // The same article cannot report the same status for a school twice (re-collected, merged).
+    uniqueIndex('reports_collected_unique')
+      .on(t.schoolUai, t.sourceUrl, t.status)
+      .where(sql`${t.origin} <> 'on_site' and ${t.sourceUrl} is not null`),
   ],
 )
 

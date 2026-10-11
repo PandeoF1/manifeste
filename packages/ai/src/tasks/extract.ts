@@ -121,13 +121,36 @@ export function parseExtraction(raw: unknown, knownIds: ReadonlySet<string>): Ex
     .map(toDomain)
 }
 
+export interface ExtractResult {
+  events: ExtractedEvent[]
+  /** The model that answered (the chain may have fallen back). */
+  provider: string
+  model: string
+  promptVersion: string
+}
+
+/** Extracts the events of a batch of items and says which model and prompt produced them. */
+export async function extractBatch(
+  chain: Chain,
+  items: readonly ExtractItem[],
+  options: ExtractOptions = {},
+): Promise<ExtractResult | null> {
+  if (items.length === 0) return null
+  const prompt = EXTRACT_PROMPTS[options.prompt ?? 'v1']
+  const result = await chain.generate(buildExtractRequest(items, options))
+  return {
+    events: parseExtraction(result.json, new Set(items.map((i) => i.id))),
+    provider: result.provider,
+    model: result.model,
+    promptVersion: prompt.version,
+  }
+}
+
 /** Extracts the events of a batch of items. An empty batch costs nothing. */
 export async function extractEvents(
   chain: Chain,
   items: readonly ExtractItem[],
   options: ExtractOptions = {},
 ): Promise<ExtractedEvent[]> {
-  if (items.length === 0) return []
-  const { json } = await chain.generate(buildExtractRequest(items, options))
-  return parseExtraction(json, new Set(items.map((i) => i.id)))
+  return (await extractBatch(chain, items, options))?.events ?? []
 }

@@ -85,7 +85,10 @@ export function replayFetch(store: HttpRecordingStore): FetchLike {
     if (!hit) return new Response('no recording for this request', { status: 599 })
     return new Response(hit.body, {
       status: hit.status,
-      headers: { 'content-type': 'application/json', 'x-replayed-latency-ms': String(hit.latencyMs) },
+      headers: {
+        'content-type': 'application/json',
+        'x-replayed-latency-ms': String(hit.latencyMs),
+      },
     })
   }
 }

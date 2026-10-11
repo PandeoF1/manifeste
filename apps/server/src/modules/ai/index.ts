@@ -32,5 +32,8 @@ export const aiModule = (auth: Auth, ai: Ai, usage: AiUsageService) =>
       staff: { ai: ['view'] },
       query: AiModel.days,
       response: { 200: t.Array(AiModel.usage) },
-      detail: { tags: ['staff'], summary: 'Calls, tokens and estimated cost per day, task and model' },
+      detail: {
+        tags: ['staff'],
+        summary: 'Calls, tokens and estimated cost per day, task and model',
+      },
     })

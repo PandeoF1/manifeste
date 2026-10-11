@@ -156,3 +156,32 @@ export const langOf = (doc: Doc): string => {
 }
 
 export const bodyOf = (doc: Doc): AnyNode => $('body', doc) ?? doc
+
+/**
+ * The visible text of a node with line breaks kept: `<br>` and block elements start a new line,
+ * whitespace is collapsed inside each line. For posts, where the line structure carries meaning.
+ */
+export function linesOf(node: AnyNode): string {
+  const lines: string[] = ['']
+  const walk = (n: AnyNode, depth: number) => {
+    if (depth > MAX_DEPTH) return
+    if (isText(n)) {
+      lines[lines.length - 1] += n.data
+    } else if (isTag(n)) {
+      const name = tagName(n)
+      if (INVISIBLE.has(name)) return
+      if (name === 'br') {
+        lines.push('')
+        return
+      }
+      const breaking = BREAKING.has(name)
+      if (breaking) lines.push('')
+      for (const child of n.children) walk(child, depth + 1)
+      if (breaking) lines.push('')
+    } else if ('children' in n) {
+      for (const child of n.children) walk(child, depth + 1)
+    }
+  }
+  walk(node, 0)
+  return lines.map(clean).filter(Boolean).join('\n')
+}

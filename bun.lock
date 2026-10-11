@@ -26,6 +26,7 @@
         "@manifeste/ai": "workspace:*",
         "@manifeste/core": "workspace:*",
         "@manifeste/db": "workspace:*",
+        "@manifeste/parser": "workspace:*",
         "@opentelemetry/api": "1.9.1",
         "@opentelemetry/exporter-trace-otlp-proto": "0.200.0",
         "@opentelemetry/sdk-node": "0.200.0",
@@ -35,6 +36,7 @@
         "better-auth": "1.7.7",
         "drizzle-orm": "0.45.4",
         "elysia": "1.4.30",
+        "fast-xml-parser": "5.11.2",
         "pg": "^8.23.1",
         "pg-boss": "12.37.1",
         "pino": "10.4.0",
@@ -84,6 +86,7 @@
       "name": "@manifeste/bench",
       "version": "0.2.0",
       "dependencies": {
+        "@manifeste/ai": "workspace:*",
         "@manifeste/core": "workspace:*",
         "@manifeste/parser": "workspace:*",
       },

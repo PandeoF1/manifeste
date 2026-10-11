@@ -2,6 +2,8 @@ import { pgEnum } from 'drizzle-orm/pg-core'
 import {
   CERTAINTIES,
   DATE_BASES,
+  EXTRACTION_OUTCOMES,
+  ITEM_STATES,
   JUDGE_LEVELS,
   JUDGE_NATURES,
   MODERATION_STATES,
@@ -42,3 +44,8 @@ export const analyticsPage = pgEnum('analytics_page', ANALYTICS_PAGES)
 
 export const WEB_VITALS = ['LCP', 'INP', 'CLS', 'FCP', 'TTFB', 'API'] as const
 export const webVital = pgEnum('web_vital', WEB_VITALS)
+
+/** Where an ingested item rests (see @manifeste/core pipeline.ts). */
+export const itemState = pgEnum('item_state', ITEM_STATES)
+/** What became of one extracted fact. */
+export const extractionOutcome = pgEnum('extraction_outcome', EXTRACTION_OUTCOMES)

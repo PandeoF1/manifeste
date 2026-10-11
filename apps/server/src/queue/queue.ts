@@ -15,6 +15,16 @@ export interface JobPayloads {
   'analytics.rollup': Record<string, never>
   /** Hourly: delete decided or stale photos, reject undecided on-site reports. */
   'privacy.purge-submissions': Record<string, never>
+  /** Every few minutes: read the sources that are due, and nudge every stage (safety net). */
+  'ingest.tick': Record<string, never>
+  /** Read one source. */
+  'ingest.discover': { sourceId: string; trigger: 'schedule' | 'manual' }
+  /** Stage sweeps: each handles whatever waits in its state, so a lost job loses nothing. */
+  'ingest.read': Record<string, never>
+  'ingest.extract': Record<string, never>
+  'ingest.resolve': Record<string, never>
+  /** Nightly: delete article text, excerpts and old events. */
+  'ingest.housekeeping': Record<string, never>
 }
 export type JobName = keyof JobPayloads
 

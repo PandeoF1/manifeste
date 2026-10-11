@@ -40,7 +40,10 @@ export const AiConfigSchema = t.Object(
         jev: t.Optional(t.Object({ apiKey: t.String({ minLength: 1 }) })),
         openaiCompatible: t.Record(
           t.String(),
-          t.Object({ baseUrl: t.String({ pattern: '^https?://' }), apiKey: t.String({ minLength: 1 }) }),
+          t.Object({
+            baseUrl: t.String({ pattern: '^https?://' }),
+            apiKey: t.String({ minLength: 1 }),
+          }),
         ),
       },
       { additionalProperties: false },

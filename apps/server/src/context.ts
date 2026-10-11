@@ -6,6 +6,7 @@ import { createDb, type Database, type DbHandle } from '@manifeste/db'
 import { aiConfigFromEnv, createAi, createMeter, type Ai } from '@manifeste/ai'
 import { createAuth, type Auth } from './auth/auth.ts'
 import type { Config } from './config.ts'
+import type { IngestConfig } from './ingest/config.ts'
 import { createLogger, type Logger } from './logger.ts'
 import { AiUsageService } from './modules/ai/service.ts'
 import { EventBus } from './realtime/bus.ts'
@@ -24,6 +25,8 @@ export interface AppContext {
   ai: Ai
   /** Persists AI usage and answers the daily budget guard. */
   aiUsage: AiUsageService
+  /** Pipeline tunables beyond the defaults (tests). */
+  ingestConfig?: Partial<IngestConfig>
   /** Build id (git sha in images), shown by the health endpoints. */
   version: string
   close(): Promise<void>

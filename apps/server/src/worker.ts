@@ -1,9 +1,11 @@
 /**
  * Job registrations for processes with ROLE=worker or ROLE=all: a heartbeat that proves the
- * worker and its cron are alive, and the analytics housekeeping. Ingestion stages join later.
+ * worker and its cron are alive, the analytics housekeeping and the ingestion pipeline.
  */
 import type { AppContext } from './context.ts'
 import { AnalyticsService } from './modules/analytics/service.ts'
+import { registerIngestJobs } from './ingest/jobs.ts'
+import { IngestService } from './ingest/service.ts'
 import { PurgeService } from './modules/reports/purge.ts'
 
 export async function startWorker(ctx: AppContext): Promise<void> {
@@ -37,6 +39,8 @@ export async function startWorker(ctx: AppContext): Promise<void> {
     log.info(await purge.run(), 'submissions purged')
   })
   await queue.schedule('privacy.purge-submissions', '17 * * * *', {})
+
+  if (ctx.config.INGEST_ENABLED) await registerIngestJobs(ctx, new IngestService(ctx))
 
   // AI usage is counted in memory by the process that makes the calls: write it out regularly.
   await ctx.aiUsage.spentToday(true)

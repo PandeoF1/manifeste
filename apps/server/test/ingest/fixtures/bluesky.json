@@ -1,0 +1,23 @@
+{
+  "feed": [
+    {
+      "post": {
+        "uri": "at://did:plc:abc/app.bsky.feed.post/3kxyz",
+        "author": { "handle": "syndicat.bsky.social" },
+        "record": {
+          "$type": "app.bsky.feed.post",
+          "text": "LP Jean Moulin (Lyon) sous barrage filtrant ce matin",
+          "createdAt": "2026-10-04T06:45:00.000Z"
+        }
+      }
+    },
+    {
+      "post": {
+        "uri": "at://did:plc:def/app.bsky.feed.post/3kaaa",
+        "author": { "handle": "autre.bsky.social" },
+        "record": { "text": "repost", "createdAt": "2026-10-04T06:00:00.000Z" }
+      },
+      "reason": { "$type": "app.bsky.feed.defs#reasonRepost" }
+    }
+  ]
+}
