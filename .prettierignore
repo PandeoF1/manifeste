@@ -5,3 +5,5 @@ apps/web/src/routeTree.gen.ts
 legacy/supabase/.temp
 packages/db/migrations
 bun.lock
+bench/datasets/source/compare-judge-report.md
+bench/results

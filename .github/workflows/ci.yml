@@ -37,13 +37,48 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
-      - run: bunx prettier --check apps/server packages docs
+      - run: bunx prettier --check apps/server apps/web/src apps/web/tests packages docs bench e2e
       - run: bun run test
       - run: bun run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: ci-placeholder
       - run: bun run --filter '@manifeste/server' build
+
+  e2e:
+    name: browser tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres@localhost:54329/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter '@manifeste/web' build
+      - name: Playwright browser
+        working-directory: e2e
+        run: bunx playwright install --with-deps chromium
+      - name: Smoke tests (public site and admin, against a real server and database)
+        working-directory: e2e
+        run: bunx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: e2e/test-results
+          retention-days: 7
 
   migrations:
     name: migration checks

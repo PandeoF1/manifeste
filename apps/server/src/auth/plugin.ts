@@ -35,10 +35,15 @@ export function authPlugin(auth: Auth) {
   return plugin
 }
 
+/**
+ * Every method is registered by name: the SPA's `GET /*` fallback would win over an `ALL` route
+ * for GET requests (a method-specific wildcard beats a catch-all method), and the session read
+ * (`GET /api/auth/get-session`) would answer 404.
+ */
 export const authRoutes = (auth: Auth) =>
-  new Elysia({ name: 'auth.routes' }).all('/api/auth/*', ({ request }) => auth.handler(request), {
-    detail: { hide: true },
-  })
+  new Elysia({ name: 'auth.routes' })
+    .get('/api/auth/*', ({ request }) => auth.handler(request), { detail: { hide: true } })
+    .post('/api/auth/*', ({ request }) => auth.handler(request), { detail: { hide: true } })
 
 const createAuthPlugin = (auth: Auth) =>
   new Elysia({ name: 'auth' }).macro({

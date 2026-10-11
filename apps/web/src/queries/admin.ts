@@ -1,6 +1,6 @@
 /** Every call the admin makes, typed against the server. Queries here, actions as plain functions. */
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, unwrap } from '@/lib/api'
+import { api, expectOk, unwrap } from '@/lib/api'
 import { authClient, staffUser, type StaffSessionUser } from '@/lib/auth'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -106,7 +106,7 @@ export const resolveProposal = (
   id: string,
   body: { linkUai?: string; name?: string; city?: string; newUai?: string },
 ) => unwrap(staff.proposals({ id }).resolve.post(body))
-export const rejectProposal = async (id: string) => void (await staff.proposals({ id }).delete())
+export const rejectProposal = (id: string) => expectOk(staff.proposals({ id }).delete())
 export const proposalPhotoUrl = (id: string) => `/api/staff/proposals/${id}/photo`
 
 // --- Sources and trust ------------------------------------------------------------------------
@@ -132,7 +132,7 @@ export const patchSource = (
   id: string,
   body: { label?: string; trusted?: boolean; enabled?: boolean; reportsHidden?: boolean },
 ) => unwrap(staff.sources({ id }).patch(body))
-export const deleteSource = async (id: string) => void (await staff.sources({ id }).delete())
+export const deleteSource = (id: string) => expectOk(staff.sources({ id }).delete())
 export const runSource = (id: string) => unwrap(staff.sources({ id }).run.post())
 export const resetSourceHealth = (id: string) =>
   unwrap(staff.sources({ id })['reset-health'].post())
@@ -244,4 +244,4 @@ export const mediaQuery = queryOptions({
   staleTime: 60_000,
 })
 export type MediaRow = Awaited<ReturnType<NonNullable<(typeof mediaQuery)['queryFn']>>>[number]
-export const deleteMedia = async (id: string) => void (await staff.media({ id }).delete())
+export const deleteMedia = (id: string) => expectOk(staff.media({ id }).delete())

@@ -152,3 +152,11 @@ describe('SPA', () => {
     expect((await get('/..%2f..%2fetc%2fpasswd')).status).toBe(404)
   })
 })
+
+describe('auth routes', () => {
+  test('reading the session works alongside the SPA fallback, and answers null without a session', async () => {
+    const res = await s.request('/api/auth/get-session')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toBeNull()
+  })
+})

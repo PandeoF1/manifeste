@@ -78,7 +78,7 @@ export function cookieFrom(res: Response): string {
     .join('; ')
 }
 
-const STAFF_PASSWORD = 'correct horse battery staple'
+export const STAFF_PASSWORD = 'correct horse battery staple'
 
 /**
  * Creates a staff account the way the product does (an invite and a one-time password link),

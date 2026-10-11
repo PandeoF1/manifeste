@@ -13,7 +13,8 @@
     "apps/*",
     "packages/*",
     "bench",
-    "legacy"
+    "legacy",
+    "e2e"
   ],
   "scripts": {
     "dev": "bun run --filter '@manifeste/web' dev",

@@ -29,7 +29,8 @@ const NODES: Node[] = [
     x: 60,
     detail: (o) => {
       const s = o.sources
-      return `${(s.closed ?? 0) + (s.half_open ?? 0)} saines · ${s.open ?? 0} en pause`
+      const healthy = (s.closed ?? 0) + (s.half_open ?? 0)
+      return `${healthy} saine${healthy > 1 ? 's' : ''} · ${s.open ?? 0} en pause`
     },
     tone: (o) => ((o.sources.open ?? 0) > 0 ? 'warn' : 'ok'),
   },
