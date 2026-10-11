@@ -15,28 +15,28 @@ describe('site statistics', () => {
   })
 
   it('only sends the page type, never the address', () => {
-    expect(pageGroup('/')).toBe('carte')
-    expect(pageGroup('/lycee/0750001A')).toBe('lycee')
-    expect(pageGroup('/liste')).toBe('liste')
+    expect(pageGroup('/')).toBe('map')
+    expect(pageGroup('/lycee/0750001A')).toBe('school')
+    expect(pageGroup('/liste')).toBe('list')
     expect(pageGroup('/admin')).toBeNull()
-    expect(pageGroup('/donnees')).toBe('donnees')
-    expect(pageGroup('/xyz')).toBe('autre')
+    expect(pageGroup('/donnees')).toBe('data')
+    expect(pageGroup('/xyz')).toBe('other')
   })
 
   it('reads the admin_analytics response', () => {
     const s = parseSiteStats({
       live: 3,
-      live_pages: { carte: '2' },
+      live_pages: { map: '2' },
       today_visitors: 10,
       daily: [{ day: '2026-10-06', visitors: 10, views: '25' }],
       hourly: [],
-      pages: [{ page: 'carte', views: 20 }],
+      pages: [{ page: 'map', views: 20 }],
       vitals: [
         { metric: 'LCP', n: 4, p50: 1200, p75: '1500', p95: 3000, p75_prev: null },
         { metric: 'X' },
       ],
     })
-    expect(s.live_pages.carte).toBe(2)
+    expect(s.live_pages.map).toBe(2)
     expect(s.daily[0]?.views).toBe(25)
     expect(s.vitals).toHaveLength(1)
     expect(s.vitals[0]?.p75).toBe(1500)
@@ -61,7 +61,7 @@ describe('statistics zoom', () => {
           api: '150',
         },
       ],
-      pages: [{ page: 'carte', views: 3 }],
+      pages: [{ page: 'map', views: 3 }],
       summary: {
         views: 3,
         peak_online: 2,

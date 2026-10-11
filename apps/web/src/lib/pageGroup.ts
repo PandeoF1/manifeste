@@ -1,11 +1,11 @@
 export const PAGES = [
-  'carte',
-  'liste',
-  'lycee',
-  'signaler',
-  'a-propos',
-  'donnees',
-  'autre',
+  'map',
+  'list',
+  'school',
+  'report',
+  'about',
+  'data',
+  'other',
 ] as const
 export type PageGroup = (typeof PAGES)[number]
 
@@ -13,12 +13,12 @@ export type PageGroup = (typeof PAGES)[number]
 export function pageGroup(pathname: string): PageGroup | null {
   // Pages embedded on other sites: neither visits nor "online" (they would skew the stats).
   if (pathname.startsWith('/admin') || pathname.startsWith('/embed')) return null
-  if (pathname === '/' || pathname === '') return 'carte'
-  if (pathname.startsWith('/liste')) return 'liste'
-  if (pathname.startsWith('/lycee/')) return 'lycee'
-  if (pathname.startsWith('/signaler')) return 'signaler'
-  if (pathname.startsWith('/a-propos')) return 'a-propos'
-  if (pathname.startsWith('/donnees')) return 'donnees'
+  if (pathname === '/' || pathname === '') return 'map'
+  if (pathname.startsWith('/liste')) return 'list'
+  if (pathname.startsWith('/lycee/')) return 'school'
+  if (pathname.startsWith('/signaler')) return 'report'
+  if (pathname.startsWith('/a-propos')) return 'about'
+  if (pathname.startsWith('/donnees')) return 'data'
   // Unknown address (page not found, broken link): grouped, never kept.
-  return 'autre'
+  return 'other'
 }

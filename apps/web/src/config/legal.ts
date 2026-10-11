@@ -1,8 +1,6 @@
 export const CONTACT_EMAIL = 'contact@pandeo.fr'
-export const HOST_VERCEL =
-  'Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis - vercel.com'
-export const HOST_SUPABASE =
-  'Supabase Pte. Ltd., 65 Chulia Street #38-02/03, OCBC Centre, Singapour 049513 - supabase.com'
+export const HOST_CLOUDFLARE =
+  'Cloudflare, Inc., 101 Townsend St, San Francisco, CA 94107, États-Unis - cloudflare.com'
 
 /** Who is behind the site (shown in "À propos"). */
 export const CREATOR_NAME = 'Pandeo'

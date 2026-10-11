@@ -136,3 +136,11 @@ describe('anonymous analytics', () => {
     expect(await service.visitor('203.0.113.1', 'visit')).toBe(a)
   })
 })
+
+describe('the pages the site reports', () => {
+  test('the browser and the API agree on the names, or every beacon would be refused', async () => {
+    const { PAGES } = await import('../../web/src/lib/pageGroup.ts')
+    const { ANALYTICS_PAGES } = await import('@manifeste/db')
+    expect([...PAGES].sort()).toEqual([...ANALYTICS_PAGES].sort())
+  })
+})

@@ -6,19 +6,24 @@ ARG BUN_VERSION=1.4.2
 FROM oven/bun:${BUN_VERSION} AS build
 WORKDIR /src
 COPY package.json bun.lock tsconfig.base.json ./
+# Every workspace's manifest, so the frozen lockfile resolves; only what the image needs is built.
 COPY apps/web/package.json apps/web/
 COPY apps/server/package.json apps/server/
+COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
+COPY packages/parser/package.json packages/parser/
+COPY packages/ai/package.json packages/ai/
+COPY bench/package.json bench/
+COPY e2e/package.json e2e/
 COPY legacy/package.json legacy/
 RUN bun install --frozen-lockfile --ignore-scripts
+COPY packages/core packages/core
 COPY packages/db packages/db
+COPY packages/parser packages/parser
+COPY packages/ai packages/ai
 COPY apps/server apps/server
 COPY apps/web apps/web
-# The SPA still imports a few pure modules from the legacy backend (until phase 2).
-COPY legacy/supabase/functions/_shared legacy/supabase/functions/_shared
-# Public, build-time values for the SPA (it still reads Supabase until phase 6).
-ARG VITE_SUPABASE_URL=
-ARG VITE_SUPABASE_ANON_KEY=
+# Public, build-time values for the SPA.
 ARG VITE_TURNSTILE_SITE_KEY=
 ARG VITE_MAP_STYLE_URL=
 RUN cd apps/web && bunx vite build

@@ -9,8 +9,10 @@
 !.env.example
 legacy/**
 !legacy/package.json
-!legacy/supabase/functions/_shared/**
-bench
+bench/**
+!bench/package.json
+e2e/**
+!e2e/package.json
 outreach
 docs
 cache

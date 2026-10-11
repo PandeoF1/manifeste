@@ -3,13 +3,7 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { DEFAULT_SETTINGS, periodDescription } from '@/lib/periods'
 import { settingsQuery } from '@/queries/settings'
-import {
-  CONTACT_EMAIL,
-  CREATOR_GITHUB,
-  CREATOR_NAME,
-  HOST_SUPABASE,
-  HOST_VERCEL,
-} from '@/config/legal'
+import { CONTACT_EMAIL, CREATOR_GITHUB, CREATOR_NAME, HOST_CLOUDFLARE } from '@/config/legal'
 
 export const Route = createFileRoute('/a-propos')({
   component: AboutPage,
@@ -127,8 +121,8 @@ function AboutPage() {
       <Section id="mentions" title="Mentions légales">
         <p>
           Site édité à titre non professionnel par {CREATOR_NAME} (pseudonyme) ; mon identité a été
-          communiquée aux hébergeurs, comme la loi le prévoit. Hébergement : {HOST_VERCEL} (site) et{' '}
-          {HOST_SUPABASE} (base de données).
+          communiquée aux hébergeurs, comme la loi le prévoit. Hébergement : l'ensemble du site
+          passe par Cloudflare ({HOST_CLOUDFLARE}).
         </p>
         <p>
           Une erreur, un contenu illicite, une demande de retrait : {mail}. Manifeste recense des
