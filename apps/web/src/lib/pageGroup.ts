@@ -1,12 +1,4 @@
-export const PAGES = [
-  'map',
-  'list',
-  'school',
-  'report',
-  'about',
-  'data',
-  'other',
-] as const
+export const PAGES = ['map', 'list', 'school', 'report', 'about', 'data', 'other'] as const
 export type PageGroup = (typeof PAGES)[number]
 
 /** Page type sent to the statistics: never the exact address (nor the school viewed). */

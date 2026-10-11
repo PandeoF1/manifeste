@@ -291,7 +291,9 @@ describe('shadow comparison', () => {
   test('agreements, what only the old system had, what only v2 has', async () => {
     const { compareShadow } = await import('../src/migration/shadow.ts')
     // v2 has what was migrated, plus one report the old system never saw; and misses one.
-    await s.ctx.db.delete(schema.reports).where(eq(schema.reports.sourceUrl, 'https://presse.example/new'))
+    await s.ctx.db
+      .delete(schema.reports)
+      .where(eq(schema.reports.sourceUrl, 'https://presse.example/new'))
     await s.ctx.db.insert(schema.reports).values({
       schoolUai: '0920002B',
       status: 'blocked',
