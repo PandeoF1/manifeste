@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { check, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { check, index, pgSequence, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { schoolLevel } from './enums.ts'
 import { geographyPoint } from './types.ts'
 
@@ -35,3 +35,6 @@ export const schools = pgTable(
     index().on(t.level),
   ],
 )
+
+/** UAI of schools added by hand without a known code: 999NNNNZ (no department 999 exists). */
+export const customSchoolSeq = pgSequence('custom_school_seq')

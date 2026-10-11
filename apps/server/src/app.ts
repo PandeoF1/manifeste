@@ -25,6 +25,13 @@ import { statusesModule } from './modules/statuses/index.ts'
 import { StatusesService } from './modules/statuses/service.ts'
 import { timelineModule } from './modules/timeline/index.ts'
 import { TimelineService } from './modules/timeline/service.ts'
+import { analyticsStaffModule, AnalyticsStaffService } from './modules/analytics/staff.ts'
+import { auditModule } from './modules/audit/index.ts'
+import { proposalsModule } from './modules/proposals/index.ts'
+import { settingsStaffModule } from './modules/settings/staff.ts'
+import { trustedDomainsModule } from './modules/trusted-domains/index.ts'
+import { unmatchedModule } from './modules/unmatched/index.ts'
+import { MatchingService } from './modules/schools/matching.ts'
 import { aiModule } from './modules/ai/index.ts'
 import { moderationModule } from './modules/moderation/index.ts'
 import { ModerationService } from './modules/moderation/service.ts'
@@ -43,6 +50,7 @@ import { spa } from './web/spa.ts'
 export function createApp(ctx: AppContext) {
   const { config, db, auth, queue, log, version } = ctx
   const settings = new SettingsService(db)
+  const ingest = new IngestService(ctx)
   const statuses = new StatusesService(db, settings)
   const analytics = new AnalyticsService(db)
   const schools = new SchoolsService(db)
@@ -93,9 +101,15 @@ export function createApp(ctx: AppContext) {
     )
     .use(staffModule(auth, new StaffService(db, auth, config.PUBLIC_URL)))
     .use(aiModule(auth, ctx.ai, ctx.aiUsage))
+    .use(analyticsStaffModule(auth, new AnalyticsStaffService(db)))
+    .use(auditModule(auth, db))
+    .use(settingsStaffModule(auth, db, settings, ctx.bus))
+    .use(trustedDomainsModule(auth, db))
+    .use(unmatchedModule(auth, db, ingest, new MatchingService(db)))
+    .use(proposalsModule(auth, db, ctx.blobs, new MatchingService(db), ctx.bus))
     .use(moderationModule(auth, new ModerationService(db, ctx.blobs, ctx.bus, settings)))
     .use(sourcesModule(auth, new SourcesService(db, queue)))
-    .use(pipelineModule(auth, new PipelineService(db, queue, new IngestService(ctx))))
+    .use(pipelineModule(auth, new PipelineService(db, queue, ingest)))
 
   return webDist
     ? app.use(spa(webDist, (request) => sharePage(request, share, config.PUBLIC_URL, webDist)))
