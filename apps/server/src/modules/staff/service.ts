@@ -60,6 +60,20 @@ export class StaffService {
     } satisfies Invitation
   }
 
+  /** A fresh link for an account, looked up by id. */
+  async newPasswordLink(userId: string) {
+    const user = await this.db.query.user.findFirst({
+      where: (u, { eq }) => eq(u.id, userId),
+      columns: { id: true, email: true },
+    })
+    if (!user) return status(404, 'Unknown account')
+    return {
+      userId: user.id,
+      passwordLink: await this.passwordLink(user.email),
+      expiresInHours: PASSWORD_LINK_TTL_SECONDS / 3600,
+    } satisfies Invitation
+  }
+
   /** New one-time password link for an existing account (lost password, expired invite). */
   passwordLink(email: string): Promise<string> {
     return capturePasswordLink(() =>

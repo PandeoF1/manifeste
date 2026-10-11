@@ -2,15 +2,8 @@
  * Validation of an on-site report. Done by hand (not by the route schema) so that every refusal
  * is a coded error the form can translate, whatever is wrong with the request.
  */
-import {
-  extractDomain,
-  isUai,
-  MAX_DISTANCE_M,
-  REPORT_STATUSES,
-  type ReportStatus,
-} from '@manifeste/core'
-
-export { MAX_DISTANCE_M }
+import { extractDomain } from './domain.ts'
+import { REPORT_STATUSES, isUai, type ReportStatus } from './status.ts'
 
 export interface RawSubmission {
   schoolUai?: string

@@ -25,6 +25,7 @@ beforeAll(async () => {
 })
 afterAll(() => s.close())
 
+const visitorless = () => ({ cookie: '' })
 const as = (who: { cookie: string }, path: string, init: RequestInit & { json?: unknown } = {}) =>
   s.request(path, { ...init, headers: { ...(init.headers as object), cookie: who.cookie } })
 
@@ -360,7 +361,8 @@ describe('site analytics', () => {
     expect(series.stepSeconds).toBe(900)
     expect(series.summary.views).toBe(1)
     expect((await as(admin, '/api/staff/analytics/series?range=1y')).status).toBe(422)
-    expect((await as(moderator, '/api/staff/analytics/overview')).status).toBe(403)
+    expect((await as(moderator, '/api/staff/analytics/overview')).status).toBe(200)
+    expect((await as(visitorless(), '/api/staff/analytics/overview')).status).toBe(401)
   })
 })
 

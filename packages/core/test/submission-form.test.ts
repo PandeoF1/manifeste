@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { parseSubmission, type RawSubmission } from '../src/modules/reports/submission.ts'
+import { parseSubmission, type RawSubmission } from '../src/submission-form.ts'
 
 const ok: RawSubmission = { schoolUai: '0590001A', status: 'blocked', lat: '50.63', lng: '3.06' }
 

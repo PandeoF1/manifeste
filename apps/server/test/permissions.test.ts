@@ -13,6 +13,8 @@ describe('can', () => {
   test('moderators only moderate and handle unmatched items', () => {
     expect(can('moderator', { report: ['moderate'] })).toBe(true)
     expect(can('moderator', { unmatched: ['link', 'dismiss'] })).toBe(true)
+    expect(can('moderator', { stats: ['view'] })).toBe(true)
+    expect(can('moderator', { ai: ['view'] })).toBe(false)
     expect(can('moderator', { report: ['hide'] })).toBe(false)
     expect(can('moderator', { source: ['manage'] })).toBe(false)
     expect(can('moderator', { settings: ['manage'] })).toBe(false)

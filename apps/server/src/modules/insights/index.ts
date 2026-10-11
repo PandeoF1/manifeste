@@ -70,7 +70,7 @@ export const insightsModule = (auth: Auth, db: Database) =>
           .orderBy(desc(schema.mediaAnalyses.publishedAt))
           .limit(5000),
       {
-        staff: { ai: ['view'] },
+        staff: { stats: ['view'] },
         query: t.Object({ days: t.Optional(t.Numeric({ minimum: 1, maximum: 365, default: 30 })) }),
         detail: { tags: ['staff'], summary: 'How press articles treat the mobilisation' },
       },

@@ -5,6 +5,9 @@
  */
 import { sql } from 'drizzle-orm'
 import {
+  parseSubmission,
+  type RawSubmission,
+  type Submission,
   DAILY_LIMIT,
   MAX_DISTANCE_M,
   MAX_PHOTO_BYTES,
@@ -17,7 +20,6 @@ import { detectImageKind, hasMetadata, type ImageKind } from '../../lib/image.ts
 import { rows } from '../../lib/sql.ts'
 import { newBlobKey, type BlobStore } from '../../storage/blob-store.ts'
 import type { AnalyticsService } from '../analytics/service.ts'
-import { parseSubmission, type RawSubmission, type Submission } from './submission.ts'
 
 export type SubmitResult =
   | { ok: true }

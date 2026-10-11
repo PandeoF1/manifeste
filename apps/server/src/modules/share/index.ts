@@ -18,6 +18,7 @@ import {
 } from './html.ts'
 import { renderOg, type OgAssets, type OgContent } from './og.ts'
 import type { ShareService } from './service.ts'
+import { bytesResponse } from '../../lib/response.ts'
 
 /** Which page a path is, for robots; null for anything else (assets, API, unknown). */
 export function pageOf(pathname: string): { page: Page; uai?: string } | null {
@@ -90,7 +91,7 @@ export const shareModule = (service: ShareService, origin: string, assets: OgAss
         set.headers['cache-control'] =
           'public, max-age=60, s-maxage=300, stale-while-revalidate=600'
         set.headers['content-type'] = 'image/png'
-        return new Response(await renderOg(content, assets))
+        return bytesResponse(await renderOg(content, assets), {})
       },
       {
         query: t.Object({ uai: t.Optional(t.String({ pattern: '^[0-9]{7}[A-Z]$' })) }),

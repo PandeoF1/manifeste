@@ -136,12 +136,12 @@ export const analyticsStaffModule = (auth: Auth, service: AnalyticsStaffService)
   new Elysia({ name: 'module.analytics.staff', prefix: '/api/staff/analytics' })
     .use(authPlugin(auth))
     .get('/overview', ({ query }) => service.overview(query.days ?? 30), {
-      staff: { ai: ['view'] },
+      staff: { stats: ['view'] },
       query: t.Object({ days: t.Optional(t.Numeric({ minimum: 1, maximum: 120, default: 30 })) }),
       detail: { tags: ['staff'], summary: 'Online now, visitors, views and web vitals' },
     })
     .get('/series', ({ query }) => service.series(query.range), {
-      staff: { ai: ['view'] },
+      staff: { stats: ['view'] },
       query: t.Object({
         range: t.Union(
           Object.keys(RANGES).map((r) => t.Literal(r)) as [ReturnType<typeof t.Literal<'24h'>>],

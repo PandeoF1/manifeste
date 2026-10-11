@@ -23,3 +23,12 @@ export const staffModule = (auth: Auth, service: StaffService) =>
         summary: 'Invite a staff member (returns a one-time password link)',
       },
     })
+    .post('/:id/password-link', ({ params }) => service.newPasswordLink(params.id), {
+      staff: { user: ['create'] },
+      params: t.Object({ id: t.String() }),
+      response: { 200: StaffModel.invitation, 404: t.String() },
+      detail: {
+        tags: ['staff'],
+        summary: 'A new one-time password link for a staff member (lost password, expired invite)',
+      },
+    })

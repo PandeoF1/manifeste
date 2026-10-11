@@ -3,6 +3,7 @@ import type { Auth } from '../../auth/auth.ts'
 import { authPlugin } from '../../auth/plugin.ts'
 import { ModerationModel } from './model.ts'
 import type { ModerationService } from './service.ts'
+import { bytesResponse } from '../../lib/response.ts'
 
 const okBody = t.Object({ ok: t.Literal(true) })
 
@@ -44,8 +45,9 @@ export const moderationModule = (auth: Auth, service: ModerationService) =>
       async ({ params, status }) => {
         const bytes = await service.originalPhoto(params.id)
         if (!bytes) return status(404, 'No photo')
-        return new Response(bytes, {
-          headers: { 'content-type': 'image/jpeg', 'cache-control': 'private, no-store' },
+        return bytesResponse(bytes, {
+          'content-type': 'image/jpeg',
+          'cache-control': 'private, no-store',
         })
       },
       {

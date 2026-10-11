@@ -14,6 +14,7 @@ import { rows } from '../../lib/sql.ts'
 import type { EventBus } from '../../realtime/bus.ts'
 import type { BlobStore } from '../../storage/blob-store.ts'
 import type { MatchingService } from '../schools/matching.ts'
+import { bytesResponse } from '../../lib/response.ts'
 
 const id = t.Object({ id: t.String({ format: 'uuid' }) })
 const candidate = t.Object({
@@ -101,8 +102,9 @@ export const proposalsModule = (
           .where(eq(schema.schoolProposals.id, params.id))
         const bytes = p?.key ? await blobs.get(p.key) : null
         if (!bytes) return status(404, 'No photo')
-        return new Response(bytes, {
-          headers: { 'content-type': 'image/jpeg', 'cache-control': 'private, no-store' },
+        return bytesResponse(bytes, {
+          'content-type': 'image/jpeg',
+          'cache-control': 'private, no-store',
         })
       },
       {

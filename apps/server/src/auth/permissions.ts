@@ -1,7 +1,7 @@
 /**
  * What each staff role may do. There are only two roles and no public accounts:
  * - admin: everything (sources, settings, AI, staff accounts…)
- * - moderator: the moderation queue and the unmatched queue, nothing else. Every action is audited.
+ * - moderator: the moderation queue, the unmatched queue and the anonymous site statistics. Every action is audited.
  */
 import { createAccessControl } from 'better-auth/plugins/access'
 import { adminAc, defaultStatements } from 'better-auth/plugins/admin/access'
@@ -13,6 +13,7 @@ export const statements = {
   source: ['manage'],
   settings: ['manage'],
   ai: ['view', 'manage'],
+  stats: ['view'],
   pipeline: ['view', 'operate'],
 } as const
 
@@ -26,11 +27,13 @@ export const roles = {
     source: ['manage'],
     settings: ['manage'],
     ai: ['view', 'manage'],
+    stats: ['view'],
     pipeline: ['view', 'operate'],
   }),
   moderator: ac.newRole({
     report: ['moderate'],
     unmatched: ['link', 'dismiss'],
+    stats: ['view'],
   }),
 }
 

@@ -3,6 +3,7 @@ import { clientIp } from '../../lib/client-ip.ts'
 import { contentTypeOf, type BlobStore } from '../../storage/blob-store.ts'
 import { ReportsModel } from './model.ts'
 import type { ReportsService } from './service.ts'
+import { bytesResponse } from '../../lib/response.ts'
 
 /** On-site reports (anonymous, geolocated, optional photo) and the blurred photos staff published. */
 export const reportsModule = (service: ReportsService, blobs: BlobStore) =>
@@ -50,7 +51,7 @@ export const reportsModule = (service: ReportsService, blobs: BlobStore) =>
         // The name is random and the file never changes: cache it for good.
         set.headers['cache-control'] = 'public, max-age=604800, immutable'
         set.headers['content-type'] = contentTypeOf(key)
-        return new Response(bytes)
+        return bytesResponse(bytes, {})
       },
       {
         params: ReportsModel.photoParams,
