@@ -73,7 +73,7 @@ so the image carries no `node_modules`.
 
 ## End-to-end tests
 
-`bun run test:e2e` starts a real server and database (`e2e/server.ts`) and runs the Playwright suites in `e2e/tests`. Install the browser once with `bunx playwright install chromium`. Plain `bun test` at the root also picks up e2e files: run tests per workspace.
+`bun run --filter @manifeste/e2e test:e2e` starts a real server and database (`e2e/server.ts`) and runs the Playwright suites in `e2e/tests`. Install the browser once with `bunx playwright install chromium`. Plain `bun test` at the root also picks up e2e files: run tests per workspace.
 
 ## Operations CLIs
 
