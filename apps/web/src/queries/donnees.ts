@@ -1,0 +1,107 @@
+import { queryOptions } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/queryKeys'
+
+export type Origine = 'presse' | 'syndicat' | 'collecteur' | 'utilisateur'
+
+export interface Resume {
+  genere_le: string
+  premier_jour: string | null
+  dernier_jour: string | null
+  signalements: number
+  etablissements: number
+  departements: number
+  facs: number
+  sites_sources: number
+  /** Schools with only a reported mobilisation (judge tiers on), else 0. */
+  mobilises?: number
+  pic: { jour: string; etablissements: number; departements: number } | null
+  en_ce_moment: { bloques: number; filtrants: number }
+  origines: Array<{ origine: Origine; signalements: number; etablissements: number }>
+}
+
+export interface Jour {
+  jour: string
+  etablissements: number
+  bloques: number
+  filtrants: number
+  leves: number
+  departements: number
+  lycees: number
+  facs: number
+  signalements: number
+  via_presse: number
+  via_organisations: number
+  via_autres_sources: number
+  via_signalements_sur_place: number
+  /** Mobilisations reported that day (judge tiers on), in addition to the schools. */
+  mobilises?: number
+  mobilises_lycees?: number
+  mobilises_facs?: number
+}
+
+export interface Zone {
+  zone: string
+  etablissements: number
+  lycees: number
+  facs: number
+  premier_jour: string | null
+  dernier_jour: string | null
+  signalements: number
+  bloques_maintenant: number
+  filtrants_maintenant: number
+  mobilises?: number
+}
+
+interface Vues {
+  resume: Resume
+  jours: Jour[]
+  departements: Zone[]
+  academies: Zone[]
+}
+
+/** The API names the column "departement" or "academie"; the page uses "zone" everywhere. */
+function normalize<K extends keyof Vues>(vue: K, data: Vues[K]): Vues[K] {
+  if ((vue !== 'departements' && vue !== 'academies') || !Array.isArray(data)) return data
+  const key = vue === 'departements' ? 'departement' : 'academie'
+  return (data as unknown as Array<Record<string, unknown>>).map((row) => ({
+    ...row,
+    zone: row.zone ?? row[key],
+  })) as unknown as Vues[K]
+}
+
+/** Open data is served by /api/donnees (5-minute CDN cache, open to everyone). */
+async function fetchVue<K extends keyof Vues>(vue: K): Promise<Vues[K]> {
+  const res = await fetch(`/api/donnees?vue=${vue}`, { headers: { accept: 'application/json' } })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const body = (await res.json()) as { donnees?: Vues[K] }
+  if (body.donnees == null) throw new Error('Empty answer')
+  return normalize(vue, body.donnees)
+}
+
+const REFRESH_MS = 5 * 60_000
+
+export const resumeQuery = queryOptions({
+  queryKey: queryKeys.donnees('resume'),
+  queryFn: () => fetchVue('resume'),
+  staleTime: REFRESH_MS,
+  refetchInterval: REFRESH_MS,
+})
+
+export const joursQuery = queryOptions({
+  queryKey: queryKeys.donnees('jours'),
+  queryFn: () => fetchVue('jours'),
+  staleTime: REFRESH_MS,
+  refetchInterval: REFRESH_MS,
+})
+
+export const departementsQuery = queryOptions({
+  queryKey: queryKeys.donnees('departements'),
+  queryFn: () => fetchVue('departements'),
+  staleTime: REFRESH_MS,
+})
+
+export const academiesQuery = queryOptions({
+  queryKey: queryKeys.donnees('academies'),
+  queryFn: () => fetchVue('academies'),
+  staleTime: REFRESH_MS,
+})

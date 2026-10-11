@@ -1,0 +1,51 @@
+/**
+ * Job registrations for processes with ROLE=worker or ROLE=all: a heartbeat that proves the
+ * worker and its cron are alive, the analytics housekeeping and the ingestion pipeline.
+ */
+import type { AppContext } from './context.ts'
+import { AnalyticsService } from './modules/analytics/service.ts'
+import { registerIngestJobs } from './ingest/jobs.ts'
+import { IngestService } from './ingest/service.ts'
+import { PurgeService } from './modules/reports/purge.ts'
+
+export async function startWorker(ctx: AppContext): Promise<void> {
+  const { queue, log } = ctx
+  const analytics = new AnalyticsService(ctx.db)
+  const purge = new PurgeService(ctx.db, ctx.blobs)
+  await queue.define('system.heartbeat', {
+    retryLimit: 0,
+    expireInSeconds: 60,
+    policy: 'exclusive',
+  })
+  await queue.work('system.heartbeat', async () => {
+    log.debug('heartbeat')
+  })
+  await queue.schedule('system.heartbeat', '* * * * *', {})
+
+  await queue.define('analytics.snapshot-online', {
+    retryLimit: 0,
+    expireInSeconds: 60,
+    policy: 'exclusive',
+  })
+  await queue.work('analytics.snapshot-online', () => analytics.snapshotOnline())
+  await queue.schedule('analytics.snapshot-online', '* * * * *', {})
+
+  // Shortly after midnight in Paris: yesterday's hashes and salts are destroyed.
+  await queue.define('analytics.rollup', { retryLimit: 5, policy: 'exclusive' })
+  await queue.work('analytics.rollup', () => analytics.rollup())
+  await queue.schedule('analytics.rollup', '5 0 * * *', {})
+  await queue.define('privacy.purge-submissions', { retryLimit: 5, policy: 'exclusive' })
+  await queue.work('privacy.purge-submissions', async () => {
+    log.info(await purge.run(), 'submissions purged')
+  })
+  await queue.schedule('privacy.purge-submissions', '17 * * * *', {})
+
+  if (ctx.config.INGEST_ENABLED) await registerIngestJobs(ctx, new IngestService(ctx))
+
+  // AI usage is counted in memory by the process that makes the calls: write it out regularly.
+  await ctx.aiUsage.spentToday(true)
+  const flusher = setInterval(() => void ctx.aiUsage.flush(), 30_000)
+  flusher.unref()
+
+  log.info('worker started')
+}

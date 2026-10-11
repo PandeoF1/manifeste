@@ -2,31 +2,122 @@ name: CI
 
 on:
   pull_request:
-  # Also called by deploy.yml, so nothing is deployed unless the checks pass.
+  push:
+    branches: [rework/elysia-backend]
+  # Also called by the deploy workflows, so nothing is deployed unless the checks pass.
   workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  web:
+  checks:
+    name: lint · typecheck · unit + integration · build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres@localhost:54329/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bunx prettier --check apps/server apps/web/src apps/web/tests packages docs bench e2e
+      - run: bun run test
+      - run: bun run build
+      - run: bun run --filter '@manifeste/server' build
+
+  e2e:
+    name: browser tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres@localhost:54329/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter '@manifeste/web' build
+      - name: Playwright browser
+        working-directory: e2e
+        run: bunx playwright install --with-deps chromium
+      - name: Smoke tests (public site and admin, against a real server and database)
+        working-directory: e2e
+        run: bunx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: e2e/test-results
+          retention-days: 7
+
+  migrations:
+    name: migration checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: ci-placeholder
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Migrations are consistent
+        working-directory: packages/db
+        run: bunx drizzle-kit check
+      - name: Schema and migrations do not drift
+        working-directory: packages/db
+        run: |
+          bunx drizzle-kit generate --name drift-check < /dev/null
+          if [ -n "$(git status --porcelain migrations)" ]; then
+            echo "::error::The Drizzle schema has changes without a migration. Run 'bun run --filter @manifeste/db generate' and commit the result."
+            git status --porcelain migrations
+            exit 1
+          fi
 
-  database:
+  image:
+    name: container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          build-args: APP_VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  legacy-database:
+    name: legacy SQL tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -46,4 +137,4 @@ jobs:
       PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
-      - run: bash supabase/tests/run-local.sh
+      - run: bash legacy/supabase/tests/run-local.sh

@@ -2,13 +2,19 @@
 .env
 .env.*
 !.env.example
+!apps/server/.env.development
 
 node_modules
 dist
 dev-dist
 *.local
-supabase/.temp
-supabase/.branches
+legacy/supabase/.temp
+legacy/supabase/.branches
+.data/
+cache/
+bench/.cache/
+bench/corpus/
+bench/results/local/
 .DS_Store
 .eval-truncation-cache.json
 .audit-reports-cache.json
@@ -30,3 +36,9 @@ compare-judge-review.csv
 .reextract-cache.json
 reextract-report.md
 reextract-backup-*.json
+data/
+bench/results/**/*-pages.jsonl
+bench/results/**/*-cases.jsonl
+e2e/test-results/
+e2e/playwright-report/
+e2e/.auth/
