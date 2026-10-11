@@ -40,6 +40,29 @@ export type StoreOutcome =
   | { outcome: 'duplicate' }
   | { outcome: 'no_source' }
 
+/** The tier of a report from the judge's answer, the school's level and the thresholds in force. */
+export function computeTier(
+  verdict: JudgeVerdict | null,
+  status: ReportStatus,
+  schoolLevel: 'secondary' | 'higher' | null,
+  thresholds: { keep: number; low: number },
+) {
+  const levelConflict =
+    verdict?.level != null &&
+    verdict.level !== 'unknown' &&
+    schoolLevel != null &&
+    verdict.level !== schoolLevel
+  return tierOf(
+    {
+      probability: verdict?.probability ?? null,
+      nature: verdict?.nature ?? null,
+      status,
+      levelConflict,
+    },
+    thresholds,
+  )
+}
+
 export class ReportStore {
   constructor(
     private readonly db: Database,
@@ -56,20 +79,10 @@ export class ReportStore {
     const settings = await this.settings.all()
     const trustedDomains = (await this.db.select().from(schema.trustedDomains)).map((d) => d.domain)
     const { verdict } = input
-    const levelConflict =
-      verdict?.level != null &&
-      verdict.level !== 'unknown' &&
-      input.schoolLevel != null &&
-      verdict.level !== input.schoolLevel
-    const tier = tierOf(
-      {
-        probability: verdict?.probability ?? null,
-        nature: verdict?.nature ?? null,
-        status: input.status,
-        levelConflict,
-      },
-      { keep: settings.judge_keep, low: settings.judge_low },
-    )
+    const tier = computeTier(verdict, input.status, input.schoolLevel, {
+      keep: settings.judge_keep,
+      low: settings.judge_low,
+    })
     const windowMs = settings.concordance_window_hours * 3_600_000
 
     const result = await this.db.transaction(async (tx) => {

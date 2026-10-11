@@ -1,5 +1,7 @@
 import { schema, type Database } from '@manifeste/db'
 import { and, desc, eq, gt, gte, sql } from 'drizzle-orm'
+import { status } from 'elysia'
+import { IngestOperations, type Operation } from '../../ingest/operations.ts'
 import type { IngestService } from '../../ingest/service.ts'
 import { audit, type Actor } from '../../lib/audit.ts'
 import { rows } from '../../lib/sql.ts'
@@ -9,6 +11,7 @@ import { KNOWN_STAGES, type PipelineModel } from './model.ts'
 type EventsQuery = typeof PipelineModel.eventsQuery.static
 type ItemsQuery = typeof PipelineModel.itemsQuery.static
 type Retry = typeof PipelineModel.retry.static
+type OperationBody = typeof PipelineModel.operation.static
 
 export class PipelineService {
   constructor(
@@ -154,6 +157,42 @@ export class PipelineService {
     })
     await audit(this.db, actor, 'pipeline.retry', null, null, { ...input, count })
     return { retried: count }
+  }
+
+  /**
+   * Starts an operation on collected data. A dry run (the default) is answered at once and costs
+   * nothing; a real one is queued and its outcome shows in the pipeline events.
+   */
+  async operation(body: OperationBody, actor: Actor) {
+    const op = this.toOperation(body)
+    if (typeof op === 'string') return status(422, op)
+    const dryRun = body.dryRun ?? true
+    await audit(this.db, actor, `pipeline.${op.kind}`, null, null, { ...body, dryRun })
+    if (dryRun) return new IngestOperations(this.ingest).run(op, { dryRun: true })
+    await this.queue.send('ingest.operation', op)
+    return { queued: true }
+  }
+
+  private toOperation(b: OperationBody): Operation | string {
+    switch (b.kind) {
+      case 'backfill':
+      case 'reextract':
+        if (!b.sinceHours) return `${b.kind} needs sinceHours`
+        return {
+          kind: b.kind,
+          sinceHours: b.sinceHours,
+          ...(b.sourceId && { sourceId: b.sourceId }),
+        }
+      case 'rejudge':
+        if (!b.sinceHours) return 'rejudge needs sinceHours'
+        return { kind: 'rejudge', sinceHours: b.sinceHours, ...(b.limit && { limit: b.limit }) }
+      case 'rematch':
+        return {
+          kind: 'rematch',
+          ...(b.limit && { limit: b.limit }),
+          ...(b.useAi && { useAi: true }),
+        }
+    }
   }
 
   /** Reads every due source now and nudges every stage (what the tick does, on demand). */

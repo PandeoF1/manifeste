@@ -51,16 +51,15 @@ Phases of the rework described in [ADR 0001](adr/0001-v2-architecture.md).
   (judge and extraction, offline replay or `--live`, budget cap, AUC / threshold sweep / kept rates / cost / latency).
 - **Model review report**: `docs/ai-model-review.md` has the procedure; the live run needs API keys and is still to do.
 
-### Phase 5: Ingestion system
+### Phase 5: Ingestion system (done, see `docs/ingestion.md`)
 
-- `src/ingest/adapters/*` (rss/atom, googlenews link decoding, telegram, bluesky, mymaps/KML, upload). Each is one
-  file porting `_shared/fetchers/*` and `sources.ts`.
-- Stages as pg-boss queues: discover → fetch&parse → dedupe/merge → relevance → extract (batched) → match → date →
-  judge → store/moderation. `ingest_items` state machine, idempotent upserts, lanes (`unreadable`, `unmatched`,
-  `irrelevant`, `failed`) with retry policies, source health and breaker.
-- Every stage emits `pipeline_events` + OTel span + `pg_notify`.
-- Jobs replacing scripts: `backfill`, `reextract`, `judge-backfill`, `rematch-unmatched`, `media-analysis`.
-  Each takes a scope and dry-run, is admin-triggerable, and has a thin CLI wrapper.
+- Adapters (RSS/Atom, Telegram, Bluesky, My Maps) with identifier normalisation, Google News decoding, the reader on
+  `@manifeste/parser`, stages as stately pg-boss sweeps, `ingest_items` state machine with the `unreadable`,
+  `deferred` and `failed` lanes, source circuit breaker, `pipeline_events` + OTel spans + realtime signal, 119 presets.
+- Operations replacing the scripts, each with a dry run: `backfill`, `reextract`, `rejudge`, `rematch` (admin API and CLI);
+  media analysis as a side stage.
+- Staff API: `/api/staff/sources`, `/api/staff/pipeline/*`. The moderation and unmatched queues come with the admin (phase 6).
+- Not ported: the "upload" adapter (unused).
 
 ### Phase 6: Front end (public, then admin)
 

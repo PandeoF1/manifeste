@@ -23,6 +23,10 @@ export interface IngestConfig {
   minCertainty: Certainty
   /** Judge calls per run: the judge must never hold the pipeline back. */
   maxJudgeCalls: number
+  /** Analyse how press articles treat the mobilisation (the admin Medias tab). It spends AI calls. */
+  mediaAnalysis: boolean
+  /** AI calls per run of the media stage. */
+  maxMediaCalls: number
   /** Ask a reading gateway for the text of pages closed to robots. */
   readerGateway: boolean
   /** Attempts before an item goes to the failed lane. */
@@ -46,6 +50,8 @@ export const DEFAULT_INGEST_CONFIG: IngestConfig = {
   resolveBatch: 200,
   minCertainty: 'medium',
   maxJudgeCalls: 60,
+  mediaAnalysis: true,
+  maxMediaCalls: 2,
   readerGateway: true,
   maxAttempts: 3,
   contentRetentionDays: 7,

@@ -43,6 +43,13 @@
       "when": 1791683033505,
       "tag": "0005_ingestion",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791684108412,
+      "tag": "0006_media_analyses",
+      "breakpoints": true
     }
   ]
 }

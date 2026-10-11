@@ -10,6 +10,7 @@ import { discoverSource, type DiscoverResult } from './discover.ts'
 import { PipelineEvents } from './events.ts'
 import { extractSweep } from './extract-stage.ts'
 import { purgeOld, retryLane, type RetryFilter } from './housekeeping.ts'
+import { mediaSweep } from './media-stage.ts'
 import { readSweep } from './read-stage.ts'
 import { ReportStore } from './report-store.ts'
 import { resolveSweep } from './resolve-stage.ts'
@@ -42,6 +43,7 @@ export class IngestService {
       ai: overrides.ai ?? ctx.ai,
       aiUsage: ctx.aiUsage,
       matching: new MatchingService(ctx.db),
+      settings,
       reports: new ReportStore(ctx.db, settings, ctx.bus),
       fetchFn: overrides.fetchFn ?? ((url, init) => fetch(url, init)),
       log: ctx.log.child({ component: 'ingest' }),
@@ -60,6 +62,7 @@ export class IngestService {
   read = () => readSweep(this.deps)
   extract = () => extractSweep(this.deps)
   resolve = () => resolveSweep(this.deps)
+  media = () => mediaSweep(this.deps)
   purge = () => purgeOld(this.deps)
   retry = (filter?: RetryFilter) => retryLane(this.deps, filter)
 

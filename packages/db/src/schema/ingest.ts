@@ -187,3 +187,41 @@ export const sourceRuns = pgTable(
   },
   (t) => [index('source_runs_source').on(t.sourceId, t.startedAt.desc())],
 )
+
+/**
+ * How a press article treats the mobilisation (admin "Medias" tab): factual answers, the address,
+ * the title and two short quotes. No article text and no personal data.
+ */
+export const mediaAnalyses = pgTable(
+  'media_analyses',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    url: text().notNull().unique(),
+    domain: text().notNull(),
+    title: text(),
+    sourceId: uuid().references(() => sources.id, { onDelete: 'set null' }),
+    publishedAt: timestamp({ withTimezone: true }),
+    aboutMovement: boolean().notNull(),
+    mentionsDemands: boolean().notNull(),
+    demands: text().array().notNull().default(sql`'{}'`),
+    voices: text().array().notNull().default(sql`'{}'`),
+    /** demands | mobilisation | incidents | mixed */
+    focus: text().notNull(),
+    incidents: boolean().notNull(),
+    policeViolence: boolean().notNull(),
+    terms: text().array().notNull().default(sql`'{}'`),
+    /** favourable | neutral | unfavourable */
+    tone: text().notNull(),
+    quoteDemands: text(),
+    quoteFraming: text(),
+    model: text(),
+    promptVersion: text(),
+    /** Characters the AI read: a title alone cannot tell whether the demands were set out. */
+    textChars: integer(),
+    analyzedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('media_analyses_domain').on(t.domain),
+    index('media_analyses_published').on(t.publishedAt.desc()),
+  ],
+)

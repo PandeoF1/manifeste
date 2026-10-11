@@ -4,6 +4,7 @@
  * of `JobQueue`, nothing else changes.
  */
 import { PgBoss } from 'pg-boss'
+import type { Operation } from '../ingest/operations.ts'
 import type { Logger } from '../logger.ts'
 
 /** Every job the system knows, with its payload. Grows phase by phase. */
@@ -23,8 +24,11 @@ export interface JobPayloads {
   'ingest.read': Record<string, never>
   'ingest.extract': Record<string, never>
   'ingest.resolve': Record<string, never>
+  'ingest.media': Record<string, never>
   /** Nightly: delete article text, excerpts and old events. */
   'ingest.housekeeping': Record<string, never>
+  /** An admin-started operation on collected data (backfill, reextract, rejudge, rematch). */
+  'ingest.operation': Operation
 }
 export type JobName = keyof JobPayloads
 

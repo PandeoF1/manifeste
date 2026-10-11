@@ -223,3 +223,40 @@ describe('/api/staff/pipeline', () => {
     expect(actions).toContain('pipeline.run-now')
   })
 })
+
+describe('/api/staff/pipeline/operations', () => {
+  const post = (json: unknown) =>
+    as(admin, '/api/staff/pipeline/operations', { method: 'POST', json })
+
+  test('a dry run is the default, answered at once, and costs nothing', async () => {
+    const res = await post({ kind: 'rematch' })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      kind: 'rematch',
+      dryRun: true,
+      summary: { waiting: 0 },
+    })
+    const dry = await post({ kind: 'reextract', sinceHours: 24, dryRun: true })
+    expect(await dry.json()).toMatchObject({ kind: 'reextract', dryRun: true })
+  })
+
+  test('a real run is queued, and audited', async () => {
+    const res = await post({ kind: 'backfill', sinceHours: 72, dryRun: false })
+    expect(await res.json()).toEqual({ queued: true })
+    const lines = await s.ctx.db
+      .select()
+      .from(schema.moderationAudit)
+      .where(eq(schema.moderationAudit.action, 'pipeline.backfill'))
+    expect(lines.at(-1)?.after).toMatchObject({ kind: 'backfill', sinceHours: 72, dryRun: false })
+  })
+
+  test('what an operation needs is checked; moderators cannot start one', async () => {
+    expect((await post({ kind: 'backfill' })).status).toBe(422)
+    expect((await post({ kind: 'nonsense' })).status).toBe(422)
+    const res = await as(moderator, '/api/staff/pipeline/operations', {
+      method: 'POST',
+      json: { kind: 'rematch' },
+    })
+    expect(res.status).toBe(403)
+  })
+})

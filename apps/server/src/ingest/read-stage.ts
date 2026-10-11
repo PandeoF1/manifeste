@@ -238,7 +238,10 @@ export async function readSweep(deps: IngestDeps): Promise<ReadSweepResult> {
     },
     ...out,
   )
-  if (result.read > 0) await deps.trigger('extract')
+  if (result.read > 0) {
+    await deps.trigger('extract')
+    await deps.trigger('media')
+  }
   return result
 }
 

@@ -57,11 +57,21 @@ Photos are not in the database: originals live in the private area of the blob s
 deleted once the report is decided or after 48 hours, by the hourly purge job and by a disk sweeper
 that deletes any private file older than 48 hours whatever the database says.
 
-## Planned
+## Ingestion and AI
 
-`ingest_items`, `item_contents` (text kept at most 7 days), `extractions`, `ai_calls` and
-`ai_usage_daily`, `media_analyses`, `pipeline_events`, `benchmark_runs` and `benchmark_results`
-(phases 3 to 5), plus the pg-boss tables in the `pgboss` schema (created by pg-boss itself).
+| Table             | Content                                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `ingest_items`    | One row per thing a source published; `state` is its place in the pipeline, lanes included. Replaces the old "seen" table. |
+| `item_contents`   | The text read for an item. Deleted after 7 days.                                                                           |
+| `extractions`     | One row per fact the AI extracted, with model and prompt version, and what became of it (`outcome`, school, report).       |
+| `unmatched`       | Facts about a school the directory could not identify: the staff queue. The excerpt is deleted after 7 days.               |
+| `pipeline_events` | One row per pipeline step, kept 30 days (admin live view, funnel, history).                                                |
+| `source_runs`     | One row per read of a source.                                                                                              |
+| `media_analyses`  | How press articles treat the mobilisation: answers and two short quotes, no text.                                          |
+| `ai_usage`        | Calls, tokens and estimated cost per hour, task, provider, model and prompt version.                                       |
+
+Still planned: `benchmark_runs` and `benchmark_results` (benchmark runs are JSON files in `bench/results` for now),
+plus the pg-boss tables in the `pgboss` schema (created by pg-boss itself).
 
 ## SQL helpers
 

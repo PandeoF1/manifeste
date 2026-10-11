@@ -1,5 +1,6 @@
 import { t } from 'elysia'
 import { ITEM_STATES, STAGES } from '@manifeste/core'
+import { OPERATION_KINDS } from '../../ingest/operations.ts'
 
 export const PipelineModel = {
   eventsQuery: t.Object({
@@ -43,6 +44,23 @@ export const PipelineModel = {
     sourceId: t.Optional(t.String({ format: 'uuid' })),
     states: t.Optional(t.Array(t.Union([t.Literal('failed'), t.Literal('unreadable')]))),
   }),
+  /** One shape for every operation; the service checks what each needs. Dry run unless told otherwise. */
+  operation: t.Object({
+    kind: t.UnionEnum([...OPERATION_KINDS]),
+    sinceHours: t.Optional(t.Integer({ minimum: 1, maximum: 8760 })),
+    sourceId: t.Optional(t.String({ format: 'uuid' })),
+    limit: t.Optional(t.Integer({ minimum: 1, maximum: 5000 })),
+    useAi: t.Optional(t.Boolean()),
+    dryRun: t.Optional(t.Boolean({ default: true })),
+  }),
+  operationResult: t.Union([
+    t.Object({
+      kind: t.UnionEnum([...OPERATION_KINDS]),
+      dryRun: t.Boolean(),
+      summary: t.Record(t.String(), t.Union([t.String(), t.Number()])),
+    }),
+    t.Object({ queued: t.Boolean() }),
+  ]),
   throughputQuery: t.Object({
     hours: t.Optional(t.Numeric({ minimum: 1, maximum: 168, default: 24 })),
   }),

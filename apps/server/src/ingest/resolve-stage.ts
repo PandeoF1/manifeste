@@ -21,7 +21,7 @@ import {
   type SchoolLevel,
 } from '@manifeste/core'
 import { schema } from '@manifeste/db'
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql, type SQL } from 'drizzle-orm'
 import { errorMessage, type IngestDeps } from './deps.ts'
 import { inSpan, type PipelineEvent } from './events.ts'
 import { mapLimit } from './http.ts'
@@ -35,7 +35,7 @@ export interface ResolveSweepResult {
   more: boolean
 }
 
-interface Fact {
+export interface Fact {
   id: string
   itemId: string
   schoolName: string
@@ -55,7 +55,12 @@ interface Fact {
   attempts: number
 }
 
-type Decision = { outcome: ExtractionOutcome; detail?: string; uai?: string; reportId?: string }
+export type Decision = {
+  outcome: ExtractionOutcome
+  detail?: string
+  uai?: string
+  reportId?: string
+}
 
 const parisDay = (d: Date) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d)
@@ -72,39 +77,13 @@ export async function resolveSweep(deps: IngestDeps): Promise<ResolveSweepResult
   }
   const started = performance.now()
 
-  const rows = await db
-    .select({
-      id: schema.extractions.id,
-      itemId: schema.extractions.itemId,
-      schoolName: schema.extractions.schoolName,
-      city: schema.extractions.city,
-      status: schema.extractions.status,
-      certainty: schema.extractions.certainty,
-      observedAtRaw: schema.extractions.observedAtRaw,
-      sourceId: schema.ingestItems.sourceId,
-      runId: schema.ingestItems.runId,
-      url: schema.ingestItems.url,
-      publishedAt: schema.ingestItems.publishedAt,
-      publisherDomain: schema.ingestItems.publisherDomain,
-      geoLat: schema.ingestItems.geoLat,
-      geoLng: schema.ingestItems.geoLng,
-      attempts: schema.ingestItems.attempts,
-      text: schema.itemContents.text,
-      title: schema.itemContents.title,
-    })
-    .from(schema.extractions)
-    .innerJoin(schema.ingestItems, eq(schema.ingestItems.id, schema.extractions.itemId))
-    .leftJoin(schema.itemContents, eq(schema.itemContents.itemId, schema.ingestItems.id))
-    .where(and(isNull(schema.extractions.outcome), eq(schema.ingestItems.state, 'extracted')))
-    .orderBy(asc(schema.extractions.createdAt))
-    .limit(config.resolveBatch + 1)
-  result.more = rows.length > config.resolveBatch
-  const facts: Fact[] = rows.slice(0, config.resolveBatch).map((r) => ({
-    ...r,
-    geoLat: r.geoLat,
-    text: r.text ?? '',
-    title: r.title ?? '',
-  }))
+  const loaded = await loadFacts(
+    deps,
+    and(isNull(schema.extractions.outcome), eq(schema.ingestItems.state, 'extracted')),
+    config.resolveBatch + 1,
+  )
+  result.more = loaded.length > config.resolveBatch
+  const facts = loaded.slice(0, config.resolveBatch)
   if (facts.length === 0) return result
 
   const judge = deps.ai.judge()
@@ -225,14 +204,75 @@ export async function resolveSweep(deps: IngestDeps): Promise<ResolveSweepResult
   return result
 }
 
+/** The extracted facts matching a condition, with their item, source and text (oldest first). */
+export async function loadFacts(
+  deps: IngestDeps,
+  where: SQL | undefined,
+  limit: number,
+): Promise<Fact[]> {
+  const rows = await deps.db
+    .select({
+      id: schema.extractions.id,
+      itemId: schema.extractions.itemId,
+      schoolName: schema.extractions.schoolName,
+      city: schema.extractions.city,
+      status: schema.extractions.status,
+      certainty: schema.extractions.certainty,
+      observedAtRaw: schema.extractions.observedAtRaw,
+      sourceId: schema.ingestItems.sourceId,
+      runId: schema.ingestItems.runId,
+      url: schema.ingestItems.url,
+      publishedAt: schema.ingestItems.publishedAt,
+      publisherDomain: schema.ingestItems.publisherDomain,
+      geoLat: schema.ingestItems.geoLat,
+      geoLng: schema.ingestItems.geoLng,
+      attempts: schema.ingestItems.attempts,
+      text: schema.itemContents.text,
+      title: schema.itemContents.title,
+    })
+    .from(schema.extractions)
+    .innerJoin(schema.ingestItems, eq(schema.ingestItems.id, schema.extractions.itemId))
+    .leftJoin(schema.itemContents, eq(schema.itemContents.itemId, schema.ingestItems.id))
+    .where(where)
+    .orderBy(asc(schema.extractions.createdAt))
+    .limit(limit)
+  return rows.map((r) => ({ ...r, text: r.text ?? '', title: r.title ?? '' }))
+}
+
+/** The school a fact is about: the position of a map point first, then the city for a generic name, then the name. */
+export async function findSchool(
+  matching: IngestDeps['matching'],
+  fact: Pick<Fact, 'schoolName' | 'city' | 'geoLat' | 'geoLng'>,
+): Promise<string | null> {
+  if (fact.geoLat !== null && fact.geoLng !== null) {
+    const near = await matching.nearbyForGeo(fact.geoLat, fact.geoLng, 1500)
+    const byPosition = pickByGeo(near, fact.schoolName)?.uai
+    if (byPosition) return byPosition
+  }
+  if (fact.city && isGenericSchoolName(fact.schoolName, fact.city)) {
+    // "Lycée de Hanches": matched only when the city has a single school of that level.
+    const inCity = await matching.inCity(fact.city, 2, levelOfName(fact.schoolName) as SchoolLevel)
+    return inCity.length === 1 ? (inCity[0]?.uai ?? null) : null
+  }
+  return (await matching.match(fact.schoolName, fact.city))?.uai ?? null
+}
+
+export interface DecideOptions {
+  /** A school chosen elsewhere (the AI re-analysis, a staff member): skip the matching. */
+  forceUai?: string
+  /** Keep a row in the staff queue when no school is found (off when re-matching the queue itself). */
+  recordUnmatched?: boolean
+}
+
 const stageOfDrop = (outcome: ExtractionOutcome): PipelineEvent['stage'] =>
   outcome === 'stale' || outcome === 'low_certainty' ? 'date' : 'store'
 
 /** The decision for one fact, step by step. Throws only for what is worth a retry. */
-async function decide(
+export async function decide(
   deps: IngestDeps,
   fact: Fact,
   judge: ReturnType<IngestDeps['ai']['judge']>,
+  options: DecideOptions = {},
 ): Promise<Decision> {
   const { db, config, matching } = deps
   if (!meetsCertainty(fact.certainty, config.minCertainty))
@@ -243,27 +283,10 @@ async function decide(
   if (observation.basis === 'stale')
     return { outcome: 'stale', detail: 'extracted date is more than 7 days before the article' }
 
-  // Match: the position of a map point first, then the city for a generic name, then the name.
-  let uai: string | null = null
-  if (fact.geoLat !== null && fact.geoLng !== null) {
-    const near = await matching.nearbyForGeo(fact.geoLat, fact.geoLng, 1500)
-    uai = pickByGeo(near, fact.schoolName)?.uai ?? null
-  }
-  if (!uai) {
-    if (fact.city && isGenericSchoolName(fact.schoolName, fact.city)) {
-      // "Lycée de Hanches": matched only when the city has a single school of that level.
-      const inCity = await matching.inCity(
-        fact.city,
-        2,
-        levelOfName(fact.schoolName) as SchoolLevel,
-      )
-      if (inCity.length === 1) uai = inCity[0]?.uai ?? null
-    } else {
-      uai = (await matching.match(fact.schoolName, fact.city))?.uai ?? null
-    }
-  }
+  const uai = options.forceUai ?? (await findSchool(matching, fact))
   const sourceUrl = canonicalUrl(fact.url)
   if (!uai) {
+    if (options.recordUnmatched === false) return { outcome: 'unmatched' }
     await db.insert(schema.unmatched).values({
       extractionId: fact.id,
       sourceId: fact.sourceId,

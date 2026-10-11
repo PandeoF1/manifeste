@@ -45,6 +45,16 @@ export const pipelineModule = (auth: Auth, service: PipelineService) =>
         summary: 'Put failed or unreadable items back where they stopped',
       },
     })
+    .post('/operations', ({ body, staff }) => service.operation(body, staff), {
+      staff: { pipeline: ['operate'] },
+      body: PipelineModel.operation,
+      response: { 200: PipelineModel.operationResult, 422: t.String() },
+      detail: {
+        tags: ['staff'],
+        summary:
+          'Backfill, re-extract, re-judge or re-match collected data (dry run unless dryRun=false)',
+      },
+    })
     .post('/run', ({ staff }) => service.runNow(staff), {
       staff: { pipeline: ['operate'] },
       response: { 200: t.Object({ queued: t.Boolean() }) },

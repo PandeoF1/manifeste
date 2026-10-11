@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
-import { createAi, createMeter, DEFAULT_AI_CONFIG, type AiConfig } from '@manifeste/ai'
+import { createAi, createMeter, type AiConfig } from '@manifeste/ai'
 import { schema } from '@manifeste/db'
 import { eq } from 'drizzle-orm'
 import { IngestService } from '../../src/ingest/service.ts'
 import { addSchool } from '../seed.ts'
 import { startTestServer, type TestServer } from '../helpers.ts'
+import { NOW, aiConfig, event, fetchFn, geminiFetch, page, rss, world } from './world.ts'
 
 let s: TestServer
 let lille: string
@@ -20,101 +21,6 @@ beforeAll(async () => {
   })
 })
 afterAll(() => s.close())
-
-// --- A tiny world: a feed, article pages and a model that reads the prompt ---------------------
-
-/** A Wednesday: lycées are open. */
-const NOW = new Date('2026-10-07T10:00:00Z')
-const rss = (items: Array<{ guid: string; title: string; link: string; pub?: string }>) =>
-  `<?xml version="1.0"?><rss version="2.0"><channel>${items
-    .map(
-      (i) =>
-        `<item><guid>${i.guid}</guid><title>${i.title}</title><link>${i.link}</link><pubDate>${i.pub ?? 'Wed, 07 Oct 2026 08:30:00 GMT'}</pubDate></item>`,
-    )
-    .join('')}</channel></rss>`
-const paragraphs = (school: string) =>
-  Array.from(
-    { length: 5 },
-    (_, i) =>
-      `<p>Les élèves du ${school} ont bloqué l'entrée ce matin, paragraphe ${i + 1}, pour protester contre la réforme.</p>`,
-  ).join('')
-const page = (title: string, school: string) =>
-  `<html lang="fr"><head><title>${title}</title></head><body><article>${paragraphs(school)}</article></body></html>`
-
-interface World {
-  feed: string
-  pages: Record<string, string>
-  /** What the model says for a text containing the key. */
-  facts: Array<{ when: string; events: object[] }>
-  down: boolean
-  geminiCalls: number
-  geminiDown: boolean
-}
-const world: World = {
-  feed: '',
-  pages: {},
-  facts: [],
-  down: false,
-  geminiCalls: 0,
-  geminiDown: false,
-}
-
-const fetchFn = async (url: string): Promise<Response> => {
-  if (url === 'https://press.example/feed')
-    return world.down ? new Response('', { status: 500 }) : new Response(world.feed)
-  const html = world.pages[url]
-  return html ? new Response(html) : new Response('', { status: 404 })
-}
-
-/** A Gemini that answers from `world.facts`, by looking at the items of the prompt. */
-const geminiFetch = async (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
-  world.geminiCalls++
-  if (world.geminiDown)
-    return new Response(JSON.stringify({ error: { message: 'overloaded' } }), { status: 503 })
-  const body = JSON.parse(String(init?.body)) as {
-    contents: Array<{ parts: Array<{ text: string }> }>
-  }
-  const prompt = body.contents[0]?.parts[0]?.text ?? ''
-  const items = JSON.parse(prompt.slice(prompt.indexOf('['))) as Array<{
-    id: string
-    texte: string
-  }>
-  const events = items.flatMap((item) =>
-    world.facts
-      .filter((f) => item.texte.includes(f.when))
-      .flatMap((f) => f.events.map((e) => ({ item_id: item.id, ...e }))),
-  )
-  return new Response(
-    JSON.stringify({
-      candidates: [{ content: { parts: [{ text: JSON.stringify({ events }) }] } }],
-      usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 100 },
-    }),
-  )
-}
-
-const event = (over: Record<string, unknown> = {}) => ({
-  school_name: 'Lycée Pasteur',
-  city: 'Lille',
-  status: 'bloque',
-  observed_at: null,
-  certainty: 'haute',
-  ...over,
-})
-
-const aiConfig = (over: Partial<AiConfig> = {}): AiConfig => ({
-  ...DEFAULT_AI_CONFIG,
-  credentials: { gemini: { apiKey: 'k' }, openaiCompatible: {} },
-  tasks: {
-    ...DEFAULT_AI_CONFIG.tasks,
-    extract: {
-      ...DEFAULT_AI_CONFIG.tasks.extract,
-      models: [{ provider: 'gemini', model: 'gemini-3.5-flash-lite' }],
-      retriesPerModel: 0,
-    },
-    judge: { kind: 'off' },
-  },
-  ...over,
-})
 
 let ingest: IngestService
 let sourceId: string
@@ -493,5 +399,71 @@ describe('housekeeping', () => {
     expect((await s.ctx.db.select().from(schema.unmatched))[0]?.context).toBeNull()
     // The items themselves stay: they are the memory of what was seen.
     expect(await s.ctx.db.select().from(schema.ingestItems)).toHaveLength(2)
+  })
+})
+
+describe('media analysis', () => {
+  const analysis = (over: Record<string, unknown> = {}) => ({
+    about_movement: true,
+    mentions_demands: true,
+    demands: ['plus de moyens'],
+    voices: ['lyceens'],
+    focus: 'revendications',
+    incidents: false,
+    police_violence: false,
+    terms: ['lycéens'],
+    tone: 'neutre',
+    quote_demands: "ont bloqué l'entrée ce matin",
+    quote_framing: 'une citation inventée',
+    ...over,
+  })
+  const mediaAi = () =>
+    createAi(aiConfig(), {
+      sleep: async () => {},
+      fetch: async (_url, init) => {
+        const prompt =
+          (
+            JSON.parse(String(init?.body)) as {
+              contents: Array<{ parts: Array<{ text: string }> }>
+            }
+          ).contents[0]?.parts[0]?.text ?? ''
+        const items = JSON.parse(prompt.slice(prompt.indexOf('['))) as Array<{ id: string }>
+        const body = { articles: items.map((i) => ({ item_id: i.id, ...analysis() })) }
+        return new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: JSON.stringify(body) }] } }],
+          }),
+        )
+      },
+    })
+
+  test('a press article is analysed once; the answers are kept, quotes that are not in the text are not', async () => {
+    await ingest.discover(sourceId, 'manual')
+    await ingest.read()
+    ingest.deps.ai = mediaAi()
+    const first = await ingest.media()
+    expect(first).toMatchObject({ analysed: 1, calls: 1 })
+    const [row] = await s.ctx.db.select().from(schema.mediaAnalyses)
+    expect(row).toMatchObject({
+      url: 'https://press.example/pasteur',
+      domain: 'press.example',
+      focus: 'demands',
+      tone: 'neutral',
+      voices: ['students'],
+      quoteDemands: "ont bloqué l'entrée ce matin",
+      quoteFraming: null,
+    })
+    expect(row?.textChars).toBeGreaterThan(300)
+    expect(await ingest.media()).toMatchObject({ analysed: 0, calls: 0 })
+  })
+
+  test('off when the AI is off or the option is off; posts are not press articles', async () => {
+    await ingest.discover(sourceId, 'manual')
+    await ingest.read()
+    await build(aiConfig({ enabled: false }))
+    expect(await ingest.media()).toMatchObject({ analysed: 0, calls: 0 })
+    ingest.deps.ai = mediaAi()
+    ingest.deps.config.mediaAnalysis = false
+    expect(await ingest.media()).toMatchObject({ analysed: 0, calls: 0 })
   })
 })
