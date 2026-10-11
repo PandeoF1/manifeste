@@ -76,8 +76,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const keys = Object.keys(Env.properties)
   const raw: Record<string, unknown> = {}
   // Coolify injects the resource URLs (comma separated): the first one is the public origin.
+  // Behind Cloudflare the domain is declared as http:// in Coolify (the proxy ends TLS), but visitors
+  // use https: in production the origin must be https or sign-in refuses it (INVALID_ORIGIN).
   const coolifyUrl = env.COOLIFY_URL?.split(',')[0]?.trim().replace(/\/$/, '')
-  if (coolifyUrl && !env.PUBLIC_URL) raw.PUBLIC_URL = coolifyUrl
+  if (coolifyUrl && !env.PUBLIC_URL)
+    raw.PUBLIC_URL =
+      env.NODE_ENV === 'production' ? coolifyUrl.replace(/^http:/, 'https:') : coolifyUrl
   for (const key of keys) {
     const value = env[key]
     if (value !== undefined && value !== '') raw[key] = value

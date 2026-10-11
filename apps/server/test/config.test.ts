@@ -42,4 +42,16 @@ describe('loadConfig', () => {
   test('rejects a public URL with a trailing slash', () => {
     expect(() => loadConfig({ ...base, PUBLIC_URL: 'https://example.org/' })).toThrow(ConfigError)
   })
+
+  test('a Coolify http:// domain becomes https in production (TLS ends at Cloudflare)', () => {
+    const base = { DATABASE_URL: 'postgres://x', AUTH_SECRET: 'a'.repeat(32) }
+    const url = (env: Record<string, string>) =>
+      loadConfig({ ...base, COOLIFY_URL: 'http://m.example.fr,http://b.example.fr', ...env })
+        .PUBLIC_URL
+    expect(url({ NODE_ENV: 'production' })).toBe('https://m.example.fr')
+    expect(url({ NODE_ENV: 'development' })).toBe('http://m.example.fr')
+    expect(url({ NODE_ENV: 'production', PUBLIC_URL: 'http://forced.example.fr' })).toBe(
+      'http://forced.example.fr',
+    )
+  })
 })
