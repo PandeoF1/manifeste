@@ -32,6 +32,7 @@ import { settingsStaffModule } from './modules/settings/staff.ts'
 import { trustedDomainsModule } from './modules/trusted-domains/index.ts'
 import { unmatchedModule } from './modules/unmatched/index.ts'
 import { MatchingService } from './modules/schools/matching.ts'
+import { insightsModule } from './modules/insights/index.ts'
 import { aiModule } from './modules/ai/index.ts'
 import { moderationModule } from './modules/moderation/index.ts'
 import { ModerationService } from './modules/moderation/service.ts'
@@ -103,6 +104,7 @@ export function createApp(ctx: AppContext) {
     .use(aiModule(auth, ctx.ai, ctx.aiUsage))
     .use(analyticsStaffModule(auth, new AnalyticsStaffService(db)))
     .use(auditModule(auth, db))
+    .use(insightsModule(auth, db))
     .use(settingsStaffModule(auth, db, settings, ctx.bus))
     .use(trustedDomainsModule(auth, db))
     .use(unmatchedModule(auth, db, ingest, new MatchingService(db)))

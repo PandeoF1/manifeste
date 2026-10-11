@@ -363,3 +363,58 @@ describe('site analytics', () => {
     expect((await as(moderator, '/api/staff/analytics/overview')).status).toBe(403)
   })
 })
+
+describe('insights', () => {
+  test('judged reports and media analyses', async () => {
+    const id =
+      (
+        await s.ctx.db
+          .insert(schema.reports)
+          .values({
+            schoolUai: lille,
+            status: 'blocked',
+            origin: 'press',
+            sourceUrl: 'https://i.example/a',
+            sourceDomain: 'i.example',
+            moderation: 'approved',
+            observedAt: new Date(),
+          })
+          .returning({ id: schema.reports.id })
+      )[0]?.id ?? ''
+    await s.ctx.db.insert(schema.judgements).values({
+      reportId: id,
+      provider: 'jev',
+      model: 'jev-1.13.0',
+      probability: 0.7,
+      nature: 'blockade',
+      level: 'secondary',
+    })
+    const rows = (await (await as(admin, '/api/staff/judge/reports')).json()) as Array<{
+      id: string
+      probability: number | null
+      schoolName: string
+    }>
+    expect(rows.find((r) => r.id === id)).toMatchObject({
+      probability: 0.7,
+      schoolName: 'Lycée Pasteur',
+    })
+    expect((await as(moderator, '/api/staff/judge/reports')).status).toBe(403)
+
+    const [m] = await s.ctx.db
+      .insert(schema.mediaAnalyses)
+      .values({
+        url: 'https://i.example/a',
+        domain: 'i.example',
+        aboutMovement: true,
+        mentionsDemands: false,
+        focus: 'incidents',
+        incidents: true,
+        policeViolence: false,
+        tone: 'neutral',
+      })
+      .returning({ id: schema.mediaAnalyses.id })
+    const media = (await (await as(admin, '/api/staff/media')).json()) as Array<{ id: string }>
+    expect(media.map((x) => x.id)).toContain(m?.id ?? '')
+    expect((await as(admin, `/api/staff/media/${m?.id}`, { method: 'DELETE' })).status).toBe(204)
+  })
+})
