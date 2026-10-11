@@ -38,5 +38,10 @@ export async function startWorker(ctx: AppContext): Promise<void> {
   })
   await queue.schedule('privacy.purge-submissions', '17 * * * *', {})
 
+  // AI usage is counted in memory by the process that makes the calls: write it out regularly.
+  await ctx.aiUsage.spentToday(true)
+  const flusher = setInterval(() => void ctx.aiUsage.flush(), 30_000)
+  flusher.unref()
+
   log.info('worker started')
 }

@@ -20,6 +20,7 @@ export interface UsageRow {
  */
 export function createMeter(onCall?: (call: CallRecord) => void): UsageSink & {
   drain(): UsageRow[]
+  /** Estimated USD of the calls recorded since the last `drain()`. */
   readonly spentUsd: number
 } {
   const rows = new Map<string, UsageRow>()
@@ -58,6 +59,7 @@ export function createMeter(onCall?: (call: CallRecord) => void): UsageSink & {
     drain() {
       const out = [...rows.values()]
       rows.clear()
+      spent = 0
       return out
     },
     get spentUsd() {

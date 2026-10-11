@@ -1,7 +1,8 @@
 /**
  * Process configuration, read once from the environment and validated at boot:
  * a missing or malformed variable stops the process with a readable message.
- * Only deployment facts and secrets live here. AI providers and models live in ai.config.ts (phase 4).
+ * Only deployment facts and secrets live here. AI models and prompts are the defaults of
+ * `@manifeste/ai` (config.ts), overridable by the optional AI_* / GEMINI_* variables below.
  */
 import { type Static, Type as t } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
@@ -35,6 +36,24 @@ const Env = t.Object({
   RESVG_WASM: t.Optional(t.String()),
   /** Cloudflare Turnstile secret. Without it the check is skipped only outside production. */
   TURNSTILE_SECRET_KEY: t.Optional(t.String()),
+  /** AI. Without a key the AI is switched off outside production (and fails the boot in a worker in production). */
+  GEMINI_API_KEY: t.Optional(t.String()),
+  GEMINI_MODEL: t.Optional(t.String()),
+  /** Comma separated, tried in order when the primary model is saturated or out of quota. */
+  GEMINI_FALLBACK_MODELS: t.Optional(t.String()),
+  GEMINI_THINKING_BUDGET: t.Optional(t.String()),
+  GEMINI_TEXT_CHARS: t.Optional(t.String()),
+  /** Extraction prompt version (v1, v1-strict, v1-nature, v1-strict-nature). */
+  GEMINI_PROMPT: t.Optional(t.String()),
+  ANTHROPIC_API_KEY: t.Optional(t.String()),
+  JEV_API_KEY: t.Optional(t.String()),
+  JEV_MODEL: t.Optional(t.String()),
+  /** `off` disables the judge. */
+  AI_JUDGE: t.Optional(t.String()),
+  /** Kill switch: `false` refuses every AI call. */
+  AI_ENABLED: t.Optional(t.String()),
+  /** Estimated USD per UTC day above which AI calls are refused (0 = no cap). */
+  AI_DAILY_BUDGET_USD: t.Optional(t.String()),
   LOG_LEVEL: t.Union(
     ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'].map((l) => t.Literal(l)),
     { default: 'info' },

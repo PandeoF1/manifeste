@@ -32,7 +32,7 @@ export function decodeBody(bytes: Uint8Array, contentType: string | null): strin
   )
   for (const label of candidates) {
     try {
-      return new TextDecoder(label).decode(bytes)
+      return new TextDecoder(label as ConstructorParameters<typeof TextDecoder>[0]).decode(bytes)
     } catch {
       // unknown encoding
     }

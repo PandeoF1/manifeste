@@ -25,6 +25,7 @@ import { statusesModule } from './modules/statuses/index.ts'
 import { StatusesService } from './modules/statuses/service.ts'
 import { timelineModule } from './modules/timeline/index.ts'
 import { TimelineService } from './modules/timeline/service.ts'
+import { aiModule } from './modules/ai/index.ts'
 import { staffModule } from './modules/staff/index.ts'
 import { StaffService } from './modules/staff/service.ts'
 import { realtimeModule } from './realtime/ws.ts'
@@ -84,6 +85,7 @@ export function createApp(ctx: AppContext) {
       }),
     )
     .use(staffModule(auth, new StaffService(db, auth, config.PUBLIC_URL)))
+    .use(aiModule(auth, ctx.ai, ctx.aiUsage))
 
   return webDist
     ? app.use(spa(webDist, (request) => sharePage(request, share, config.PUBLIC_URL, webDist)))

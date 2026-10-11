@@ -19,6 +19,7 @@
     "@elysiajs/openapi": "1.4.16",
     "@elysiajs/opentelemetry": "1.4.11",
     "@elysiajs/static": "1.4.10",
+    "@manifeste/ai": "workspace:*",
     "@manifeste/core": "workspace:*",
     "@manifeste/db": "workspace:*",
     "@opentelemetry/api": "1.9.1",
