@@ -23,6 +23,8 @@ x-app: &app
     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     AI_ENABLED: ${AI_ENABLED:-}
     AI_DAILY_BUDGET_USD: ${AI_DAILY_BUDGET_USD:-}
+    # admin (default) or all: who must enable TOTP before using the staff area.
+    STAFF_2FA: ${STAFF_2FA:-admin}
     INGEST_ENABLED: ${INGEST_ENABLED:-true}
 
 services:

@@ -59,6 +59,10 @@ export const ingestItems = pgTable(
     uniqueIndex('ingest_items_source_external').on(t.sourceId, t.externalId),
     index('ingest_items_state').on(t.state, t.updatedAt.desc()),
     index('ingest_items_discovered').on(t.discoveredAt.desc()),
+    // The read stage looks items up by address to settle duplicates; read and extract sweeps pick
+    // the oldest or newest of a state.
+    index('ingest_items_url').on(t.url),
+    index('ingest_items_state_published').on(t.state, t.publishedAt.desc()),
   ],
 )
 

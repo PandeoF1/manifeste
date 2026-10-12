@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { Elysia } from 'elysia'
 import type { AppContext } from './context.ts'
 import { authRoutes } from './auth/plugin.ts'
+import { audit } from './lib/audit.ts'
 import { healthModule } from './modules/health/index.ts'
 import { HealthService } from './modules/health/service.ts'
 import { analyticsModule } from './modules/analytics/index.ts'
@@ -73,7 +74,11 @@ export function createApp(ctx: AppContext) {
       log.error({ err: error, path }, 'unhandled error')
     })
     .use(apiDocs(version))
-    .use(authRoutes(auth))
+    .use(
+      authRoutes(auth, async (actor, action, target, after) => {
+        await audit(db, actor, action, target, null, after)
+      }),
+    )
     .use(healthModule(new HealthService(db, queue, config.ROLE, version)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))

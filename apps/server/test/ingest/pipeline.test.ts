@@ -341,6 +341,76 @@ describe('trusting the model', () => {
   })
 })
 
+describe('duplicates are settled before any page is downloaded', () => {
+  /** An ingest service whose fetch counts the downloads of each address. */
+  const counting = () => {
+    const hits: string[] = []
+    const svc = new IngestService(s.ctx, {
+      fetchFn: async (url) => {
+        hits.push(url)
+        return fetchFn(url)
+      },
+      now: () => NOW,
+      ai: createAi(aiConfig(), { fetch: geminiFetch, sink: meter, sleep: async () => {} }),
+      trigger: async () => {},
+      config: { readerGateway: false },
+    })
+    return { svc, pageHits: () => hits.filter((u) => u.includes('/pasteur')) }
+  }
+
+  test('one article offered twice in a batch is downloaded once', async () => {
+    const { svc, pageHits } = counting()
+    world.feed = rss([
+      { guid: 'a1', title: 'Lycée Pasteur bloqué à Lille', link: 'https://press.example/pasteur' },
+      {
+        guid: 'a1-bis',
+        title: 'Lycée Pasteur bloqué : le point',
+        link: 'https://press.example/pasteur?utm_source=rss',
+      },
+    ])
+    world.pages['https://press.example/pasteur'] = page(
+      'Lycée Pasteur bloqué',
+      'lycée Pasteur de Lille',
+    )
+    await svc.discover(sourceId, 'manual')
+    await svc.drain()
+    expect(pageHits()).toHaveLength(1)
+    const all = await s.ctx.db.select().from(schema.ingestItems)
+    expect(all.map((i) => i.state).sort()).toEqual(['done', 'duplicate'])
+  })
+
+  test('an article read in an earlier pass is not downloaded again for another feed entry', async () => {
+    const { svc, pageHits } = counting()
+    world.pages['https://press.example/pasteur'] = page(
+      'Lycée Pasteur bloqué',
+      'lycée Pasteur de Lille',
+    )
+    world.feed = rss([
+      { guid: 'a1', title: 'Lycée Pasteur bloqué à Lille', link: 'https://press.example/pasteur' },
+    ])
+    await svc.discover(sourceId, 'manual')
+    await svc.drain()
+    expect(pageHits()).toHaveLength(1)
+
+    // Same article, new entry (another guid): settled from the database, no new download.
+    world.feed = rss([
+      { guid: 'a1', title: 'Lycée Pasteur bloqué à Lille', link: 'https://press.example/pasteur' },
+      {
+        guid: 'a9',
+        title: 'Lycée Pasteur : suite du blocus',
+        link: 'https://press.example/pasteur',
+      },
+    ])
+    await svc.discover(sourceId, 'manual')
+    await svc.drain()
+    expect(pageHits()).toHaveLength(1)
+    const states = Object.fromEntries(
+      (await s.ctx.db.select().from(schema.ingestItems)).map((i) => [i.externalId, i.state]),
+    )
+    expect(states.a9).toBe('duplicate')
+  })
+})
+
 describe('lanes', () => {
   test('an unreadable page and no feed text lands in the unreadable lane, and a retry re-reads it', async () => {
     world.feed = rss([{ guid: 'u1', title: 'Blocus', link: 'https://press.example/closed' }])
