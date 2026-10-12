@@ -55,3 +55,42 @@ describe('loadConfig', () => {
     )
   })
 })
+
+describe('photo storage', () => {
+  test('the volume is the default', () => {
+    const c = loadConfig(base)
+    expect(c.BLOB_STORE).toBe('fs')
+    expect(c.S3_REGION).toBe('auto')
+  })
+
+  test('s3 needs a bucket and a key pair, and says which are missing', () => {
+    expect(() => loadConfig({ ...base, BLOB_STORE: 's3' })).toThrow(
+      'S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY',
+    )
+    expect(() =>
+      loadConfig({ ...base, BLOB_STORE: 's3', S3_BUCKET: 'b', S3_ACCESS_KEY_ID: 'k' }),
+    ).toThrow('S3_SECRET_ACCESS_KEY')
+    const ok = loadConfig({
+      ...base,
+      BLOB_STORE: 's3',
+      S3_BUCKET: 'photos',
+      S3_ACCESS_KEY_ID: 'k',
+      S3_SECRET_ACCESS_KEY: 's',
+      S3_ENDPOINT: 'https://abc.r2.cloudflarestorage.com',
+    })
+    expect(ok.S3_BUCKET).toBe('photos')
+  })
+
+  test('the endpoint must be a URL', () => {
+    expect(() =>
+      loadConfig({
+        ...base,
+        BLOB_STORE: 's3',
+        S3_BUCKET: 'b',
+        S3_ACCESS_KEY_ID: 'k',
+        S3_SECRET_ACCESS_KEY: 's',
+        S3_ENDPOINT: 'minio:9000',
+      }),
+    ).toThrow(ConfigError)
+  })
+})

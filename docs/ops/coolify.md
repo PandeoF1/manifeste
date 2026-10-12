@@ -120,6 +120,65 @@ Open the printed link to choose a password, sign in, enable TOTP. Until the new 
 | Restore a backup                      | Coolify > database > Backups > restore, or `pg_restore` the dump      |
 | Roll back a deploy                    | re-run "Deploy v2" for the previous commit, or redeploy it in Coolify |
 
+## Photos in Cloudflare R2 (or any S3 bucket)
+
+By default photos live on a Docker volume (`BLOB_STORE=fs`). With `BLOB_STORE=s3` they live in a
+bucket instead: no volume to back up, the API and the worker no longer need to share a disk, and
+the API can run on several servers. Nothing else changes: the originals under `private/`, the
+blurred photos under `public/`, the 48 h retention, the API serving `/api/photos/…`.
+
+### Set up (once)
+
+1. **R2 → Create bucket** (e.g. `manifeste-photos`). Leave it **private**: do not enable the
+   `r2.dev` URL nor a custom public domain. The API reads it with its own key and serves the
+   published photos itself (they are immutable and cached by Cloudflare).
+2. **R2 → Manage API tokens → Create**, permission _Object Read & Write_, restricted to that
+   bucket. Keep the Access Key ID and Secret Access Key.
+3. **Bucket → Settings → Object lifecycle rules**: add a rule on the prefix `private/` that deletes
+   objects after **2 days**. The retention sweeper already does it; this is a second net, so that
+   an original cannot outlive the 48 h promise even if the worker is down.
+4. In Coolify, for the `api` and `worker` (the same values for both):
+
+   | Variable                                    | Value                                            |
+   | ------------------------------------------- | ------------------------------------------------ |
+   | `BLOB_STORE`                                | `s3`                                             |
+   | `S3_BUCKET`                                 | `manifeste-photos`                               |
+   | `S3_ENDPOINT`                               | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`  |
+   | `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | the token                                        |
+   | `S3_REGION`                                 | `auto` (default)                                 |
+   | `S3_PREFIX`                                 | optional: `prod/` to share a bucket with staging |
+
+   Any other S3 server works the same way (AWS S3: no `S3_ENDPOINT`, set `S3_REGION` and
+   `S3_VIRTUAL_HOSTED=true`; MinIO: `S3_ENDPOINT=http://minio:9000`, `S3_REGION=us-east-1`).
+
+5. At start the API logs `photo storage reachable` or, if the bucket or the key is wrong,
+   `photo storage NOT reachable`: check that line after a deploy.
+
+### Moving the existing photos (production already running on the volume)
+
+The published photos must follow, or the pages that show them would lose their image.
+
+1. Set the `S3_*` variables on the `api` container but **keep `BLOB_STORE=fs`** for now.
+2. In the `api` container (the volume is mounted on `/data`):
+   `bun copy-blobs.js` (a dry run: what would be copied), then `bun copy-blobs.js --run`.
+   It is safe to repeat: what is already in the bucket is skipped.
+3. Switch `BLOB_STORE=s3` on `api` and `worker` and redeploy. Photos sent between step 2 and the
+   switch stay on the volume: run `bun copy-blobs.js --run` once more just before switching.
+4. Keep the volume for a few days, then remove it.
+
+To go back: `bun copy-blobs.js --run --reverse`, then `BLOB_STORE=fs`.
+
+### Migrating from Supabase straight into the bucket
+
+`migrate:supabase --photos` copies the published photos into the configured store: with
+`BLOB_STORE=s3` they go directly into the bucket.
+
+### Privacy
+
+The bucket is the only copy of the originals while they await moderation (48 h at most). It is
+encrypted at rest by R2 and private. Do not give the token more than Object Read & Write on this
+one bucket, and do not reuse the bucket for anything public.
+
 ## Security headers and Content-Security-Policy
 
 The API sends `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` on every

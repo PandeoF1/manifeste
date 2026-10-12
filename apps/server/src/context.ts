@@ -11,7 +11,8 @@ import { createLogger, type Logger } from './logger.ts'
 import { AiUsageService } from './modules/ai/service.ts'
 import { EventBus } from './realtime/bus.ts'
 import { PgBossQueue, type JobQueue } from './queue/queue.ts'
-import { FsBlobStore, type BlobStore } from './storage/blob-store.ts'
+import type { BlobStore } from './storage/blob-store.ts'
+import { createBlobStore } from './storage/create-blob-store.ts'
 
 export interface AppContext {
   config: Config
@@ -63,7 +64,7 @@ export function createContext(
     bus,
     ai,
     aiUsage,
-    blobs: overrides.blobs ?? new FsBlobStore(config.DATA_DIR),
+    blobs: overrides.blobs ?? createBlobStore(config),
     version: process.env.APP_VERSION ?? 'dev',
     async close() {
       await aiUsage.flush()

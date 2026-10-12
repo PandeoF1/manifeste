@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { detectImageKind, hasMetadata } from '../src/lib/image.ts'
+import { S3BlobStore } from '../src/storage/s3-blob-store.ts'
 import {
   FsBlobStore,
   MemoryBlobStore,
@@ -79,10 +80,29 @@ describe('blob keys', () => {
 const dir = mkdtempSync(join(tmpdir(), 'manifeste-blobs-'))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
-describe.each<[string, () => BlobStore]>([
+/**
+ * A real S3 API: MinIO in CI, moto or MinIO locally. Set TEST_S3_ENDPOINT (and, if they differ,
+ * TEST_S3_BUCKET / TEST_S3_KEY / TEST_S3_SECRET); the bucket must exist. Each store gets its own
+ * prefix, so tests do not see each other's objects.
+ */
+const s3Endpoint = process.env.TEST_S3_ENDPOINT
+const s3Store = (prefix = `t-${crypto.randomUUID()}`) =>
+  new S3BlobStore({
+    bucket: process.env.TEST_S3_BUCKET ?? 'manifeste-test',
+    accessKeyId: process.env.TEST_S3_KEY ?? 'test',
+    secretAccessKey: process.env.TEST_S3_SECRET ?? 'test',
+    endpoint: s3Endpoint ?? '',
+    region: 'us-east-1',
+    prefix,
+  })
+
+const stores: Array<[string, () => BlobStore]> = [
   ['filesystem', () => new FsBlobStore(join(dir, crypto.randomUUID()))],
   ['memory', () => new MemoryBlobStore()],
-])('%s blob store', (_name, make) => {
+  ...(s3Endpoint ? [['s3', () => s3Store()] as [string, () => BlobStore]] : []),
+]
+
+describe.each<[string, () => BlobStore]>(stores)('%s blob store', (_name, make) => {
   test('put, get, list and delete', async () => {
     const store = make()
     const a = newBlobKey('private', 'jpeg')
@@ -113,4 +133,59 @@ test('the filesystem store reports modification times (used by the sweeper)', as
   utimesSync(join(root, key), old, old)
   const [info] = await store.list('private')
   expect(info?.modifiedAt.getTime()).toBeLessThan(Date.now() - 2 * 86_400_000)
+})
+
+describe.skipIf(!s3Endpoint)('s3 blob store', () => {
+  test('keeps what it stores byte for byte, with the right content type', async () => {
+    const store = s3Store()
+    const bytes = new Uint8Array(Array.from({ length: 5000 }, (_, i) => i % 256))
+    const key = newBlobKey('public', 'webp')
+    await store.put(key, bytes)
+    expect(await store.get(key)).toEqual(bytes)
+  })
+
+  test('a missing object is null, not an error', async () => {
+    expect(await s3Store().get(newBlobKey('public', 'jpeg'))).toBeNull()
+  })
+
+  test('two prefixes in one bucket do not see each other (staging next to production)', async () => {
+    const a = s3Store(`a-${crypto.randomUUID()}`)
+    const b = s3Store(`b-${crypto.randomUUID()}`)
+    const key = newBlobKey('private', 'jpeg')
+    await a.put(key, new Uint8Array([1]))
+    expect(await b.get(key)).toBeNull()
+    expect((await b.list('private')).length).toBe(0)
+    expect((await a.list('private')).map((i) => i.key)).toEqual([key])
+  })
+
+  test('listing goes past one page of 1000 and reports real modification times', async () => {
+    const store = s3Store()
+    const keys = Array.from({ length: 1010 }, () => newBlobKey('private', 'jpeg'))
+    for (let i = 0; i < keys.length; i += 50)
+      await Promise.all(keys.slice(i, i + 50).map((k) => store.put(k, new Uint8Array([1]))))
+    const listed = await store.list('private')
+    expect(listed).toHaveLength(1010)
+    expect(new Set(listed.map((l) => l.key))).toEqual(new Set(keys))
+    // Just written: the sweeper must not take them for old blobs.
+    const age = Date.now() - Math.min(...listed.map((l) => l.modifiedAt.getTime()))
+    expect(age).toBeLessThan(5 * 60_000)
+    expect(age).toBeGreaterThanOrEqual(-60_000)
+  }, 60_000)
+
+  test('objects that are not ours are ignored by the listing', async () => {
+    const prefix = `x-${crypto.randomUUID()}`
+    const store = s3Store(prefix)
+    const key = newBlobKey('private', 'jpeg')
+    await store.put(key, new Uint8Array([1]))
+    // Something else in the same place (a console upload, a lifecycle marker…).
+    const raw = new Bun.S3Client({
+      bucket: process.env.TEST_S3_BUCKET ?? 'manifeste-test',
+      accessKeyId: process.env.TEST_S3_KEY ?? 'test',
+      secretAccessKey: process.env.TEST_S3_SECRET ?? 'test',
+      endpoint: s3Endpoint ?? '',
+      region: 'us-east-1',
+    })
+    await raw.write(`${prefix}/private/readme.txt`, 'hello')
+    expect((await store.list('private')).map((i) => i.key)).toEqual([key])
+  })
 })
