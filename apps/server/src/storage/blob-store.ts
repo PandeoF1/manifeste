@@ -1,7 +1,7 @@
 /**
- * Where photos live. A port with a filesystem adapter (a local volume: best for privacy, the
- * originals never leave the server) and an in-memory one for tests. An S3-compatible adapter
- * (Bun's S3 client works with R2) can be added without touching callers.
+ * Where photos live. A port with a filesystem adapter (a local volume), an S3-compatible one
+ * (Cloudflare R2, MinIO: see s3-blob-store.ts) and an in-memory one for tests.
+ * `create-blob-store.ts` picks the adapter from the configuration.
  *
  * Keys are `<area>/<uuid>.<ext>`: `private/` holds the originals awaiting moderation, `public/`
  * the blurred versions staff chose to publish.
@@ -37,9 +37,11 @@ export interface BlobStore {
   list(area: Area): Promise<BlobInfo[]>
 }
 
-function assertKey(key: string): void {
+/** Throws unless the key is one of ours (random name, known extension, known area). */
+export function assertBlobKey(key: string): void {
   if (!isBlobKey(key)) throw new Error(`invalid blob key: ${key}`)
 }
+const assertKey = assertBlobKey
 
 export class FsBlobStore implements BlobStore {
   private readonly root: string

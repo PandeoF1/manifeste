@@ -45,6 +45,16 @@ const server =
       })
 if (server) log.info({ port: config.PORT, version: ctx.version }, 'api listening')
 
+// Photos: a wrong bucket or key would otherwise show at the first report sent by a visitor.
+ctx.blobs.list('public').then(
+  () => log.info({ store: config.BLOB_STORE }, 'photo storage reachable'),
+  (error: unknown) =>
+    log.error(
+      { store: config.BLOB_STORE, err: error instanceof Error ? error.message : String(error) },
+      'photo storage NOT reachable: uploads and photos will fail',
+    ),
+)
+
 if (config.ROLE !== 'api') await startWorker(ctx)
 
 let stopping = false

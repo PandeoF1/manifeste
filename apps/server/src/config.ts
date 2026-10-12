@@ -30,8 +30,22 @@ const Env = t.Object({
   AUTH_SECRET: t.String({ minLength: 32 }),
   /** Built SPA served by the API (one origin). Empty disables static serving (tests). */
   WEB_DIST: t.String({ default: '../web/dist' }),
-  /** Where photos are stored (a volume shared by the api and the worker). */
+  /** Where photos are stored: `fs` (a volume shared by the api and the worker) or `s3` (R2, MinIO…). */
+  BLOB_STORE: t.Union([t.Literal('fs'), t.Literal('s3')], { default: 'fs' }),
+  /** `fs`: the folder of the volume. */
   DATA_DIR: t.String({ default: './data' }),
+  /** `s3`: bucket and credentials. The bucket must not be public. */
+  S3_BUCKET: t.Optional(t.String()),
+  S3_ACCESS_KEY_ID: t.Optional(t.String()),
+  S3_SECRET_ACCESS_KEY: t.Optional(t.String()),
+  /** `https://<account>.r2.cloudflarestorage.com` for R2, `http://minio:9000` for MinIO; unset for AWS. */
+  S3_ENDPOINT: t.Optional(t.String({ pattern: '^https?://' })),
+  /** `auto` for R2. */
+  S3_REGION: t.String({ default: 'auto' }),
+  /** Prepended to every key, to share a bucket between environments (`prod/`). */
+  S3_PREFIX: t.Optional(t.String()),
+  /** Bucket in the host name instead of the path (AWS style). R2 and MinIO: leave off. */
+  S3_VIRTUAL_HOSTED: t.Boolean({ default: false }),
   /** The resvg WebAssembly file (the image ships it next to the bundle); default: from node_modules. */
   RESVG_WASM: t.Optional(t.String()),
   /** Cloudflare Turnstile secret. Without it the check is skipped only outside production. */
@@ -92,6 +106,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       (e) => `  ${e.path.slice(1) || '(root)'}: ${e.message}`,
     )
     throw new ConfigError(`Invalid environment:\n${[...new Set(problems)].join('\n')}`)
+  }
+  if (value.BLOB_STORE === 's3') {
+    const missing = ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'].filter(
+      (k) => !(value as Record<string, unknown>)[k],
+    )
+    if (missing.length > 0)
+      throw new ConfigError(`Invalid environment:\n  BLOB_STORE=s3 needs ${missing.join(', ')}`)
   }
   return value
 }

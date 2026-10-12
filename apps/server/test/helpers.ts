@@ -7,7 +7,7 @@ import { createContext, type AppContext } from '../src/context.ts'
 import { defineIngestQueues } from '../src/ingest/jobs.ts'
 import { createLogger } from '../src/logger.ts'
 import { StaffService } from '../src/modules/staff/service.ts'
-import { MemoryBlobStore } from '../src/storage/blob-store.ts'
+import { MemoryBlobStore, type BlobStore } from '../src/storage/blob-store.ts'
 
 export const TEST_ORIGIN = 'http://localhost:3000'
 
@@ -23,7 +23,10 @@ export interface TestServer {
   close(): Promise<void>
 }
 
-export async function startTestServer(env: Record<string, string> = {}): Promise<TestServer> {
+export async function startTestServer(
+  env: Record<string, string> = {},
+  overrides: { blobs?: BlobStore } = {},
+): Promise<TestServer> {
   const testDb = await createTestDb()
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -34,7 +37,8 @@ export async function startTestServer(env: Record<string, string> = {}): Promise
     LOG_LEVEL: 'silent',
     ...env,
   })
-  const blobs = new MemoryBlobStore()
+  // The memory store unless a test brings its own (an S3 bucket): `blobs` is then that store.
+  const blobs = (overrides.blobs ?? new MemoryBlobStore()) as MemoryBlobStore
   const ctx = createContext(config, { dbHandle: testDb, log: createLogger('silent'), blobs })
   await ctx.queue.start()
   await defineIngestQueues(ctx.queue)
