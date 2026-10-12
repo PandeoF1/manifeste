@@ -262,6 +262,12 @@ export interface DecideOptions {
   forceUai?: string
   /** Keep a row in the staff queue when no school is found (off when re-matching the queue itself). */
   recordUnmatched?: boolean
+  /**
+   * A staff member decided: the automatic filters (certainty, age of the date, weekend) exist to
+   * replace that decision, so they are skipped and the report is approved at once. Without this
+   * a fact linked by hand could be dropped silently while the queue showed it as linked.
+   */
+  staffUserId?: string
 }
 
 const stageOfDrop = (outcome: ExtractionOutcome): PipelineEvent['stage'] =>
@@ -275,12 +281,12 @@ export async function decide(
   options: DecideOptions = {},
 ): Promise<Decision> {
   const { db, config, matching } = deps
-  if (!meetsCertainty(fact.certainty, config.minCertainty))
+  if (!options.staffUserId && !meetsCertainty(fact.certainty, config.minCertainty))
     return { outcome: 'low_certainty', detail: `certainty ${fact.certainty}` }
 
   // Date. A fact dated more than a week before its article is an archive or a retrospective.
   const observation = resolveObservation(fact.observedAtRaw, fact.publishedAt)
-  if (observation.basis === 'stale')
+  if (!options.staffUserId && observation.basis === 'stale')
     return { outcome: 'stale', detail: 'extracted date is more than 7 days before the article' }
 
   const uai = options.forceUai ?? (await findSchool(matching, fact))
@@ -311,7 +317,7 @@ export async function decide(
     .where(eq(schema.schools.uai, uai))
   // A lycée is closed at weekends: a "blocked" dated Saturday or Sunday is a story or a summary
   // published that day, not a blockade. Higher education is exempt (occupations).
-  if (isWeekendLyceeBlockade(fact.status, school?.level, observation.at))
+  if (!options.staffUserId && isWeekendLyceeBlockade(fact.status, school?.level, observation.at))
     return { outcome: 'weekend', uai, detail: 'lycée closed at the weekend' }
 
   // Second opinion. Recorded with the report; it decides nothing here.
@@ -335,9 +341,11 @@ export async function decide(
     observedAt: observation.at,
     publishedAt: fact.publishedAt,
     extractedObservedAt: fact.observedAtRaw,
-    dateBasis: observation.basis,
+    // A staff-linked fact may carry a date the rules call stale; the date kept is then the article's.
+    dateBasis: observation.basis === 'stale' ? 'published' : observation.basis,
     verdict,
     schoolLevel: school?.level ?? null,
+    ...(options.staffUserId && { approvedBy: options.staffUserId }),
   })
   if (stored.outcome === 'duplicate') return { outcome: 'duplicate', uai }
   if (stored.outcome === 'no_source')
