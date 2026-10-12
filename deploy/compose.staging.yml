@@ -24,6 +24,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AI_ENABLED: ${AI_ENABLED:-}
       AI_DAILY_BUDGET_USD: ${AI_DAILY_BUDGET_USD:-}
+      CSP_MODE: ${CSP_MODE:-enforce}
+      CSP_MAP_ORIGINS: ${CSP_MAP_ORIGINS:-https://tiles.openfreemap.org}
       STAFF_2FA: ${STAFF_2FA:-admin}
       INGEST_ENABLED: ${INGEST_ENABLED:-true}
     expose:

@@ -119,3 +119,20 @@ Open the printed link to choose a password, sign in, enable TOTP. Until the new 
 | Queue check false                     | worker logs; `select * from pgboss.queue`                             |
 | Restore a backup                      | Coolify > database > Backups > restore, or `pg_restore` the dump      |
 | Roll back a deploy                    | re-run "Deploy v2" for the previous commit, or redeploy it in Coolify |
+
+## Security headers and Content-Security-Policy
+
+The API sends `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` on every
+response, `Strict-Transport-Security` in production, and a Content-Security-Policy with the HTML
+pages (`apps/server/src/plugins/security-headers.ts`). The policy only lets in the site itself,
+the map host and Cloudflare Turnstile; the pages under `/embed` may be framed by other sites, the
+rest cannot be framed at all.
+
+- `CSP_MAP_ORIGINS`: where the map loads its style and tiles from (default
+  `https://tiles.openfreemap.org`). **Change it together with `VITE_MAP_STYLE_URL`**, or the map
+  goes blank.
+- `CSP_MODE`: `enforce` (default), `report-only` (the browser logs violations without blocking:
+  use it to try a new map provider or a new third-party script) or `off`.
+- If Cloudflare (a Transform Rule) or Traefik already adds a CSP header, both apply and a page
+  must satisfy both: remove the proxy's one, or set `CSP_MODE=off` here.
+- `e2e/tests/csp.spec.ts` loads every kind of page in Chromium and fails on any violation.

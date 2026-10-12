@@ -22,6 +22,12 @@ const Env = t.Object({
   PORT: t.Integer({ minimum: 1, maximum: 65535, default: 3000 }),
   DATABASE_URL: t.String({ pattern: '^postgres(ql)?://' }),
   DATABASE_POOL_MAX: t.Integer({ minimum: 1, default: 10 }),
+  /** Content-Security-Policy of the pages: `enforce` (default), `report-only` (log, do not block) or `off`. */
+  CSP_MODE: t.Union([t.Literal('enforce'), t.Literal('report-only'), t.Literal('off')], {
+    default: 'enforce',
+  }),
+  /** Origins the map loads from, comma separated (the CSP allows them). Must match VITE_MAP_STYLE_URL. */
+  CSP_MAP_ORIGINS: t.String({ default: 'https://tiles.openfreemap.org' }),
   /**
    * Who must have TOTP enabled before reaching staff routes: `admin` (default) or `all` staff.
    * Moderators see the original photos of reports (minors included), so `all` is advised once
