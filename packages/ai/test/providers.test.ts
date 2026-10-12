@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { Type } from '@sinclair/typebox'
 import {
   anthropicModel,
   geminiModel,
@@ -227,5 +228,85 @@ describe('HTTP replay', () => {
     const model = geminiModel({ apiKey: 'k', model: 'm', fetch: replayFetch(new Map()) })
     const error = await model.generate(request).catch((e) => e)
     expect(error).toBeInstanceOf(AiError)
+  })
+})
+
+describe('output cap and thinking setting', () => {
+  const capped = {
+    system: 's',
+    user: 'u',
+    schema: Type.Object({ ok: Type.Boolean() }),
+    maxOutputTokens: 1234,
+  }
+
+  test('Gemini, OpenAI-compatible and Anthropic send the cap', async () => {
+    const bodies: Record<string, unknown>[] = []
+    const capture = async (_: unknown, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)))
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }],
+          choices: [{ message: { content: '{"ok":true}' } }],
+          content: [{ type: 'tool_use', input: { ok: true } }],
+        }),
+      )
+    }
+    await geminiModel({ apiKey: 'k', model: 'm', fetch: capture }).generate(capped)
+    await openAiCompatibleModel({
+      apiKey: 'k',
+      model: 'm',
+      baseUrl: 'https://x.example/v1',
+      fetch: capture,
+    }).generate(capped)
+    await anthropicModel({ apiKey: 'k', model: 'm', fetch: capture }).generate(capped)
+    expect((bodies[0]?.generationConfig as { maxOutputTokens: number }).maxOutputTokens).toBe(1234)
+    expect(bodies[1]?.max_tokens).toBe(1234)
+    expect(bodies[2]?.max_tokens).toBe(1234)
+  })
+
+  test('a 400 that is not about thinking does not switch the thinking budget off for good', async () => {
+    const sent: unknown[] = []
+    const model = geminiModel({
+      apiKey: 'k',
+      model: 'm',
+      thinkingBudget: 0,
+      fetch: async (_: unknown, init?: RequestInit) => {
+        sent.push(
+          (JSON.parse(String(init?.body)).generationConfig as Record<string, unknown>)
+            .thinkingConfig,
+        )
+        return new Response(JSON.stringify({ error: { message: 'Invalid JSON schema' } }), {
+          status: 400,
+        })
+      },
+    })
+    await expect(model.generate(capped)).rejects.toThrow('400')
+    await expect(model.generate(capped)).rejects.toThrow('400')
+    // One attempt per call, thinking setting kept both times.
+    expect(sent).toEqual([{ thinkingBudget: 0 }, { thinkingBudget: 0 }])
+  })
+
+  test('a 400 about thinking retries without it, and remembers', async () => {
+    const sent: unknown[] = []
+    const model = geminiModel({
+      apiKey: 'k',
+      model: 'm',
+      thinkingBudget: 0,
+      fetch: async (_: unknown, init?: RequestInit) => {
+        const cfg = JSON.parse(String(init?.body)).generationConfig as Record<string, unknown>
+        sent.push(cfg.thinkingConfig)
+        return cfg.thinkingConfig
+          ? new Response(
+              JSON.stringify({ error: { message: 'This model does not support thinking' } }),
+              { status: 400 },
+            )
+          : new Response(
+              JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] }),
+            )
+      },
+    })
+    await model.generate(capped)
+    await model.generate(capped)
+    expect(sent).toEqual([{ thinkingBudget: 0 }, undefined, undefined])
   })
 })

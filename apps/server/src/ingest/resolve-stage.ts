@@ -10,6 +10,7 @@
 import type { JudgeVerdict } from '@manifeste/ai'
 import {
   canonicalUrl,
+  eventNamedInText,
   extractDomain,
   isGenericSchoolName,
   isWeekendLyceeBlockade,
@@ -282,6 +283,17 @@ export async function decide(
   const observation = resolveObservation(fact.observedAtRaw, fact.publishedAt)
   if (observation.basis === 'stale')
     return { outcome: 'stale', detail: 'extracted date is more than 7 days before the article' }
+
+  // The model must have taken this school from THIS article. One call handles many articles, so a
+  // model that mixes them up, or obeys an instruction hidden in one text, reports a school the
+  // article never mentions, and the report would carry the source (and the trust) of that
+  // article. Map points (position) and staff choices (forceUai) are exempt.
+  if (
+    !options.forceUai &&
+    fact.geoLat === null &&
+    !eventNamedInText(fact, `${fact.title}\n${fact.text}`)
+  )
+    return { outcome: 'low_certainty', detail: 'the school is not named in the article text' }
 
   const uai = options.forceUai ?? (await findSchool(matching, fact))
   const sourceUrl = canonicalUrl(fact.url)

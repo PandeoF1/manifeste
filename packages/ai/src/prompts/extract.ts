@@ -49,17 +49,19 @@ export interface ExtractPrompt {
 }
 
 function withStrict(base: string): string {
-  return base.includes(BEFORE_STRICT)
-    ? base.replace(BEFORE_STRICT, `${BEFORE_STRICT}${STRICT_RULE}\n`)
-    : base
+  // A prompt that silently loses its strict rule would change what reaches the public without
+  // anyone noticing: fail when the module loads instead.
+  if (!base.includes(BEFORE_STRICT))
+    throw new Error('extract prompt: the line the strict rule goes after was edited or removed')
+  return base.replace(BEFORE_STRICT, `${BEFORE_STRICT}${STRICT_RULE}\n`)
 }
 
 function withNature(base: string): string {
   const marker = '- certainty :'
-  const at = base.indexOf(marker)
-  return at >= 0
-    ? base.replace(marker, `${NATURE_RULE}\n${marker}`)
-    : base.replace('\nRègles strictes :', `\n${NATURE_RULE}\n\nRègles strictes :`)
+  if (base.includes(marker)) return base.replace(marker, `${NATURE_RULE}\n${marker}`)
+  if (base.includes('\nRègles strictes :'))
+    return base.replace('\nRègles strictes :', `\n${NATURE_RULE}\n\nRègles strictes :`)
+  throw new Error('extract prompt: no place found for the nature rule')
 }
 
 export const EXTRACT_PROMPTS = {

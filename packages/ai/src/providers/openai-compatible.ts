@@ -53,6 +53,7 @@ export function openAiCompatibleModel(options: OpenAiCompatibleOptions): JsonMod
           body: JSON.stringify({
             model: options.model,
             temperature: request.temperature ?? 0,
+            ...(request.maxOutputTokens !== undefined && { max_tokens: request.maxOutputTokens }),
             messages: [
               { role: 'system', content: system },
               { role: 'user', content: request.user },

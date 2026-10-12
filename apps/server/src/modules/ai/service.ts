@@ -89,8 +89,22 @@ export class AiUsageService {
     return this.cached.usd + this.unflushedUsd()
   }
 
-  /** Last known spend without a query, for the synchronous budget guard. */
+  private refreshing = false
+
+  /**
+   * Last known spend without a query, for the synchronous budget guard. The guard cannot wait for
+   * the database, so a stale or missing figure starts a refresh in the background: the cap does
+   * not depend on which code path happened to read the spend last.
+   */
   spentTodayCached(): number {
+    if (!this.refreshing && (!this.cached || Date.now() - this.cached.at > 10_000)) {
+      this.refreshing = true
+      void this.spentToday(true)
+        .catch(() => 0)
+        .finally(() => {
+          this.refreshing = false
+        })
+    }
     return (this.cached?.usd ?? 0) + this.unflushedUsd()
   }
 
