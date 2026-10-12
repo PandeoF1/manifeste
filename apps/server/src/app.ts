@@ -89,7 +89,7 @@ export function createApp(ctx: AppContext) {
         await audit(db, actor, action, target, null, after)
       }),
     )
-    .use(healthModule(new HealthService(db, queue, config.ROLE, version)))
+    .use(healthModule(new HealthService(db, queue, config.ROLE, version, ctx.blobs)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))
     .use(openDataModule(openData))

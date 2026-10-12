@@ -12,7 +12,12 @@ export const HealthModel = {
     status: t.Union([t.Literal('ready'), t.Literal('not_ready')]),
     role: t.String(),
     version: t.String(),
-    checks: t.Object({ database: check, migrations: check, queue: check }),
+    checks: t.Object({ database: check, migrations: check, queue: check, photos: check }),
+    /**
+     * Checks that fail without taking the site down (the photos): `status` stays `ready` and the
+     * probe answers 200, so the orchestrator keeps routing; an uptime monitor can alert on this.
+     */
+    degraded: t.Array(t.String()),
   }),
 } as const
 

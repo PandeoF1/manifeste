@@ -35,6 +35,12 @@ export interface BlobStore {
   delete(key: string): Promise<void>
   /** Every blob of an area, with its last modification time. */
   list(area: Area): Promise<BlobInfo[]>
+  /**
+   * Cheap proof that the store works, for the readiness probe and the start-up check. Rejects
+   * with the reason when it does not. `read` only asks the store a question; `write` also stores,
+   * reads back and deletes a one-byte object (proves the credentials may write; costs more).
+   */
+  probe(mode: 'read' | 'write'): Promise<void>
 }
 
 /** Throws unless the key is one of ours (random name, known extension, known area). */
@@ -72,6 +78,20 @@ export class FsBlobStore implements BlobStore {
     await rm(this.path(key), { force: true })
   }
 
+  async probe(mode: 'read' | 'write') {
+    await mkdir(this.root, { recursive: true })
+    await stat(this.root)
+    if (mode === 'read') return
+    const file = join(this.root, `.probe-${crypto.randomUUID()}`)
+    await Bun.write(file, new Uint8Array([1]))
+    try {
+      if ((await Bun.file(file).arrayBuffer()).byteLength !== 1)
+        throw new Error('probe read back wrong')
+    } finally {
+      await rm(file, { force: true })
+    }
+  }
+
   async list(area: Area): Promise<BlobInfo[]> {
     const dir = join(this.root, area)
     const names = await readdir(dir).catch(() => [] as string[])
@@ -104,6 +124,9 @@ export class MemoryBlobStore implements BlobStore {
     assertKey(key)
     this.blobs.delete(key)
   }
+
+  /** Nothing can be wrong with a map in memory, unless a test makes it so. */
+  async probe(_mode?: 'read' | 'write') {}
 
   /** Pretends a blob was last modified at `at` (to age it in tests). */
   touch(key: string, at: Date) {
