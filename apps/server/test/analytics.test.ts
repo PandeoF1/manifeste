@@ -92,6 +92,9 @@ describe('anonymous analytics', () => {
     const [online] = (await s.ctx.db.execute(sql`select online from analytics_online`)).rows
     expect(online?.online).toBe(1)
     await s.ctx.db.execute(sql`update analytics_live set seen_at = now() - interval '11 minutes'`)
+    // Expired tabs go with the minute snapshot, not with every ping.
+    await service.snapshotOnline()
+    expect(await count('analytics_live')).toBe(0)
     await service.ping(crypto.randomUUID(), 'map')
     expect(await count('analytics_live')).toBe(1)
   })

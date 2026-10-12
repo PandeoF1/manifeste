@@ -92,7 +92,13 @@ export interface JobQueue {
     handler: (jobs: Job<N>[]) => Promise<void>,
     options?: WorkOptions,
   ): Promise<void>
-  schedule<N extends JobName>(name: N, cron: string, data: JobPayloads[N]): Promise<void>
+  /** `key` lets one queue carry several schedules (the same job with different data). */
+  schedule<N extends JobName>(
+    name: N,
+    cron: string,
+    data: JobPayloads[N],
+    options?: { key?: string },
+  ): Promise<void>
   stats(): Promise<QueueStat[]>
   isStarted(): boolean
 }
@@ -169,8 +175,16 @@ export class PgBossQueue implements JobQueue {
     )
   }
 
-  async schedule<N extends JobName>(name: N, cron: string, data: JobPayloads[N]) {
-    await this.boss.schedule(name, cron, data, { tz: 'Europe/Paris' })
+  async schedule<N extends JobName>(
+    name: N,
+    cron: string,
+    data: JobPayloads[N],
+    options: { key?: string } = {},
+  ) {
+    await this.boss.schedule(name, cron, data, {
+      tz: 'Europe/Paris',
+      ...(options.key ? { key: options.key } : {}),
+    })
   }
 
   async stats(): Promise<QueueStat[]> {

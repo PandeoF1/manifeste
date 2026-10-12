@@ -3,7 +3,7 @@
  * proposal to an existing school, or create the school; the report then goes to moderation.
  */
 import { Elysia, t } from 'elysia'
-import { REPORT_STATUSES, tierOf } from '@manifeste/core'
+import { extractDomain, levelOfName, REPORT_STATUSES, tierOf } from '@manifeste/core'
 import { schema, type Database } from '@manifeste/db'
 import { desc, eq, sql } from 'drizzle-orm'
 import { status } from 'elysia'
@@ -160,13 +160,12 @@ export const proposalsModule = (
               department: near?.department ?? null,
               academy: near?.academy ?? null,
               kind: 'added',
-              level: 'secondary',
+              // "Université de Nanterre" is not a lycée: the weekend and judge rules depend on it.
+              level: levelOfName(body.name?.trim() || p.name),
               location: sql`${point}`,
             })
           }
-          const domain = p.sourceUrl
-            ? new URL(p.sourceUrl).hostname.replace(/^(www|m|amp|mobile)\./, '')
-            : null
+          const domain = p.sourceUrl ? extractDomain(p.sourceUrl) : null
           const [report] = await tx
             .insert(schema.reports)
             .values({
@@ -180,19 +179,20 @@ export const proposalsModule = (
               observedAt: p.createdAt,
             })
             .returning({ id: schema.reports.id })
+          if (!report) throw new Error('report not inserted')
           const [dist] = await rows<{ d: number | null }>(
             tx as unknown as Database,
             sql`select round(st_distance(location, ${point}))::int as d from schools where uai = ${uai}`,
           )
           await tx.insert(schema.reportSubmissions).values({
-            reportId: report?.id ?? '',
+            reportId: report.id,
             lat: p.lat,
             lng: p.lng,
             distanceM: dist?.d ?? 0,
             photoKey: p.photoKey,
           })
           await tx.delete(schema.schoolProposals).where(eq(schema.schoolProposals.id, p.id))
-          return { uai, reportId: report?.id ?? '' }
+          return { uai, reportId: report.id }
         })
         if ('error' in result)
           return status(

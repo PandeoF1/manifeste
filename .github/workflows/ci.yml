@@ -36,7 +36,7 @@ jobs:
       - name: Local S3 server for the photo storage tests
         run: |
           pip install --quiet "moto[server]"
-          nohup moto_server -p 5555 > moto.log 2>&1 &
+          nohup python -m moto.server -p 5555 > moto.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5555/moto-api/ >/dev/null && break; sleep 1; done
           curl -sf -X PUT http://127.0.0.1:5555/manifeste-test
       - uses: oven-sh/setup-bun@v2

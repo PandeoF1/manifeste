@@ -53,6 +53,14 @@ describe('pure helpers', () => {
     expect(html.match(/<title>/g)).toHaveLength(1)
   })
 
+  test("a '$' sequence in a name stays text (it is not a replacement pattern)", () => {
+    const tricky = { ...meta, title: "Lycée $& $` $' $1", body: '<main>$& $`</main>' }
+    const html = inject(SHELL, tricky)
+    expect(html).toContain('<title>Lycée $&#38; $` $&#39; $1</title>')
+    expect(html).toContain('<div id="root"><main>$& $`</main></div><!-- /root -->')
+    expect(html.match(/<\/head>/g)).toHaveLength(1)
+  })
+
   test('JSON-LD can never close the script tag', () => {
     const html = inject(SHELL, meta)
     const ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)

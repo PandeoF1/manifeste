@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { schema } from '@manifeste/db'
+import { sql } from 'drizzle-orm'
 import { registerIngestJobs } from '../../src/ingest/jobs.ts'
 import { IngestService } from '../../src/ingest/service.ts'
 import { startTestServer, type TestServer } from '../helpers.ts'
@@ -55,4 +56,15 @@ describe('pipeline jobs', () => {
     expect(await until(() => discovered.length === 1)).toBe(true)
     expect(discovered[0]).toEndWith(':schedule')
   }, 40_000)
+
+  test('reports the judge could not look at are judged again on a schedule', async () => {
+    const ingest = new IngestService(s.ctx, { fetchFn: async () => new Response('') })
+    await registerIngestJobs(s.ctx, ingest)
+    const { rows } = await s.ctx.db.execute(
+      sql`select name, key, cron, data from pgboss.schedule where name = 'ingest.operation'`,
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ key: 'rejudge-unjudged', cron: '*/30 * * * *' })
+    expect(rows[0]?.data).toMatchObject({ kind: 'rejudge', sinceHours: 48 })
+  })
 })

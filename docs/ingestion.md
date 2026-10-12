@@ -94,3 +94,14 @@ One adapter file implementing `SourceAdapter` (`normalize`, `discover`), a line 
 The "upload" adapter of the roadmap (files from the admin) is not built: nothing in production used
 it. The legacy collection ran inside a 2-minute edge function with a time budget; the sweeps have
 no such limit, so the budget logic is gone (the AI call caps remain).
+
+## Outbound requests
+
+Every request the pipeline makes to the internet (feeds, article pages, Google News, Telegram,
+Bluesky, My Maps) goes through `ingest/safe-fetch.ts`: http(s) only, no private, loopback or
+link-local address (checked on IP literals and on what a name resolves to), and redirects are
+followed by hand with the same check on every hop (5 at most). Feed addresses and redirects come
+from outside, so without this a hostile feed could make the worker call internal services.
+
+This does not stop a DNS answer that changes between the check and the connection. In production
+also deny the worker access to the private networks (egress rules on the Coolify host).

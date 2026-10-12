@@ -33,6 +33,11 @@ export interface NewCollectedReport {
   verdict: JudgeVerdict | null
   /** The directory's level for the school, to spot a judge that places it elsewhere. */
   schoolLevel: 'secondary' | 'higher' | null
+  /**
+   * A staff member checked this report and linked it to the school by hand: it is approved at
+   * once (the rules of trusted sources and concordance exist to replace that check).
+   */
+  approvedBy?: string
 }
 
 export type StoreOutcome =
@@ -124,6 +129,8 @@ export class ReportStore {
         neighbours: neighbours as ReportForValidation[],
         windowHours: settings.concordance_window_hours,
       })
+      const approvedByStaff = input.approvedBy !== undefined
+      const moderation = approvedByStaff ? 'approved' : decision.moderation
       const [row] = await tx
         .insert(schema.reports)
         .values({
@@ -133,7 +140,7 @@ export class ReportStore {
           sourceId: source.id,
           sourceUrl: input.sourceUrl,
           sourceDomain: input.sourceDomain,
-          moderation: decision.moderation,
+          moderation,
           certainty: input.certainty,
           observedAt: input.observedAt,
           publishedAt: input.publishedAt,
@@ -141,7 +148,8 @@ export class ReportStore {
           dateBasis: input.dateBasis,
           tier,
           hidden: source.reportsHidden,
-          moderatedAt: decision.moderation === 'approved' ? new Date() : null,
+          moderatedAt: moderation === 'approved' ? new Date() : null,
+          ...(approvedByStaff && { moderatedBy: input.approvedBy }),
         })
         .onConflictDoNothing()
         .returning({ id: schema.reports.id })
@@ -166,8 +174,8 @@ export class ReportStore {
       return {
         outcome: 'inserted' as const,
         reportId: row.id,
-        moderation: decision.moderation as 'approved' | 'pending',
-        reason: decision.reason,
+        moderation: moderation as 'approved' | 'pending',
+        reason: approvedByStaff ? 'staff_link' : decision.reason,
         promoted: decision.promote.length,
       }
     })

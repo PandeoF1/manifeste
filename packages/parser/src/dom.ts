@@ -20,33 +20,35 @@ export function loadDocument(html: string): Doc {
 
 const childrenOf = (node: AnyNode): AnyNode[] => ('children' in node ? node.children : [])
 
-/** Every element below `root` (not `root` itself) matching the selector, in document order. */
+/**
+ * Every element below `root` (not `root` itself) matching the selector, in document order.
+ * Walks with an explicit stack: a page can nest elements thousands deep (a few megabytes of
+ * `<div>` fit in the size limit), which would overflow the call stack of a recursive walk.
+ */
 export function $$(selector: string, root: AnyNode): El[] {
   const found: El[] = []
-  const walk = (node: AnyNode) => {
-    for (const child of childrenOf(node)) {
-      if (isTag(child)) {
-        if (matches(child, selector)) found.push(child)
-        walk(child)
-      }
-    }
+  const stack: AnyNode[] = [...childrenOf(root)].reverse()
+  while (stack.length > 0) {
+    const node = stack.pop() as AnyNode
+    if (!isTag(node)) continue
+    if (matches(node, selector)) found.push(node)
+    const children = childrenOf(node)
+    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i] as AnyNode)
   }
-  walk(root)
   return found
 }
 
 /** The first element below `root` matching the selector, or null. */
 export function $(selector: string, root: AnyNode): El | null {
-  const walk = (node: AnyNode): El | null => {
-    for (const child of childrenOf(node)) {
-      if (!isTag(child)) continue
-      if (matches(child, selector)) return child
-      const inner = walk(child)
-      if (inner) return inner
-    }
-    return null
+  const stack: AnyNode[] = [...childrenOf(root)].reverse()
+  while (stack.length > 0) {
+    const node = stack.pop() as AnyNode
+    if (!isTag(node)) continue
+    if (matches(node, selector)) return node
+    const children = childrenOf(node)
+    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i] as AnyNode)
   }
-  return walk(root)
+  return null
 }
 
 export const tagName = (el: El): string => el.name.toLowerCase()
