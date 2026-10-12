@@ -37,6 +37,19 @@ const isMissing = (e: unknown): boolean => {
   return err?.code === 'NoSuchKey' || err?.status === 404 || err?.statusCode === 404
 }
 
+/**
+ * A message an operator can act on: Bun's S3 errors often say only "an unexpected error has
+ * occurred" and keep the useful part in `code` (ConnectionRefused, DNSResolveFailed, NoSuchBucket,
+ * AccessDenied…). Neither the code nor S3's own wording contains a key, a bucket or an endpoint:
+ * the readiness probe is public and shows this text.
+ */
+export function describeS3Error(e: unknown): string {
+  const err = e as { code?: string; message?: string } | null
+  const message =
+    err?.message && err.message !== 'an unexpected error has occurred' ? err.message : ''
+  return [err?.code, message].filter(Boolean).join(': ') || 'S3 error'
+}
+
 export class S3BlobStore implements BlobStore {
   private readonly client: S3Client
   private readonly prefix: string
@@ -74,6 +87,29 @@ export class S3BlobStore implements BlobStore {
   async delete(key: string) {
     // S3 answers 204 whether or not the object existed: deleting twice is fine.
     await this.client.delete(this.objectKey(key))
+  }
+
+  async probe(mode: 'read' | 'write') {
+    try {
+      await this.probeOnce(mode)
+    } catch (e) {
+      throw new Error(describeS3Error(e), { cause: e })
+    }
+  }
+
+  private async probeOnce(mode: 'read' | 'write') {
+    // One key asked for, not the whole listing: this runs on every readiness check.
+    await this.client.list({ prefix: `${this.prefix}public/`, maxKeys: 1 })
+    if (mode === 'read') return
+    // Own keys, outside the photo areas: the listing and the sweeper never see them.
+    const key = `${this.prefix}.probe/${crypto.randomUUID()}`
+    await this.client.write(key, new Uint8Array([1]))
+    try {
+      const back = new Uint8Array(await this.client.file(key).arrayBuffer())
+      if (back.length !== 1) throw new Error('probe read back wrong')
+    } finally {
+      await this.client.delete(key)
+    }
   }
 
   async list(area: Area): Promise<BlobInfo[]> {

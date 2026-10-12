@@ -22,13 +22,15 @@ describe('health', () => {
     expect(data).toEqual({ status: 'ok', role: 'all', version: 'dev' })
   })
 
-  test('readiness checks the database, migrations and queue', async () => {
+  test('readiness checks the database, migrations, queue and photo storage', async () => {
     const { data, status } = await treaty(s.app).api.health.ready.get()
     expect(status).toBe(200)
     expect(data?.status).toBe('ready')
     expect(data?.checks.database.ok).toBe(true)
     expect(data?.checks.migrations.ok).toBe(true)
     expect(data?.checks.queue.ok).toBe(true)
+    expect(data?.checks.photos.ok).toBe(true)
+    expect(data?.degraded).toEqual([])
   })
 })
 

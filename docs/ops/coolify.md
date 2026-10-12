@@ -66,7 +66,12 @@ create database preview_template owner preview;   -- fill with a sanitized datas
   `DATABASE_URL` (internal URL of `manifeste-db`), `AUTH_SECRET` (`openssl rand -hex 32`),
   `PUBLIC_URL` left empty: it is taken from the domain set on the service (`COOLIFY_URL`), and for Grafana Cloud `OTEL_EXPORTER_OTLP_ENDPOINT` +
   `OTEL_EXPORTER_OTLP_HEADERS` (Grafana Cloud > OpenTelemetry > configure).
-- Health check: `/api/health/ready`.
+- Health check: `/api/health/ready`. It answers 200 as long as the database, the migrations and the
+  queue are fine. The photo storage is reported in `checks.photos` (reachable, latency) but does
+  not decide: if it fails, `degraded` lists `photos` and the answer stays 200 and `ready`, so
+  Coolify does not pull the whole site for a photo problem. Alert on it from the uptime monitor
+  (a keyword check on `"degraded":[]`). The probe asks the bucket for one key, is cached for
+  30 s and gives up after 3 s. `/api/health/live` never looks at any dependency.
 
 ### Staging: `manifeste-staging`
 

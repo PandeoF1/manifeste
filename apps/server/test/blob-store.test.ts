@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { detectImageKind, hasMetadata } from '../src/lib/image.ts'
-import { S3BlobStore } from '../src/storage/s3-blob-store.ts'
+import { describeS3Error, S3BlobStore } from '../src/storage/s3-blob-store.ts'
 import {
   FsBlobStore,
   MemoryBlobStore,
@@ -117,6 +117,14 @@ describe.each<[string, () => BlobStore]>(stores)('%s blob store', (_name, make) 
     await store.delete(a) // deleting twice is fine
   })
 
+  test('probe: read and write both succeed and leave nothing behind', async () => {
+    const store = make()
+    await store.probe('read')
+    await store.probe('write')
+    expect(await store.list('private')).toHaveLength(0)
+    expect(await store.list('public')).toHaveLength(0)
+  })
+
   test('refuses keys that are not ours', async () => {
     const store = make()
     await expect(store.put('private/../escape.jpg', new Uint8Array([1]))).rejects.toThrow()
@@ -136,6 +144,25 @@ test('the filesystem store reports modification times (used by the sweeper)', as
 })
 
 describe.skipIf(!s3Endpoint)('s3 blob store', () => {
+  test('probe: a bucket that does not exist is reported, read and write alike', async () => {
+    const lost = new S3BlobStore({
+      bucket: 'no-such-bucket-here',
+      accessKeyId: process.env.TEST_S3_KEY ?? 'test',
+      secretAccessKey: process.env.TEST_S3_SECRET ?? 'test',
+      endpoint: s3Endpoint ?? '',
+      region: 'us-east-1',
+    })
+    await expect(lost.probe('read')).rejects.toThrow()
+    await expect(lost.probe('write')).rejects.toThrow()
+  })
+
+  test('probe: the write probe uses its own key outside the photo areas', async () => {
+    const store = s3Store()
+    await store.probe('write')
+    expect(await store.list('private')).toHaveLength(0)
+    expect(await store.list('public')).toHaveLength(0)
+  })
+
   test('keeps what it stores byte for byte, with the right content type', async () => {
     const store = s3Store()
     const bytes = new Uint8Array(Array.from({ length: 5000 }, (_, i) => i % 256))
@@ -187,5 +214,34 @@ describe.skipIf(!s3Endpoint)('s3 blob store', () => {
     })
     await raw.write(`${prefix}/private/readme.txt`, 'hello')
     expect((await store.list('private')).map((i) => i.key)).toEqual([key])
+  })
+})
+
+describe('what an operator reads when the bucket is unreachable', () => {
+  test('the error code is kept, without bucket, endpoint or key', async () => {
+    const store = new S3BlobStore({
+      bucket: 'secret-bucket-name',
+      accessKeyId: 'AKIASECRET',
+      secretAccessKey: 'hunter2',
+      endpoint: 'http://127.0.0.1:9', // nothing listens here
+      region: 'us-east-1',
+    })
+    const error = await store.probe('read').then(
+      () => null,
+      (e: Error) => e.message,
+    )
+    expect(error).toContain('ConnectionRefused')
+    for (const secret of ['secret-bucket-name', 'AKIASECRET', 'hunter2', '127.0.0.1'])
+      expect(error).not.toContain(secret)
+  })
+
+  test('describeS3Error', () => {
+    expect(
+      describeS3Error({ code: 'NoSuchBucket', message: 'The specified bucket does not exist' }),
+    ).toBe('NoSuchBucket: The specified bucket does not exist')
+    expect(
+      describeS3Error({ code: 'ConnectionRefused', message: 'an unexpected error has occurred' }),
+    ).toBe('ConnectionRefused')
+    expect(describeS3Error(null)).toBe('S3 error')
   })
 })

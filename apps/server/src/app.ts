@@ -74,7 +74,7 @@ export function createApp(ctx: AppContext) {
     })
     .use(apiDocs(version))
     .use(authRoutes(auth))
-    .use(healthModule(new HealthService(db, queue, config.ROLE, version)))
+    .use(healthModule(new HealthService(db, queue, config.ROLE, version, ctx.blobs)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))
     .use(openDataModule(openData))
