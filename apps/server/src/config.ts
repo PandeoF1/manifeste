@@ -22,6 +22,12 @@ const Env = t.Object({
   PORT: t.Integer({ minimum: 1, maximum: 65535, default: 3000 }),
   DATABASE_URL: t.String({ pattern: '^postgres(ql)?://' }),
   DATABASE_POOL_MAX: t.Integer({ minimum: 1, default: 10 }),
+  /**
+   * Who must have TOTP enabled before reaching staff routes: `admin` (default) or `all` staff.
+   * Moderators see the original photos of reports (minors included), so `all` is advised once
+   * every moderator has enrolled.
+   */
+  STAFF_2FA: t.Union([t.Literal('admin'), t.Literal('all')], { default: 'admin' }),
   /** Run migrations at boot. On for dev, staging and previews; production runs a one-shot migrate step. */
   MIGRATE_ON_BOOT: t.Boolean({ default: false }),
   /** Public origin, used for auth callbacks and absolute links (no trailing slash). */
