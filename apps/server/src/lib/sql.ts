@@ -13,3 +13,9 @@ export const SOURCE_KEY = sql.raw(`
     case when r.source_id is not null then 'src:' || r.source_id::text
          when r.source_domain is not null then 'dom:' || r.source_domain end,
     'usr:' || r.id::text)`)
+
+/**
+ * A user's search text as the literal part of a LIKE / ILIKE pattern: `%` and `_` are wildcards
+ * (a search for "%" would match everything and scan the table) and `\` is the escape character.
+ */
+export const escapeLike = (text: string): string => text.replace(/[\\%_]/g, (c) => `\\${c}`)

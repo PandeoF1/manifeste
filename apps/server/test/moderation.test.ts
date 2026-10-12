@@ -117,6 +117,19 @@ describe('the queue', () => {
   })
 })
 
+describe('searching the reports', () => {
+  test('the search text is literal: "%" and "_" are not wildcards', async () => {
+    await addReport(s.ctx.db, { schoolUai: uai, sourceDomain: 'press.example' })
+    const list = async (q: string) =>
+      (await (await as(admin, `/api/staff/reports?q=${encodeURIComponent(q)}`)).json()) as unknown[]
+    expect((await list('pasteur')).length).toBeGreaterThan(0)
+    // A wildcard would match every report (and scan the table for it).
+    expect(await list('%')).toEqual([])
+    expect(await list('_')).toEqual([])
+    expect(await list('pas_eur')).toEqual([])
+  })
+})
+
 describe('decisions', () => {
   test('approve with a blurred photo: published, original deleted, photo served publicly', async () => {
     const { id, photoKey } = await pendingOnSite()

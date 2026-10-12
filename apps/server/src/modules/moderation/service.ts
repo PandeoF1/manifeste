@@ -8,7 +8,7 @@ import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { status } from 'elysia'
 import { audit, type Actor } from '../../lib/audit.ts'
 import { detectImageKind, hasMetadata } from '../../lib/image.ts'
-import { rows } from '../../lib/sql.ts'
+import { escapeLike, rows } from '../../lib/sql.ts'
 import type { EventBus } from '../../realtime/bus.ts'
 import { newBlobKey, type BlobStore } from '../../storage/blob-store.ts'
 import type { SettingsService } from '../settings/service.ts'
@@ -119,9 +119,9 @@ export class ModerationService {
           q.hidden !== undefined ? eq(schema.reports.hidden, q.hidden) : undefined,
           q.q
             ? or(
-                ilike(schema.schools.name, `%${q.q}%`),
-                ilike(schema.schools.city, `%${q.q}%`),
-                ilike(schema.reports.sourceDomain, `%${q.q}%`),
+                ilike(schema.schools.name, `%${escapeLike(q.q)}%`),
+                ilike(schema.schools.city, `%${escapeLike(q.q)}%`),
+                ilike(schema.reports.sourceDomain, `%${escapeLike(q.q)}%`),
               )
             : undefined,
         ),
