@@ -88,13 +88,26 @@ export function harvest(container: El, rules: SiteRule[]): Harvest {
     for (const selector of rule.remove ?? [])
       for (const el of $$(selector, container)) removed.add(el)
 
+  // An element is noise when it, or any ancestor below the container, is. Walked upwards with a
+  // loop (a deeply nested page would overflow a recursive version) and memoised for the siblings.
   const noise = new Map<El, boolean>()
   const isNoise = (el: El | null): boolean => {
-    if (!el || el === container) return false
-    const known = noise.get(el)
-    if (known !== undefined) return known
-    const result = removed.has(el) || selfNoise(el) || isNoise(el.parent as El | null)
-    noise.set(el, result)
+    const path: El[] = []
+    let result = false
+    for (let cur = el; cur && cur !== container; cur = cur.parent as El | null) {
+      const known = noise.get(cur)
+      if (known !== undefined) {
+        result = known
+        break
+      }
+      if (removed.has(cur) || selfNoise(cur)) {
+        noise.set(cur, true)
+        result = true
+        break
+      }
+      path.push(cur)
+    }
+    for (const p of path) noise.set(p, result)
     return result
   }
 

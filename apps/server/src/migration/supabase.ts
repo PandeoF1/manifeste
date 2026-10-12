@@ -140,6 +140,28 @@ function tally(r: TableReport, rows: Array<{ fresh: boolean }>) {
   }
 }
 
+/**
+ * Runs one row's writes in a SAVEPOINT. Postgres aborts the whole transaction on the first error
+ * unless the statement sits in a savepoint: without it, a single rejected row (a CHECK, a unique
+ * index) made every later statement fail, the swallowed errors looked like "skipped" rows, and the
+ * final COMMIT silently turned into a ROLLBACK while the report still claimed inserts.
+ * Returns null (and records the problem) when the row is rejected; the rest carries on.
+ */
+async function rowAttempt<T>(
+  tx: Tx,
+  r: TableReport,
+  label: string,
+  write: (savepoint: Tx) => Promise<T>,
+): Promise<T | null> {
+  try {
+    return await tx.transaction((savepoint) => write(savepoint as Tx))
+  } catch (e) {
+    r.problems.push(`${label}: ${e instanceof Error ? e.message : String(e)}`)
+    r.skipped++
+    return null
+  }
+}
+
 const chunks = <T>(list: readonly T[]): T[][] => {
   const out: T[][] = []
   for (let i = 0; i < list.length; i += BATCH) out.push(list.slice(i, i + BATCH))
@@ -152,9 +174,11 @@ export async function migrateFromSupabase(
   options: MigrationOptions,
 ): Promise<MigrationReport> {
   const tables: TableReport[] = []
+  let sequence = { report: report('custom_school_seq'), wanted: 0 }
   try {
     await target.transaction(async (tx) => {
       tables.push(await schools(source, tx))
+      sequence = await sequencePlan(tx)
       const sourceIds = new Set<string>()
       tables.push(await sources(source, tx, sourceIds))
       tables.push(await trustedDomains(source, tx))
@@ -170,10 +194,41 @@ export async function migrateFromSupabase(
       if (options.photos) tables.push(await photos(source, options.photos, options.dryRun))
       if (options.dryRun) throw new DryRunRollback()
     })
+    if (sequence.wanted > 0) {
+      await target.execute(sql`select setval('custom_school_seq', ${sequence.wanted}, true)`)
+      sequence.report.problems = []
+      sequence.report.updated = 1
+    }
   } catch (e) {
     if (!(e instanceof DryRunRollback)) throw e
   }
+  tables.push(sequence.report)
   return { dryRun: options.dryRun, tables }
+}
+
+/**
+ * Hand-added schools carry a made-up UAI, 999NNNNZ, drawn from `custom_school_seq`. The migration
+ * copies those schools but not the counter, so v2 would start again at 9990001Z and the first
+ * school a staff member created would collide with a migrated one (primary key error). The counter
+ * is moved up to the highest number in use, never down. A sequence is not transactional: the need
+ * is computed inside the transaction (so a dry run sees the schools it would write) and applied
+ * after the commit, only for a real run.
+ */
+async function sequencePlan(tx: Tx): Promise<{ report: TableReport; wanted: number }> {
+  const r = report('custom_school_seq')
+  const [used] = (
+    await tx.execute(
+      sql`select coalesce(max(substr(uai, 4, 4)::int), 0)::int as n from schools where uai ~ '^999[0-9]{4}Z$'`,
+    )
+  ).rows as Array<{ n: number }>
+  const [seq] = (
+    await tx.execute(sql`select last_value::int as last, is_called from custom_school_seq`)
+  ).rows as Array<{ last: number; is_called: boolean }>
+  const current = seq?.is_called ? (seq.last ?? 0) : 0
+  const wanted = used?.n ?? 0
+  r.read = wanted
+  if (wanted > current) r.problems.push(`custom_school_seq would move from ${current} to ${wanted}`)
+  return { report: r, wanted: wanted > current ? wanted : 0 }
 }
 
 // --- Directory, sources, trust, settings ----------------------------------------------------
@@ -218,40 +273,35 @@ async function sources(src: SourceDb, tx: Tx, ids: Set<string>): Promise<TableRe
       r.problems.push(`source ${String(s.id)}: unknown type ${String(s.source_type)}`)
       continue
     }
-    const out = await tx
-      .insert(schema.sources)
-      .values({
-        id: String(s.id),
-        kind: s.kind as 'telegram',
-        identifier: String(s.identifier),
-        label: String(s.label),
-        origin,
-        trusted: Boolean(s.trusted),
-        enabled: Boolean(s.enabled),
-        reportsHidden: Boolean(s.reports_hidden),
-        lastRunAt: date(s.last_run_at),
-        lastError: str(s.last_error),
-        createdAt: date(s.created_at) ?? new Date(),
-      })
-      .onConflictDoUpdate({
-        target: schema.sources.id,
-        set: {
-          label: sql`excluded.label`,
-          origin: sql`excluded.origin`,
-          trusted: sql`excluded.trusted`,
-          enabled: sql`excluded.enabled`,
-          reportsHidden: sql`excluded.reports_hidden`,
-        },
-      })
-      .returning({ fresh: sql<boolean>`(xmax = 0)` })
-      .catch((e: unknown) => {
-        r.problems.push(`source ${String(s.id)}: ${e instanceof Error ? e.message : String(e)}`)
-        return null
-      })
-    if (!out) {
-      r.skipped++
-      continue
-    }
+    const out = await rowAttempt(tx, r, `source ${String(s.id)}`, (sp) =>
+      sp
+        .insert(schema.sources)
+        .values({
+          id: String(s.id),
+          kind: s.kind as 'telegram',
+          identifier: String(s.identifier),
+          label: String(s.label),
+          origin,
+          trusted: Boolean(s.trusted),
+          enabled: Boolean(s.enabled),
+          reportsHidden: Boolean(s.reports_hidden),
+          lastRunAt: date(s.last_run_at),
+          lastError: str(s.last_error),
+          createdAt: date(s.created_at) ?? new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.sources.id,
+          set: {
+            label: sql`excluded.label`,
+            origin: sql`excluded.origin`,
+            trusted: sql`excluded.trusted`,
+            enabled: sql`excluded.enabled`,
+            reportsHidden: sql`excluded.reports_hidden`,
+          },
+        })
+        .returning({ fresh: sql<boolean>`(xmax = 0)` }),
+    )
+    if (!out) continue
     ids.add(String(s.id))
     tally(r, out)
   }
@@ -380,62 +430,57 @@ async function reports(src: SourceDb, tx: Tx, settings: Settings): Promise<Table
         moderatedAt: moderation === 'pending' ? null : (date(x.created_at) ?? new Date()),
         createdAt: date(x.created_at) ?? new Date(),
       }
-      const out = await tx
-        .insert(schema.reports)
-        .values(values)
-        .onConflictDoUpdate({
-          target: schema.reports.id,
-          set: {
-            schoolUai: sql`excluded.school_uai`,
-            status: sql`excluded.status`,
-            moderation: sql`excluded.moderation`,
-            hidden: sql`excluded.hidden`,
-            tier: sql`excluded.tier`,
-            observedAt: sql`excluded.observed_at`,
-            photoKey: sql`excluded.photo_key`,
-          },
-        })
-        .returning({ fresh: sql<boolean>`(xmax = 0)` })
-        .catch((e: unknown) => {
-          r.problems.push(`report ${String(x.id)}: ${e instanceof Error ? e.message : String(e)}`)
-          return null
-        })
-      if (!out) {
-        r.skipped++
-        continue
-      }
-      tally(r, out)
-      if (probability !== null)
-        await tx
-          .insert(schema.judgements)
-          .values({
-            reportId: values.id,
-            provider: 'jev',
-            model: str(x.judge_model) ?? 'jev',
-            probability,
-            nature,
-            level: judgeLevel,
-            chars: x.judge_chars == null ? null : Number(x.judge_chars),
-            judgedAt: date(x.judged_at) ?? new Date(),
-          })
+      const written = await rowAttempt(tx, r, `report ${String(x.id)}`, async (sp) => {
+        const out = await sp
+          .insert(schema.reports)
+          .values(values)
           .onConflictDoUpdate({
-            target: schema.judgements.reportId,
+            target: schema.reports.id,
             set: {
-              probability: sql`excluded.probability`,
-              nature: sql`excluded.nature`,
-              level: sql`excluded.level`,
+              schoolUai: sql`excluded.school_uai`,
+              status: sql`excluded.status`,
+              moderation: sql`excluded.moderation`,
+              hidden: sql`excluded.hidden`,
+              tier: sql`excluded.tier`,
+              observedAt: sql`excluded.observed_at`,
+              photoKey: sql`excluded.photo_key`,
             },
           })
-      if (x.sub_lat != null)
-        await tx
-          .insert(schema.reportSubmissions)
-          .values({
-            reportId: values.id,
-            lat: Number(x.sub_lat),
-            lng: Number(x.sub_lng),
-            distanceM: Number(x.sub_distance ?? 0),
-          })
-          .onConflictDoNothing()
+          .returning({ fresh: sql<boolean>`(xmax = 0)` })
+        if (probability !== null)
+          await sp
+            .insert(schema.judgements)
+            .values({
+              reportId: values.id,
+              provider: 'jev',
+              model: str(x.judge_model) ?? 'jev',
+              probability,
+              nature,
+              level: judgeLevel,
+              chars: x.judge_chars == null ? null : Number(x.judge_chars),
+              judgedAt: date(x.judged_at) ?? new Date(),
+            })
+            .onConflictDoUpdate({
+              target: schema.judgements.reportId,
+              set: {
+                probability: sql`excluded.probability`,
+                nature: sql`excluded.nature`,
+                level: sql`excluded.level`,
+              },
+            })
+        if (x.sub_lat != null)
+          await sp
+            .insert(schema.reportSubmissions)
+            .values({
+              reportId: values.id,
+              lat: Number(x.sub_lat),
+              lng: Number(x.sub_lng),
+              distanceM: Number(x.sub_distance ?? 0),
+            })
+            .onConflictDoNothing()
+        return out
+      })
+      if (written) tally(r, written)
     }
   }
   return r

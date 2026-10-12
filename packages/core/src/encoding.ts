@@ -90,9 +90,42 @@ export function repairMojibake(text: string): string {
   }
 }
 
-/** Reads an HTTP response body with the robust decoding. */
+/**
+ * The body of a response, read as a stream and abandoned once `maxBytes` have arrived (plus the
+ * chunk that crossed the line). `arrayBuffer()` would load a whole multi-gigabyte answer in memory
+ * before any limit could apply; this stops at the limit and cancels the download.
+ */
+export async function readBytes(res: Response, maxBytes: number): Promise<Uint8Array> {
+  if (!res.body) return new Uint8Array(await res.arrayBuffer())
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (total <= maxBytes) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      total += value.length
+    }
+  } finally {
+    // Stops the transfer when we leave early; harmless after the end of the body.
+    await reader.cancel().catch(() => {})
+  }
+  const out = new Uint8Array(total)
+  let at = 0
+  for (const c of chunks) {
+    out.set(c, at)
+    at += c.length
+  }
+  return out
+}
+
+/**
+ * Reads an HTTP response body with the robust decoding. At most about `maxBytes` are downloaded;
+ * the rest of the answer is never read.
+ */
 export async function readText(res: Response, maxBytes = 2_000_000): Promise<string> {
-  const buf = new Uint8Array(await res.arrayBuffer())
+  const buf = await readBytes(res, maxBytes)
   const contentType = res.headers.get('content-type')
   if (buf.length <= maxBytes) return decodeBody(buf, contentType)
   // Cut on a character boundary: a truncated UTF-8 character would make the whole page

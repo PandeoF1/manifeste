@@ -25,6 +25,8 @@ x-app: &app
     AI_DAILY_BUDGET_USD: ${AI_DAILY_BUDGET_USD:-}
     CSP_MODE: ${CSP_MODE:-enforce}
     CSP_MAP_ORIGINS: ${CSP_MAP_ORIGINS:-https://tiles.openfreemap.org}
+    # admin (default) or all: who must enable TOTP before using the staff area.
+    STAFF_2FA: ${STAFF_2FA:-admin}
     INGEST_ENABLED: ${INGEST_ENABLED:-true}
 
 services:

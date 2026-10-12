@@ -1,6 +1,8 @@
 import { extractDomain } from '@manifeste/core'
 import { XMLParser } from 'fast-xml-parser'
 import { fetchText } from '../http.ts'
+import { isIP } from 'node:net'
+import { isPrivateAddress } from '../safe-fetch.ts'
 import { IdentifierError, type SourceAdapter, type ScrapedItem } from '../types.ts'
 
 const xml = new XMLParser({
@@ -109,6 +111,14 @@ export const rssAdapter: SourceAdapter = {
       throw new IdentifierError('Invalid feed URL.')
     }
     if (url.protocol !== 'https:') throw new IdentifierError('The feed must be served over https.')
+    // Quick check at entry; the fetch itself re-checks every address and redirect (safe-fetch.ts).
+    const host = url.hostname.replace(/^\[|\]$/g, '')
+    if (
+      !host.includes('.') ||
+      (isIP(host) && isPrivateAddress(host)) ||
+      /(^|\.)(localhost|local|internal)$/i.test(host)
+    )
+      throw new IdentifierError('The feed must be on a public host.')
     return url.toString()
   },
   async discover(fetchFn, identifier) {

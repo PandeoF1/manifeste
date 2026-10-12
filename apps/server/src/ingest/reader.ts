@@ -158,39 +158,53 @@ export async function readItems(
       pageError: null,
     }
     if (item.kind !== 'rss') return base
+    // Whatever goes wrong with one item (a hostile page, a bug) is that item's problem, not the batch's.
+    try {
+      const real = decoded.get(item.url)
+      const url = real ? canonicalUrl(real) : item.url
+      const next: ReadOutput = {
+        ...base,
+        url,
+        publisherDomain: item.publisherDomain ?? (real ? extractDomain(real) : null),
+      }
+      // A Google link that could not be decoded has no article behind it we can read.
+      if (isGoogleNewsUrl(url)) return next
 
-    const real = decoded.get(item.url)
-    const url = real ? canonicalUrl(real) : item.url
-    const next: ReadOutput = {
-      ...base,
-      url,
-      publisherDomain: item.publisherDomain ?? (real ? extractDomain(real) : null),
+      const page = await fetchPage(fetchFn, url)
+      if ('error' in page) {
+        next.pageError = page.error
+        return maybeGateway(next, item, options, maxChars)
+      }
+      let parsed: ReturnType<typeof parse>
+      try {
+        parsed = parse(page.html, url)
+      } catch (e) {
+        // A page that cannot be parsed is that page's problem: the rest of the batch goes on.
+        next.pageError = `parse: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200)
+        return maybeGateway(next, item, options, maxChars)
+      }
+      next.blocked = parsed.blocked
+      next.title = parsed.title || next.title
+      next.publishedAt = reconcilePublished(item.publishedAt, {
+        publishedAt: parsed.publishedAt,
+        title: parsed.title,
+      })
+      if (parsed.blocked && UNUSABLE.has(parsed.blocked.reason))
+        return maybeGateway(next, item, options, maxChars)
+
+      const article = [parsed.description, parsed.text].filter(Boolean).join('\n')
+      next.pageChars = parsed.text.length
+      next.strategy = parsed.strategy
+      // The feed's own lines first (the title is what the reader sees), then what the page adds.
+      const extra = newLines(item.text, [parsed.title, article].filter(Boolean).join('\n'))
+      next.text = [item.text, ...extra].join('\n').slice(0, maxChars)
+      return next
+    } catch (e) {
+      return {
+        ...base,
+        pageError: `read: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200),
+      }
     }
-    // A Google link that could not be decoded has no article behind it we can read.
-    if (isGoogleNewsUrl(url)) return next
-
-    const page = await fetchPage(fetchFn, url)
-    if ('error' in page) {
-      next.pageError = page.error
-      return maybeGateway(next, item, options, maxChars)
-    }
-    const parsed = parse(page.html, url)
-    next.blocked = parsed.blocked
-    next.title = parsed.title || next.title
-    next.publishedAt = reconcilePublished(item.publishedAt, {
-      publishedAt: parsed.publishedAt,
-      title: parsed.title,
-    })
-    if (parsed.blocked && UNUSABLE.has(parsed.blocked.reason))
-      return maybeGateway(next, item, options, maxChars)
-
-    const article = [parsed.description, parsed.text].filter(Boolean).join('\n')
-    next.pageChars = parsed.text.length
-    next.strategy = parsed.strategy
-    // The feed's own lines first (the title is what the reader sees), then what the page adds.
-    const extra = newLines(item.text, [parsed.title, article].filter(Boolean).join('\n'))
-    next.text = [item.text, ...extra].join('\n').slice(0, maxChars)
-    return next
   })
 }
 

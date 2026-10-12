@@ -28,6 +28,12 @@ const Env = t.Object({
   }),
   /** Origins the map loads from, comma separated (the CSP allows them). Must match VITE_MAP_STYLE_URL. */
   CSP_MAP_ORIGINS: t.String({ default: 'https://tiles.openfreemap.org' }),
+  /**
+   * Who must have TOTP enabled before reaching staff routes: `admin` (default) or `all` staff.
+   * Moderators see the original photos of reports (minors included), so `all` is advised once
+   * every moderator has enrolled.
+   */
+  STAFF_2FA: t.Union([t.Literal('admin'), t.Literal('all')], { default: 'admin' }),
   /** Run migrations at boot. On for dev, staging and previews; production runs a one-shot migrate step. */
   MIGRATE_ON_BOOT: t.Boolean({ default: false }),
   /** Public origin, used for auth callbacks and absolute links (no trailing slash). */

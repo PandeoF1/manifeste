@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { schema } from '@manifeste/db'
 import { eq } from 'drizzle-orm'
+import { addReport, addSchool } from './seed.ts'
 import { signInStaff, startTestServer, type TestServer } from './helpers.ts'
 
 let s: TestServer
@@ -284,5 +285,47 @@ describe('optional filters have no hidden default', () => {
       state: string
     }>
     expect(new Set(all.map((i) => i.state)).size).toBeGreaterThan(1)
+  })
+})
+
+describe('hiding the reports of a source', () => {
+  test('switching it on hides what the source already published; off leaves the past alone', async () => {
+    const uai = await addSchool(s.ctx.db, { name: 'Lycée Caché', city: 'Lille' })
+    const [src] = await s.ctx.db
+      .insert(schema.sources)
+      .values({
+        kind: 'rss',
+        identifier: 'https://m.example/feed',
+        label: 'Misled',
+        origin: 'press',
+      })
+      .returning({ id: schema.sources.id })
+    const sourceId = src?.id ?? ''
+    const own = await addReport(s.ctx.db, { schoolUai: uai, sourceId })
+    const handHidden = await addReport(s.ctx.db, { schoolUai: uai, sourceId, hidden: true })
+    const other = await addReport(s.ctx.db, { schoolUai: uai })
+    const hidden = async (id: string) =>
+      (await s.ctx.db.select().from(schema.reports).where(eq(schema.reports.id, id)))[0]?.hidden
+
+    const on = await as(admin, `/api/staff/sources/${sourceId}`, {
+      method: 'PATCH',
+      json: { reportsHidden: true },
+    })
+    expect(on.status).toBe(200)
+    expect(await hidden(own)).toBe(true)
+    expect(await hidden(handHidden)).toBe(true)
+    // Another source's report is none of its business.
+    expect(await hidden(other)).toBe(false)
+    const [line] = await s.ctx.db
+      .select()
+      .from(schema.moderationAudit)
+      .where(eq(schema.moderationAudit.target, sourceId))
+    expect(JSON.stringify(line?.after)).toContain('"reportsHiddenNow":1')
+
+    await as(admin, `/api/staff/sources/${sourceId}`, {
+      method: 'PATCH',
+      json: { reportsHidden: false },
+    })
+    expect(await hidden(own)).toBe(true) // not guessed back: unhide by hand
   })
 })

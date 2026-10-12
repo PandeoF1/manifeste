@@ -93,5 +93,7 @@ function createAiRuntime(config: Config, db: Database, log: Logger) {
     () => meter.drain(),
   )
   const ai = createAi(aiConfig, { sink: meter, spentToday: () => aiUsage.spentTodayCached() })
+  // Know today's spend before the first call, not after it.
+  if (aiConfig.enabled) void aiUsage.spentToday(true).catch(() => 0)
   return { ai, aiUsage }
 }
