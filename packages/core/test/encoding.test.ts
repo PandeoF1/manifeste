@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { decodeBody, readText, repairMojibake } from '../src/encoding.ts'
+import { decodeBody, readBytes, readText, repairMojibake } from '../src/encoding.ts'
 
 const utf8 = (s: string) => new TextEncoder().encode(s)
 const latin1 = (s: string) => new Uint8Array([...s].map((c) => c.charCodeAt(0)))
@@ -43,5 +43,37 @@ describe('page and feed encoding', () => {
       headers: { 'content-type': 'application/xml' },
     })
     expect(await readText(res)).toContain('Besançon')
+  })
+})
+
+describe('reading a body with a hard limit', () => {
+  /** A body that never ends, and counts what was pulled from it. */
+  const endless = () => {
+    const state = { pulled: 0, cancelled: false }
+    const chunk = new TextEncoder().encode('x'.repeat(10_000))
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        state.pulled += chunk.length
+        controller.enqueue(chunk)
+      },
+      cancel() {
+        state.cancelled = true
+      },
+    })
+    return { state, response: new Response(body) }
+  }
+
+  it('stops downloading at the limit instead of loading the whole answer', async () => {
+    const { state, response } = endless()
+    const text = await readText(response, 50_000)
+    expect(text.length).toBe(50_000)
+    expect(state.cancelled).toBe(true)
+    // The limit plus a few chunks of look-ahead, never the "infinite" rest.
+    expect(state.pulled).toBeLessThan(200_000)
+  })
+
+  it('returns a short body whole', async () => {
+    const bytes = await readBytes(new Response('bonjour'), 1000)
+    expect(new TextDecoder().decode(bytes)).toBe('bonjour')
   })
 })

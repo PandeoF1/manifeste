@@ -258,3 +258,14 @@ describe('robustness', () => {
     expect(parse(html, URL_, { now: NOW })).toEqual(parse(html, URL_, { now: NOW }))
   })
 })
+
+describe('hostile markup', () => {
+  test('a very deeply nested page is parsed, not a crash', () => {
+    const depth = 60_000
+    const html = `<html><head><title>Profond</title></head><body>${'<div>'.repeat(depth)}<p>${'Les élèves bloquent le lycée. '.repeat(30)}</p>${'</div>'.repeat(depth)}</body></html>`
+    // A recursive walk overflows the call stack long before this depth.
+    const page = parse(html, 'https://press.example/deep')
+    expect(page.title).toBe('Profond')
+    expect(page.text).toContain('Les élèves bloquent le lycée')
+  })
+})

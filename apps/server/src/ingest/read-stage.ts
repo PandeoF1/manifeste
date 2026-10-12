@@ -77,16 +77,86 @@ export async function readSweep(deps: IngestDeps): Promise<ReadSweepResult> {
   }))
   if (batch.length === 0) return result
 
+  const out: PipelineEvent[] = []
+  const recentCutoff = new Date(deps.now().getTime() - config.lookbackHours * 3_600_000)
+  const batchIds = batch.map((c) => c.id)
+
+  /** Items of recent passes that already hold the text of one of these addresses. */
+  const readEarlier = async (urls: string[]) =>
+    urls.length === 0
+      ? new Map<string, string>()
+      : new Map(
+          (
+            await db
+              .select({ id: schema.ingestItems.id, url: schema.ingestItems.url })
+              .from(schema.ingestItems)
+              .where(
+                and(
+                  inArray(schema.ingestItems.url, urls),
+                  inArray(schema.ingestItems.state, ['read', 'extracted', 'done', 'no_event']),
+                  gte(schema.ingestItems.discoveredAt, recentCutoff),
+                  notInArray(schema.ingestItems.id, batchIds),
+                ),
+              )
+          ).map((k) => [k.url, k.id]),
+        )
+
+  // Duplicates are settled BEFORE any page is downloaded: the same article offered by five feeds,
+  // or already read in a recent pass, used to be fetched and parsed each time and only then merged.
+  const early = mergeSameArticle(
+    batch.map((c) => ({
+      id: c.id,
+      url: c.url,
+      text: c.feedText,
+      geo: c.geo ? true : undefined,
+      alwaysRelevant: c.alwaysRelevant,
+    })),
+  )
+  for (const { item, into } of early.absorbed) {
+    await markDuplicate(deps, item.id, into.id, 'same article in this batch')
+    result.merged++
+    out.push({
+      stage: 'dedupe',
+      outcome: 'duplicate',
+      itemId: item.id,
+      sourceId: batch.find((c) => c.id === item.id)?.sourceId ?? null,
+      runId: batch.find((c) => c.id === item.id)?.runId ?? null,
+      detail: { into: into.id },
+    })
+  }
+  const plain = early.kept.filter((k) => !k.geo && !k.alwaysRelevant)
+  const readBefore = await readEarlier(plain.map((k) => k.url))
+  const toRead: Array<{ candidate: Candidate; text: string }> = []
+  for (const k of early.kept) {
+    const c = batch.find((b) => b.id === k.id)
+    if (!c) continue
+    const before = !c.geo && !c.alwaysRelevant ? readBefore.get(k.url) : undefined
+    if (before) {
+      await markDuplicate(deps, c.id, before, 'same article read earlier')
+      result.merged++
+      out.push({
+        stage: 'dedupe',
+        outcome: 'duplicate',
+        itemId: c.id,
+        sourceId: c.sourceId,
+        runId: c.runId,
+        detail: { into: before },
+      })
+      continue
+    }
+    toRead.push({ candidate: c, text: k.text })
+  }
+
   const started = performance.now()
   let outputs: ReadOutput[]
   try {
     outputs = await inSpan('ingest.read', { items: batch.length }, () =>
       readItems(
-        batch.map((c) => ({
+        toRead.map(({ candidate: c, text }) => ({
           id: c.id,
           kind: c.kind,
           url: c.url,
-          text: c.feedText,
+          text,
           publishedAt: c.publishedAt,
           publisherDomain: c.publisherDomain,
         })),
@@ -99,7 +169,11 @@ export async function readSweep(deps: IngestDeps): Promise<ReadSweepResult> {
     )
   } catch (e) {
     // Nothing is known about any of them: count the attempt, try again next time.
-    const failed = await failBatch(deps, batch, errorMessage(e))
+    const failed = await failBatch(
+      deps,
+      toRead.map((r) => r.candidate),
+      errorMessage(e),
+    )
     return { ...result, failed, more: false }
   }
   const byId = new Map(batch.map((c) => [c.id, c]))
@@ -116,28 +190,9 @@ export async function readSweep(deps: IngestDeps): Promise<ReadSweepResult> {
   }))
   const { kept, absorbed } = mergeSameArticle(pending)
 
-  // …or already read in a recent pass from another source.
-  const recentCutoff = new Date(deps.now().getTime() - config.lookbackHours * 3_600_000)
-  const known = await db
-    .select({ id: schema.ingestItems.id, url: schema.ingestItems.url })
-    .from(schema.ingestItems)
-    .where(
-      and(
-        inArray(
-          schema.ingestItems.url,
-          kept.map((k) => k.url),
-        ),
-        inArray(schema.ingestItems.state, ['read', 'extracted', 'done', 'no_event']),
-        gte(schema.ingestItems.discoveredAt, recentCutoff),
-        notInArray(
-          schema.ingestItems.id,
-          batch.map((c) => c.id),
-        ),
-      ),
-    )
-  const knownByUrl = new Map(known.map((k) => [k.url, k.id]))
+  // …or, once the real address of a Google News link is known, read in a recent pass.
+  const knownByUrl = await readEarlier(kept.map((k) => k.url))
 
-  const out: PipelineEvent[] = []
   const sourceOf = (id: string) => byId.get(id)?.sourceId ?? null
   const runOf = (id: string) => byId.get(id)?.runId ?? null
 
