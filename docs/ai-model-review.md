@@ -12,10 +12,10 @@ default stays until a benchmark says otherwise (see the decision rule in `ai.md`
 ## How to produce the review
 
 ```bash
-export GEMINI_API_KEY=… ANTHROPIC_API_KEY=… JEV_API_KEY=…
+export GEMINI_API_KEY=… JEV_API_KEY=…
 cd bench
-bun ai/run.ts --task judge --live --max-usd 2 --rpm 12 \
-  --variants jev-recorded,jev,llm:gemini:gemini-3.5-flash-lite,llm:gemini:gemini-3.5-flash,llm:anthropic:claude-haiku-5-5
+bun ai/run.ts --task judge --live --max-usd 0.5 --rpm 12 \
+  --variants jev-recorded,jev,llm:gemini:gemini-3.5-flash-lite,llm:gemini:gemini-3.5-flash
 bun ai/run.ts --task extract --live --max-usd 2 --rpm 12 --thinking 0 \
   --variants v1@gemini:gemini-3.5-flash-lite,v1-strict@gemini:gemini-3.5-flash-lite,v1@gemini:gemini-3.5-flash,v1@anthropic:claude-haiku-5-5
 ```
