@@ -115,7 +115,7 @@ export function createApp(ctx: AppContext) {
     .use(unmatchedModule(auth, db, ingest, new MatchingService(db)))
     .use(proposalsModule(auth, db, ctx.blobs, new MatchingService(db), ctx.bus))
     .use(moderationModule(auth, new ModerationService(db, ctx.blobs, ctx.bus, settings)))
-    .use(sourcesModule(auth, new SourcesService(db, queue)))
+    .use(sourcesModule(auth, new SourcesService(db, queue, ctx.bus)))
     .use(pipelineModule(auth, new PipelineService(db, queue, ingest)))
 
   return webDist
