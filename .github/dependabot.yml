@@ -1,0 +1,17 @@
+# Weekly dependency updates, one pull request per ecosystem group so that they are reviewable.
+# Every one goes through the same CI as any change (typecheck, lint, tests, e2e, image build).
+version: 2
+updates:
+  - package-ecosystem: bun
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly, day: monday }
