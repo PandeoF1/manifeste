@@ -190,9 +190,13 @@ describe('what is dropped, and why', () => {
   })
 
   test('a school the directory does not know waits in the staff queue, with an excerpt', async () => {
+    world.pages['https://press.example/pasteur'] = page(
+      'Lycée Inconnu bloqué',
+      'Lycée Inconnu de Nullepart',
+    )
     world.facts = [
       {
-        when: 'lycée Pasteur',
+        when: 'Lycée Inconnu',
         events: [event({ school_name: 'Lycée Inconnu', city: 'Nullepart' })],
       },
     ]
@@ -273,6 +277,67 @@ describe('merging the same article', () => {
       all.find((i) => i.state === 'done')?.id,
     )
     expect(await allReports()).toHaveLength(1)
+  })
+})
+
+describe('trusting the model', () => {
+  const trusted = async () =>
+    s.ctx.db.update(schema.sources).set({ trusted: true }).where(eq(schema.sources.id, sourceId))
+
+  test('a fact about a school the article never names is not published, even from a trusted source', async () => {
+    // The model mixes two articles up (or obeys a sentence hidden in one): it reports Pasteur
+    // for an article about another school. The report would carry the trust of this source.
+    await trusted()
+    world.feed = rss([
+      { guid: 'v1', title: 'Lycée Voltaire bloqué', link: 'https://press.example/voltaire' },
+    ])
+    world.pages['https://press.example/voltaire'] = page('Lycée Voltaire bloqué', 'lycée Voltaire')
+    world.facts = [{ when: 'lycée Voltaire', events: [event()] }] // event(): Lycée Pasteur, Lille
+    await ingest.discover(sourceId, 'manual')
+    await ingest.drain()
+    expect(await allReports()).toHaveLength(0)
+    const [extraction] = await s.ctx.db.select().from(schema.extractions)
+    expect(extraction).toMatchObject({
+      outcome: 'low_certainty',
+      outcomeDetail: 'the school is not named in the article text',
+    })
+  })
+
+  test('the same fact for a school the article does name is published', async () => {
+    await trusted()
+    world.pages['https://press.example/pasteur'] = page('Lycée Pasteur bloqué', 'lycée Pasteur')
+    world.facts = [{ when: 'lycée Pasteur', events: [event()] }]
+    await ingest.discover(sourceId, 'manual')
+    await ingest.drain()
+    expect(await allReports()).toHaveLength(1)
+  })
+
+  test('an answer made only of unusable events does not close the item as "no fact"', async () => {
+    world.facts = [{ when: 'lycée Pasteur', events: [event({ school_name: 'x' })] }]
+    await ingest.discover(sourceId, 'manual')
+    await ingest.read()
+    const state = async () =>
+      (
+        await s.ctx.db
+          .select()
+          .from(schema.ingestItems)
+          .where(eq(schema.ingestItems.externalId, 'a1'))
+      )[0]
+    await ingest.extract()
+    expect(await state()).toMatchObject({ state: 'read', attempts: 1 })
+    await ingest.extract()
+    expect(await state()).toMatchObject({ state: 'read', attempts: 2 })
+    // Out of attempts: it is finally closed, not retried for ever.
+    await ingest.extract()
+    expect(await state()).toMatchObject({ state: 'no_event' })
+  })
+
+  test('a real "no fact" answer still closes the item at once', async () => {
+    world.facts = []
+    await ingest.discover(sourceId, 'manual')
+    await ingest.read()
+    await ingest.extract()
+    expect((await states()).a1).toBe('no_event')
   })
 })
 
@@ -379,9 +444,13 @@ describe('source health', () => {
 describe('housekeeping', () => {
   test('article text, excerpts and old events are deleted after their retention', async () => {
     await ingest.discover(sourceId, 'manual')
+    world.pages['https://press.example/pasteur'] = page(
+      'Lycée Inconnu bloqué',
+      'Lycée Inconnu de Nullepart',
+    )
     world.facts = [
       {
-        when: 'lycée Pasteur',
+        when: 'Lycée Inconnu',
         events: [event({ school_name: 'Lycée Inconnu', city: 'Nullepart' })],
       },
     ]

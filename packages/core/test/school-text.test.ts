@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  eventNamedInText,
   matchSchool,
   mentionsSchool,
   norm,
@@ -74,5 +75,49 @@ describe('mentions in a text', () => {
   test('norm strips accents and case', () => {
     expect(norm('Lycée Évariste-Galois')).toBe('lycee evariste-galois')
     expect(norm(null)).toBe('')
+  })
+})
+
+describe('eventNamedInText', () => {
+  const text = "Les élèves du lycée Joséphine-Baker de Périgueux ont bloqué l'entrée ce matin."
+
+  test('a school the article names passes, spelling and accents aside', () => {
+    expect(eventNamedInText({ schoolName: 'Lycée Joséphine Baker', city: 'Périgueux' }, text)).toBe(
+      true,
+    )
+    expect(eventNamedInText({ schoolName: 'lycee josephine-baker', city: null }, text)).toBe(true)
+  })
+
+  test('a school the article does not mention is refused', () => {
+    expect(eventNamedInText({ schoolName: 'Lycée Pasteur', city: 'Lille' }, text)).toBe(false)
+    expect(eventNamedInText({ schoolName: 'Université de Nanterre', city: 'Nanterre' }, text)).toBe(
+      false,
+    )
+  })
+
+  test('half of the distinctive words is enough ("Joséphine" alone, a longer cited name)', () => {
+    expect(
+      eventNamedInText({ schoolName: 'Lycée Joséphine Baker Dordogne', city: null }, text),
+    ).toBe(true)
+    expect(eventNamedInText({ schoolName: 'Lycée Marie Curie Baker', city: null }, text)).toBe(
+      false,
+    )
+  })
+
+  test('a name made only of the city is checked by the city', () => {
+    expect(eventNamedInText({ schoolName: 'lycée de Périgueux', city: 'Périgueux' }, text)).toBe(
+      true,
+    )
+    expect(eventNamedInText({ schoolName: 'lycée de Hanches', city: 'Hanches' }, text)).toBe(false)
+  })
+
+  test('an acronym is taken as written', () => {
+    expect(
+      eventNamedInText({ schoolName: 'ENS Ulm', city: 'Paris' }, "Blocage à l'ENS Ulm ce lundi"),
+    ).toBe(true)
+  })
+
+  test('nothing checkable passes', () => {
+    expect(eventNamedInText({ schoolName: 'Lycée', city: null }, text)).toBe(true)
   })
 })

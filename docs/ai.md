@@ -90,3 +90,30 @@ Reference numbers (offline, frozen Jev answers from when the sample was built): 
 52 labelled reports. No live comparison of other models has been run yet: it needs API keys and
 is the first thing to do before a model change. `docs/ai-model-review.md` is the place to record
 it.
+
+## Trusting the model's answer
+
+A call handles many articles and its answer creates public reports, so the answer is checked
+rather than believed:
+
+- **Attribution.** An event is kept only if the school it names appears in the text of the item it
+  is attached to (`eventNamedInText`: half of the distinctive words of the cited name, or the city
+  for a name made of the city alone). Otherwise the fact is dropped as `low_certainty` with the
+  detail "the school is not named in the article text". Map points (position) and a staff choice
+  are exempt. Without this a model that mixed two articles up, or obeyed a sentence hidden in
+  one, could publish a school the article never mentions, with the trust of that article's source.
+- **Untrusted text.** The user message starts with a notice that the texts are data, not orders,
+  and each event may only concern the message whose id it gives. The "Carte « … »" header that
+  the prompt reads as a map point is defused in every item that is not a real map point.
+- **Small calls.** 15 items per call (12 calls per run), not 50: a confusing article reaches fewer
+  others, and the answer is capped (`maxOutputTokens`, 2,048 + 400 per item) so that it is not cut.
+- **Unusable answers are not "no fact".** Events that are malformed or about an item that was not
+  sent are counted (`dropped`). An item whose answer held only such events is asked again (up to
+  `maxAttempts`) instead of being closed as `no_event`.
+- **Unjudged reports.** A report without a second opinion counts as confirmed until judged, so
+  a `rejudge` of the last 48 hours runs every 30 minutes (60 reports at most) instead of
+  waiting for someone to start it.
+
+The system prompts themselves are unchanged (they are versioned and measured). Changing the
+size of the calls and adding the notice does change what the model sees: run `bench/ai` on the
+labelled sample after deploying to compare with the previous figures.

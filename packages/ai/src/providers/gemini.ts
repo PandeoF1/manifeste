@@ -45,6 +45,9 @@ export function geminiModel(options: GeminiOptions): JsonModel {
             contents: [{ role: 'user', parts: [{ text: request.user }] }],
             generationConfig: {
               temperature: request.temperature ?? 0,
+              ...(request.maxOutputTokens !== undefined && {
+                maxOutputTokens: request.maxOutputTokens,
+              }),
               responseMimeType: 'application/json',
               responseSchema: toGeminiSchema(request.schema),
               ...(thinkingBudget !== undefined && { thinkingConfig: { thinkingBudget } }),
@@ -86,7 +89,14 @@ export function geminiModel(options: GeminiOptions): JsonModel {
       try {
         return await call(request, signal)
       } catch (e) {
-        if (e instanceof AiError && e.status === 400 && thinkingBudget !== undefined) {
+        // Only a refusal that is about the thinking setting turns it off for good: any other
+        // 400 (a schema, a blocked prompt) says nothing about it and must not change the cost.
+        if (
+          e instanceof AiError &&
+          e.status === 400 &&
+          thinkingBudget !== undefined &&
+          /think/i.test(e.message)
+        ) {
           thinkingBudget = undefined
           return call(request, signal)
         }
