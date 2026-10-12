@@ -42,6 +42,8 @@ export function createContext(
     createDb(config.DATABASE_URL, {
       max: config.DATABASE_POOL_MAX,
       applicationName: `manifeste-${config.ROLE}`,
+      statementTimeoutMs: 60_000,
+      onPoolError: (error) => log.warn({ err: error.message }, 'database connection error'),
     })
   const runsJobs = config.ROLE !== 'api'
   const queue =

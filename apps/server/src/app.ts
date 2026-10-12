@@ -45,6 +45,7 @@ import { staffModule } from './modules/staff/index.ts'
 import { StaffService } from './modules/staff/service.ts'
 import { realtimeModule } from './realtime/ws.ts'
 import { requestLog } from './plugins/request-log.ts'
+import { securityHeaders } from './plugins/security-headers.ts'
 import { apiDocs } from './web/docs.ts'
 import { spa } from './web/spa.ts'
 
@@ -68,6 +69,15 @@ export function createApp(ctx: AppContext) {
   const app = new Elysia()
     .use(tracing)
     .use(requestLog(log))
+    .use(
+      securityHeaders({
+        production: config.NODE_ENV === 'production',
+        csp: config.CSP_MODE,
+        mapOrigins: config.CSP_MAP_ORIGINS.split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+      }),
+    )
     .onError({ as: 'global' }, ({ code, error, path }) => {
       if (code === 'VALIDATION' || code === 'NOT_FOUND' || code === 'PARSE') return
       log.error({ err: error, path }, 'unhandled error')
