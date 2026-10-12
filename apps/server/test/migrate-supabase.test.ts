@@ -311,3 +311,57 @@ describe('shadow comparison', () => {
     expect(r.onlyLegacy.some((x) => x.source === null)).toBe(false)
   })
 })
+
+describe('a row the target refuses', () => {
+  const BAD = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  const GOOD = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+  let fresh: TestServer
+
+  beforeAll(async () => {
+    // A hand-added school (made-up UAI), a report whose link is not https (a CHECK of v2 refuses
+    // it) and, after it, a perfectly good one.
+    await legacy.query(`
+      insert into schools values
+        ('9990007Z', 'Lycée Ajouté', 'Lille', null, '59', 'Lille', 'ajouté', 'lycee', null);
+      insert into reports (id, school_uai, status, source_type, source_url, source_domain, source_id, moderation, hidden, observed_at, created_at)
+      values
+        ('${BAD}', '0590001A', 'bloque', 'presse', 'http://presse.example/not-https', 'presse.example', null, 'validated', false, now(), now()),
+        ('${GOOD}', '0590001A', 'bloque', 'presse', 'https://presse.example/good-after-bad', 'presse.example', null, 'validated', false, now(), now());
+    `)
+    fresh = await startTestServer()
+  })
+  afterAll(async () => {
+    await fresh.close()
+  })
+
+  test('is reported and skipped; the rows after it are still carried', async () => {
+    const report = await migrateFromSupabase(source, fresh.ctx.db, { dryRun: false })
+    const t = byTable(report)
+    expect(t['reports']?.problems.some((p) => p.includes(BAD))).toBe(true)
+    // Before the fix the first refused row aborted the transaction: everything after it failed
+    // and the final COMMIT became a ROLLBACK, with a report still counting "inserted" rows.
+    const stored = await fresh.ctx.db.select({ id: schema.reports.id }).from(schema.reports)
+    const ids = stored.map((r) => r.id)
+    expect(ids).toContain(GOOD)
+    expect(ids).toContain(REPORT_ID)
+    expect(ids).not.toContain(BAD)
+    expect(t['reports']?.inserted).toBe(ids.length)
+  })
+
+  test('the hand-added school counter moves past the migrated UAIs', async () => {
+    const [next] = (await fresh.ctx.db.execute(sql`select nextval('custom_school_seq')::int as n`))
+      .rows as Array<{ n: number }>
+    expect(next?.n).toBe(8)
+  })
+
+  test('a dry run reports the move but does not make it', async () => {
+    await legacy.query(
+      `insert into schools values ('9990020Z', 'Autre', 'Lille', null, '59', 'Lille', 'ajouté', 'lycee', null)`,
+    )
+    const report = await migrateFromSupabase(source, fresh.ctx.db, { dryRun: true })
+    expect(byTable(report)['custom_school_seq']?.problems[0]).toContain('would move')
+    const [after] = (await fresh.ctx.db.execute(sql`select nextval('custom_school_seq')::int as n`))
+      .rows as Array<{ n: number }>
+    expect(after?.n).toBe(9)
+  })
+})

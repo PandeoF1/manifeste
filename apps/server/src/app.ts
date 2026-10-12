@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { Elysia } from 'elysia'
 import type { AppContext } from './context.ts'
 import { authRoutes } from './auth/plugin.ts'
+import { audit } from './lib/audit.ts'
 import { healthModule } from './modules/health/index.ts'
 import { HealthService } from './modules/health/service.ts'
 import { analyticsModule } from './modules/analytics/index.ts'
@@ -45,6 +46,7 @@ import { staffModule } from './modules/staff/index.ts'
 import { StaffService } from './modules/staff/service.ts'
 import { realtimeModule } from './realtime/ws.ts'
 import { requestLog } from './plugins/request-log.ts'
+import { securityHeaders } from './plugins/security-headers.ts'
 import { apiDocs } from './web/docs.ts'
 import { spa } from './web/spa.ts'
 
@@ -68,12 +70,25 @@ export function createApp(ctx: AppContext) {
   const app = new Elysia()
     .use(tracing)
     .use(requestLog(log))
+    .use(
+      securityHeaders({
+        production: config.NODE_ENV === 'production',
+        csp: config.CSP_MODE,
+        mapOrigins: config.CSP_MAP_ORIGINS.split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+      }),
+    )
     .onError({ as: 'global' }, ({ code, error, path }) => {
       if (code === 'VALIDATION' || code === 'NOT_FOUND' || code === 'PARSE') return
       log.error({ err: error, path }, 'unhandled error')
     })
     .use(apiDocs(version))
-    .use(authRoutes(auth))
+    .use(
+      authRoutes(auth, async (actor, action, target, after) => {
+        await audit(db, actor, action, target, null, after)
+      }),
+    )
     .use(healthModule(new HealthService(db, queue, config.ROLE, version)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))
@@ -110,7 +125,7 @@ export function createApp(ctx: AppContext) {
     .use(unmatchedModule(auth, db, ingest, new MatchingService(db)))
     .use(proposalsModule(auth, db, ctx.blobs, new MatchingService(db), ctx.bus))
     .use(moderationModule(auth, new ModerationService(db, ctx.blobs, ctx.bus, settings)))
-    .use(sourcesModule(auth, new SourcesService(db, queue)))
+    .use(sourcesModule(auth, new SourcesService(db, queue, ctx.bus)))
     .use(pipelineModule(auth, new PipelineService(db, queue, ingest)))
 
   return webDist

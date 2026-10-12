@@ -84,7 +84,8 @@ describe('unmatched queue', () => {
       .where(eq(schema.reports.schoolUai, lille))
     expect(report).toMatchObject({
       origin: 'press',
-      moderation: 'pending',
+      // A person checked it and chose the school: approved at once, as in v1.
+      moderation: 'approved',
       sourceDomain: 'u.example',
     })
     const [row] = await s.ctx.db.select().from(schema.unmatched).where(eq(schema.unmatched.id, id))
@@ -105,6 +106,66 @@ describe('unmatched queue', () => {
         })
       ).status,
     ).toBe(422)
+  })
+
+  test('link: a fact the automatic rules would drop (low certainty, weekend) is still published, approved', async () => {
+    // Saturday, "blocked" at a lycée, low certainty: three reasons for the pipeline to drop it.
+    // A person looked at it and chose the school: that decision wins.
+    const [src] = await s.ctx.db
+      .insert(schema.sources)
+      .values({ kind: 'rss', identifier: 'https://w.example/feed', label: 'W', origin: 'press' })
+      .returning({ id: schema.sources.id })
+    const saturday = new Date('2026-10-10T09:00:00Z')
+    const [item] = await s.ctx.db
+      .insert(schema.ingestItems)
+      .values({
+        sourceId: src?.id ?? '',
+        externalId: 'sat',
+        url: 'https://w.example/sat',
+        publishedAt: saturday,
+        state: 'extracted',
+      })
+      .returning({ id: schema.ingestItems.id })
+    await s.ctx.db.insert(schema.itemContents).values({
+      itemId: item?.id ?? '',
+      title: 'Blocus',
+      text: 'Les élèves bloquent le lycée Inconnu samedi.',
+      chars: 44,
+    })
+    const [extraction] = await s.ctx.db
+      .insert(schema.extractions)
+      .values({
+        itemId: item?.id ?? '',
+        schoolName: 'Lycée Inconnu',
+        city: 'Lille',
+        status: 'blocked',
+        certainty: 'low',
+        provider: 'gemini',
+        model: 'm',
+        promptVersion: 'v1',
+        outcome: 'unmatched',
+      })
+      .returning({ id: schema.extractions.id })
+    const id = await waiting({
+      extractionId: extraction?.id ?? null,
+      sourceId: src?.id ?? null,
+      sourceUrl: 'https://w.example/sat',
+      sourceDomain: 'w.example',
+      observedAt: saturday,
+    })
+    const res = await as(moderator, `/api/staff/unmatched/${id}/link`, {
+      method: 'POST',
+      json: { uai: lille },
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ outcome: 'reported' })
+    const rows = await s.ctx.db
+      .select()
+      .from(schema.reports)
+      .where(eq(schema.reports.sourceUrl, 'https://w.example/sat'))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ moderation: 'approved', schoolUai: lille })
+    expect(rows[0]?.moderatedBy).toBeTruthy()
   })
 
   test('dismiss drops the row and its excerpt', async () => {
@@ -322,6 +383,22 @@ describe('proposals', () => {
         })
       ).status,
     ).toBe(422)
+  })
+
+  test('a university proposed by a visitor is created as higher education, not as a lycée', async () => {
+    const a = await proposal()
+    await s.ctx.db
+      .update(schema.schoolProposals)
+      .set({ name: 'Université de Lille' })
+      .where(eq(schema.schoolProposals.id, a.id))
+    const created = (await (
+      await as(admin, `/api/staff/proposals/${a.id}/resolve`, { method: 'POST', json: {} })
+    ).json()) as { uai: string }
+    const [school] = await s.ctx.db
+      .select()
+      .from(schema.schools)
+      .where(eq(schema.schools.uai, created.uai))
+    expect(school?.level).toBe('higher')
   })
 
   test('only admins reject; the photo is deleted', async () => {

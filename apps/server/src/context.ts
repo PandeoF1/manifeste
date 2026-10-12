@@ -42,6 +42,8 @@ export function createContext(
     createDb(config.DATABASE_URL, {
       max: config.DATABASE_POOL_MAX,
       applicationName: `manifeste-${config.ROLE}`,
+      statementTimeoutMs: 60_000,
+      onPoolError: (error) => log.warn({ err: error.message }, 'database connection error'),
     })
   const runsJobs = config.ROLE !== 'api'
   const queue =
@@ -91,5 +93,7 @@ function createAiRuntime(config: Config, db: Database, log: Logger) {
     () => meter.drain(),
   )
   const ai = createAi(aiConfig, { sink: meter, spentToday: () => aiUsage.spentTodayCached() })
+  // Know today's spend before the first call, not after it.
+  if (aiConfig.enabled) void aiUsage.spentToday(true).catch(() => 0)
   return { ai, aiUsage }
 }

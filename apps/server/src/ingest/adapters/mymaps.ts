@@ -2,6 +2,7 @@
  * A public Google My Maps map, read as KML: name, description and coordinates of each point.
  * Every point becomes an item, and its position later finds the exact school.
  */
+import { createHash } from 'node:crypto'
 import { XMLParser } from 'fast-xml-parser'
 import { fetchText } from '../http.ts'
 import { IdentifierError, type ScrapedItem, type SourceAdapter } from '../types.ts'
@@ -45,18 +46,24 @@ export function parseMyMapsKml(source: string, mid: string, now: Date): ScrapedI
       if (!name && !description) continue
       if (!geo && !address && !description) continue // no position, no address: unusable
       const where = geo ? `${geo.lat.toFixed(4)},${geo.lng.toFixed(4)}` : address
-      items.push({
-        externalId: `${mid}:${name}:${where}`.slice(0, 500),
-        url: myMapsUrl(mid),
+      const body = [
         // The French header is what the extraction prompt recognises as a map point.
-        text: [
-          `Carte « ${mapTitle} »${folder ? ` / ${folder}` : ''}`,
-          name,
-          address && address !== name ? `Adresse : ${address}` : '',
-          description,
-        ]
-          .filter(Boolean)
-          .join('\n'),
+        `Carte « ${mapTitle} »${folder ? ` / ${folder}` : ''}`,
+        name,
+        address && address !== name ? `Adresse : ${address}` : '',
+        description,
+      ]
+        .filter(Boolean)
+        .join('\n')
+      // A point is edited in place on the map ("bloqué" becomes "levé", a line is added). The
+      // identifier follows the content, so an edit is a new item that gets analysed, instead of
+      // being swallowed as "already seen". The same report is still never created twice
+      // (one report per school, link and status).
+      const version = createHash('sha1').update(body).digest('hex').slice(0, 10)
+      items.push({
+        externalId: `${mid}:${name}:${where}:${version}`.slice(0, 500),
+        url: myMapsUrl(mid),
+        text: body,
         publishedAt: now,
         ...(geo && { geo }),
         alwaysRelevant: true,

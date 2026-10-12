@@ -18,6 +18,7 @@ import {
 } from './html.ts'
 import { renderOg, type OgAssets, type OgContent } from './og.ts'
 import type { ShareService } from './service.ts'
+import { memoWithTtl } from '../../lib/memo.ts'
 import { bytesResponse } from '../../lib/response.ts'
 
 /** Which page a path is, for robots; null for anything else (assets, API, unknown). */
@@ -67,12 +68,23 @@ export async function sharePage(
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'public, max-age=60, s-maxage=300',
+      // Same address as the app a visitor gets: a shared cache must not mix the two.
+      vary: 'user-agent',
     },
   })
 }
 
-export const shareModule = (service: ShareService, origin: string, assets: OgAssets) =>
-  new Elysia({ name: 'module.share' })
+export const shareModule = (service: ShareService, origin: string, assets: OgAssets) => {
+  // Rendering a card is CPU work (layout + rasterising). The CDN caches it, but a request that
+  // reaches the origin should not redo it: one render per distinct content, for five minutes,
+  // and at most a few hundred kept (the content of unknown schools is one shared "not found").
+  const renders = memoWithTtl(
+    300_000,
+    (content: OgContent) => renderOg(content, assets),
+    Date.now,
+    300,
+  )
+  return new Elysia({ name: 'module.share' })
     .get(
       '/api/og',
       async ({ query, set }) => {
@@ -91,7 +103,7 @@ export const shareModule = (service: ShareService, origin: string, assets: OgAss
         set.headers['cache-control'] =
           'public, max-age=60, s-maxage=300, stale-while-revalidate=600'
         set.headers['content-type'] = 'image/png'
-        return bytesResponse(await renderOg(content, assets), {})
+        return bytesResponse(await renders.get(content), {})
       },
       {
         query: t.Object({ uai: t.Optional(t.String({ pattern: '^[0-9]{7}[A-Z]$' })) }),
@@ -112,3 +124,4 @@ export const shareModule = (service: ShareService, origin: string, assets: OgAss
       },
       { detail: { hide: true } },
     )
+}

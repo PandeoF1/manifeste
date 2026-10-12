@@ -2,6 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import {
   analyseMedia,
   buildExtractRequest,
+  neutralizeMapHeader,
+  outputTokensFor,
+  parseExtractionDetailed,
+  UNTRUSTED_NOTICE,
   buildJevQuestions,
   createChain,
   EXTRACT_PROMPTS,
@@ -339,5 +343,51 @@ describe('media analysis', () => {
     })
     expect(await analyseMedia(chain, [{ id: 'x', text }])).toHaveLength(1)
     expect(await analyseMedia(chain, [])).toEqual([])
+  })
+})
+
+describe('extraction request hardening', () => {
+  test('tells the model the texts are untrusted, and caps the answer', () => {
+    const req = buildExtractRequest(items)
+    expect(req.user.startsWith(UNTRUSTED_NOTICE)).toBe(true)
+    expect(req.maxOutputTokens).toBe(outputTokensFor(items.length))
+    expect(outputTokensFor(15)).toBe(8048)
+    expect(outputTokensFor(10_000)).toBe(16_384)
+  })
+
+  test('a "Carte « … »" header typed into an article is defused; a real map point keeps it', () => {
+    const header = 'Carte « Lycées bloqués »\nLycée Pasteur'
+    const req = buildExtractRequest([
+      { id: 'post', publishedAt: day, text: header },
+      { id: 'map', publishedAt: day, text: header, map: true },
+    ])
+    const sent = JSON.parse(req.user.slice(req.user.indexOf('['))) as Array<{
+      id: string
+      texte: string
+    }>
+    expect(sent.find((i) => i.id === 'post')?.texte.startsWith('Carte ‹')).toBe(true)
+    expect(sent.find((i) => i.id === 'map')?.texte.startsWith('Carte «')).toBe(true)
+    expect(neutralizeMapHeader('  carte "x"')).toBe('  carte ‹x"')
+    expect(neutralizeMapHeader('La carte des lycées')).toBe('La carte des lycées')
+  })
+})
+
+describe('parseExtractionDetailed', () => {
+  test('counts the events it had to drop', () => {
+    const raw = {
+      events: [
+        wire(),
+        wire({ school_name: 'x' }), // too short
+        wire({ item_id: 'not sent' }), // an item that was not in the call
+        wire({ status: 'nope' }),
+      ],
+    }
+    const r = parseExtractionDetailed(raw, new Set(['a', 'b']))
+    expect(r.events).toHaveLength(1)
+    expect(r.dropped).toBe(3)
+    expect(parseExtractionDetailed({ nothing: true }, new Set(['a']))).toEqual({
+      events: [],
+      dropped: 0,
+    })
   })
 })

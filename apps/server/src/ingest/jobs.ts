@@ -71,6 +71,15 @@ export async function registerIngestJobs(ctx: AppContext, ingest: IngestService)
   })
   await queue.schedule('ingest.housekeeping', '30 3 * * *', {})
 
+  // A report the judge could not look at (cap or time spent in a busy pass, judge unavailable) counts
+  // as confirmed until judged. Do not wait for a person to run it: look again every half hour.
+  await queue.schedule(
+    'ingest.operation',
+    '*/30 * * * *',
+    { kind: 'rejudge', sinceHours: 48, limit: 60 },
+    { key: 'rejudge-unjudged' },
+  )
+
   const operations = new IngestOperations(ingest)
   await queue.work('ingest.operation', async (jobs) => {
     for (const job of jobs)

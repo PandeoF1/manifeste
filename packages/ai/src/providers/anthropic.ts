@@ -37,7 +37,7 @@ export function anthropicModel(options: AnthropicOptions): JsonModel {
           signal: signal ?? AbortSignal.timeout(options.timeoutMs ?? 60_000),
           body: JSON.stringify({
             model: options.model,
-            max_tokens: options.maxTokens ?? 4096,
+            max_tokens: request.maxOutputTokens ?? options.maxTokens ?? 4096,
             temperature: request.temperature ?? 0,
             system: request.system,
             messages: [{ role: 'user', content: request.user }],

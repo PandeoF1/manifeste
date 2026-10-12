@@ -13,6 +13,7 @@ import { purgeOld, retryLane, type RetryFilter } from './housekeeping.ts'
 import { mediaSweep } from './media-stage.ts'
 import { readSweep } from './read-stage.ts'
 import { ReportStore } from './report-store.ts'
+import { safeFetch } from './safe-fetch.ts'
 import { resolveSweep } from './resolve-stage.ts'
 import type { FetchLike } from './types.ts'
 
@@ -45,7 +46,7 @@ export class IngestService {
       matching: new MatchingService(ctx.db),
       settings,
       reports: new ReportStore(ctx.db, settings, ctx.bus),
-      fetchFn: overrides.fetchFn ?? ((url, init) => fetch(url, init)),
+      fetchFn: overrides.fetchFn ?? safeFetch((url, init) => fetch(url, init)),
       log: ctx.log.child({ component: 'ingest' }),
       now: overrides.now ?? (() => new Date()),
       trigger:

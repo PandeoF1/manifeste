@@ -60,6 +60,7 @@ export async function extractSweep(deps: IngestDeps): Promise<ExtractSweepResult
       runId: schema.ingestItems.runId,
       publishedAt: schema.ingestItems.publishedAt,
       attempts: schema.ingestItems.attempts,
+      alwaysRelevant: schema.ingestItems.alwaysRelevant,
       text: schema.itemContents.text,
     })
     .from(schema.ingestItems)
@@ -103,6 +104,7 @@ export async function extractSweep(deps: IngestDeps): Promise<ExtractSweepResult
       id: String(i),
       publishedAt: g.publishedAt,
       text: g.text,
+      map: g.alwaysRelevant,
     }))
     const t0 = performance.now()
     let answer
@@ -135,6 +137,23 @@ export async function extractSweep(deps: IngestDeps): Promise<ExtractSweepResult
     const out: PipelineEvent[] = []
     for (const [i, item] of group.entries()) {
       const found = byIndex.get(String(i)) ?? []
+      if (found.length === 0 && answer.dropped > 0 && item.attempts + 1 < config.maxAttempts) {
+        // The model answered, but with events nobody could use: that is not "no fact". Ask again
+        // later instead of closing the item for good.
+        await db
+          .update(schema.ingestItems)
+          .set({ attempts: sql`${schema.ingestItems.attempts} + 1` })
+          .where(eq(schema.ingestItems.id, item.id))
+        out.push({
+          stage: 'extract',
+          outcome: 'retry',
+          itemId: item.id,
+          sourceId: item.sourceId,
+          runId: item.runId,
+          detail: { reason: 'unusable events', dropped: answer.dropped },
+        })
+        continue
+      }
       if (found.length === 0) {
         await db
           .update(schema.ingestItems)
@@ -179,7 +198,11 @@ export async function extractSweep(deps: IngestDeps): Promise<ExtractSweepResult
         sourceId: item.sourceId,
         runId: item.runId,
         durationMs: performance.now() - t0,
-        detail: { facts: found.length, model: answer.model },
+        detail: {
+          facts: found.length,
+          model: answer.model,
+          ...(answer.dropped > 0 && { dropped: answer.dropped }),
+        },
       })
     }
     await events.emit(...out)

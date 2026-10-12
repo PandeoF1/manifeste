@@ -13,6 +13,10 @@ export default defineConfig({
     trace: 'retain-on-failure',
     locale: 'fr-FR',
     timezoneId: 'Europe/Paris',
+    // A Chromium installed elsewhere than Playwright expects (some containers): E2E_CHROMIUM=/path.
+    ...(process.env.E2E_CHROMIUM && {
+      launchOptions: { executablePath: process.env.E2E_CHROMIUM, args: ['--no-sandbox'] },
+    }),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

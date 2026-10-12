@@ -33,6 +33,7 @@ export async function linkUnmatched(
     const d = await decide(deps, { ...fact, text: fact.text || row.context || '' }, null, {
       forceUai: uai,
       recordUnmatched: false,
+      staffUserId: userId,
     })
     outcome = d.outcome
     reportId = d.reportId ?? null
@@ -63,6 +64,7 @@ export async function linkUnmatched(
       dateBasis: 'published',
       verdict: null,
       schoolLevel: school.level,
+      approvedBy: userId,
     })
     outcome = stored.outcome === 'inserted' ? 'reported' : stored.outcome
     reportId = stored.outcome === 'inserted' ? stored.reportId : null
