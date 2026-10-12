@@ -8,7 +8,7 @@ import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { status } from 'elysia'
 import { audit, type Actor } from '../../lib/audit.ts'
 import { detectImageKind, hasMetadata } from '../../lib/image.ts'
-import { rows } from '../../lib/sql.ts'
+import { escapeLike, rows } from '../../lib/sql.ts'
 import type { EventBus } from '../../realtime/bus.ts'
 import { newBlobKey, type BlobStore } from '../../storage/blob-store.ts'
 import type { SettingsService } from '../settings/service.ts'
@@ -119,9 +119,9 @@ export class ModerationService {
           q.hidden !== undefined ? eq(schema.reports.hidden, q.hidden) : undefined,
           q.q
             ? or(
-                ilike(schema.schools.name, `%${q.q}%`),
-                ilike(schema.schools.city, `%${q.q}%`),
-                ilike(schema.reports.sourceDomain, `%${q.q}%`),
+                ilike(schema.schools.name, `%${escapeLike(q.q)}%`),
+                ilike(schema.schools.city, `%${escapeLike(q.q)}%`),
+                ilike(schema.reports.sourceDomain, `%${escapeLike(q.q)}%`),
               )
             : undefined,
         ),
@@ -161,7 +161,9 @@ export class ModerationService {
       publicFile = key.slice('public/'.length)
     }
 
-    await this.db
+    // Only a report that is still pending can be decided: two moderators opening the same one
+    // must not both "win" (the second one is told it was already decided).
+    const decided = await this.db
       .update(schema.reports)
       .set({
         moderation: decision === 'approve' ? 'approved' : 'rejected',
@@ -169,7 +171,13 @@ export class ModerationService {
         moderatedBy: actor.user.id,
         ...(publicFile && { photoKey: publicFile }),
       })
-      .where(eq(schema.reports.id, id))
+      .where(and(eq(schema.reports.id, id), eq(schema.reports.moderation, 'pending')))
+      .returning({ id: schema.reports.id })
+    if (decided.length === 0) {
+      // Lost the race: the blurred photo we just stored belongs to nobody.
+      if (publicFile) await this.blobs.delete(`public/${publicFile}`)
+      return status(409, 'This report was already decided')
+    }
     await this.dropOriginal(id)
     await audit(
       this.db,

@@ -34,9 +34,15 @@ export function requestOrigin(request: Request): string[] {
   return [`${proto}://${host}`]
 }
 
+export type TwoFactorPolicy = 'admin' | 'all'
+
+/** Which roles must have TOTP enabled, per auth instance (read by the `staff` rule and the admin gate). */
+const policies = new WeakMap<object, TwoFactorPolicy>()
+export const twoFactorPolicyOf = (auth: object): TwoFactorPolicy => policies.get(auth) ?? 'admin'
+
 export function createAuth(deps: { db: Database; config: Config; log: Logger }) {
   const { db, config, log } = deps
-  return betterAuth({
+  const auth = betterAuth({
     appName: 'Manifeste',
     logger: {
       level: 'warn',
@@ -75,6 +81,9 @@ export function createAuth(deps: { db: Database; config: Config; log: Logger }) 
     session: { expiresIn: 7 * 24 * 3600, updateAge: 24 * 3600 },
     rateLimit: { enabled: config.NODE_ENV !== 'test', storage: 'database' },
     advanced: {
+      // The rate limiter needs the visitor's address. Behind Cloudflare it is cf-connecting-ip;
+      // the first X-Forwarded-For entry is the fallback (the proxy appends, so keep it behind one).
+      ipAddress: { ipAddressHeaders: ['cf-connecting-ip', 'x-forwarded-for'] },
       cookiePrefix: 'manifeste',
       useSecureCookies: config.PUBLIC_URL.startsWith('https://'),
       database: { generateId: () => crypto.randomUUID() },
@@ -84,6 +93,8 @@ export function createAuth(deps: { db: Database; config: Config; log: Logger }) 
       twoFactor({ issuer: 'Manifeste' }),
     ],
   })
+  policies.set(auth, config.STAFF_2FA)
+  return auth
 }
 
 export type Auth = ReturnType<typeof createAuth>

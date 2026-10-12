@@ -24,7 +24,14 @@ export function spa(distDir: string, intercept?: Intercept) {
       const handled = await intercept?.(request)
       if (handled) return handled
 
-      const path = resolve(root, `.${decodeURIComponent(pathname)}`)
+      let decoded: string
+      try {
+        decoded = decodeURIComponent(pathname)
+      } catch {
+        // A malformed escape ("/%E0%A4%A") is the visitor's mistake, not a server error.
+        return status(400, 'Bad Request')
+      }
+      const path = resolve(root, `.${decoded}`)
       if (path !== root && !path.startsWith(root + sep)) return status(404, 'Not Found')
 
       const file = Bun.file(path)
@@ -35,6 +42,8 @@ export function spa(distDir: string, intercept?: Intercept) {
       // A missing file with an extension is a real 404, not a client route.
       if (/\.[a-z0-9]+$/i.test(pathname)) return status(404, 'Not Found')
       set.headers['cache-control'] = REVALIDATE
+      // Robots get another page at the same address (see `intercept`): a shared cache must key on it.
+      if (intercept) set.headers.vary = 'user-agent'
       return index
     },
     { detail: { hide: true } },

@@ -155,7 +155,14 @@ describe('/api/donnees', () => {
     expect(csv.headers.get('content-disposition')).toMatch(
       /^attachment; filename="manifeste-jours-\d{4}-\d{2}-\d{2}\.csv"$/,
     )
-    expect((await csv.text()).startsWith('﻿jour;etablissements;')).toBe(true)
+    // The bytes, not `text()`: a text decoder drops a leading byte order mark, which Excel needs.
+    const bytes = new Uint8Array(await csv.arrayBuffer())
+    expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+    expect(
+      new TextDecoder('utf-8', { ignoreBOM: true })
+        .decode(bytes)
+        .startsWith('\ufeffjour;etablissements;'),
+    ).toBe(true)
 
     const geo = await s.request('/api/donnees?vue=etablissements&format=geojson')
     expect(geo.headers.get('content-type')).toContain('application/geo+json')

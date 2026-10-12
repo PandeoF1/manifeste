@@ -45,8 +45,10 @@ export const DEFAULT_INGEST_CONFIG: IngestConfig = {
   discoverConcurrency: 4,
   readBatch: 60,
   pageConcurrency: 5,
-  extractBatchSize: 50,
-  maxExtractCalls: 4,
+  // Small calls: one article that confuses or manipulates the model then reaches few others,
+  // and an answer is never cut by its length. 15 x 12 handles as many items per run as 50 x 4 did.
+  extractBatchSize: 15,
+  maxExtractCalls: 12,
   resolveBatch: 200,
   minCertainty: 'medium',
   maxJudgeCalls: 60,

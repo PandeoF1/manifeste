@@ -117,6 +117,35 @@ describe('the queue', () => {
   })
 })
 
+describe('searching the reports', () => {
+  test('the search text is literal: "%" and "_" are not wildcards', async () => {
+    await addReport(s.ctx.db, { schoolUai: uai, sourceDomain: 'press.example' })
+    const list = async (q: string) =>
+      (await (await as(admin, `/api/staff/reports?q=${encodeURIComponent(q)}`)).json()) as unknown[]
+    expect((await list('pasteur')).length).toBeGreaterThan(0)
+    // A wildcard would match every report (and scan the table for it).
+    expect(await list('%')).toEqual([])
+    expect(await list('_')).toEqual([])
+    expect(await list('pas_eur')).toEqual([])
+  })
+})
+
+describe('two moderators on the same report', () => {
+  test('only one decision wins; the other is told, and its photo is not left behind', async () => {
+    const { id } = await pendingOnSite()
+    const before = s.blobs.blobs.size
+    const [a, b] = await Promise.all([
+      as(moderator, `/api/staff/reports/${id}/decision`, decision('approve', CLEAN_JPEG)),
+      as(moderator, `/api/staff/reports/${id}/decision`, decision('approve', CLEAN_JPEG)),
+    ])
+    expect([a.status, b.status].sort()).toEqual([200, 409])
+    // Exactly one published photo: the loser deleted the one it had stored.
+    const published = [...s.blobs.blobs.keys()].filter((k) => k.startsWith('public/'))
+    expect(published).toHaveLength(1)
+    expect(s.blobs.blobs.size).toBeLessThanOrEqual(before + 1)
+  })
+})
+
 describe('decisions', () => {
   test('approve with a blurred photo: published, original deleted, photo served publicly', async () => {
     const { id, photoKey } = await pendingOnSite()

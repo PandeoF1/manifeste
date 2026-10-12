@@ -248,11 +248,11 @@ export function inject(html: string, m: Meta): string {
       )
       .replace(/<link\s+rel="canonical"[^>]*>\s*/g, '')
       .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>\s*/g, '')
-      .replace('</head>', `    ${tags}\n  </head>`)
+      .replace('</head>', () => `    ${tags}\n  </head>`)
       // The page content replaces the loading screen (replaced when the app mounts).
       .replace(
         /<div id="root">[\s\S]*?<\/div>\s*<!-- \/root -->/,
-        `<div id="root">${m.body ?? ''}</div><!-- /root -->`,
+        () => `<div id="root">${m.body ?? ''}</div><!-- /root -->`,
       )
   )
 }

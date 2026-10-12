@@ -90,3 +90,36 @@ export const sameSchool = (
   event: { schoolName: string; city: string | null },
   school: { name: string; city: string },
 ): boolean => matchSchool(event, school) === 'yes'
+
+/**
+ * Did the model copy the school it reports from THIS text? The extraction prompt asks for the
+ * name "as it appears in the text", and a call handles many articles at once, so a model that
+ * mixes up two articles (or follows an instruction hidden in one of them) reports a school the
+ * article never mentions. At least half of the distinctive words of the cited name must be in
+ * the text; a name with none ("Lycée de Hanches") is checked by its city. An event with neither
+ * is not checkable and passes.
+ */
+export function eventNamedInText(
+  event: { schoolName: string; city: string | null },
+  text: string,
+): boolean {
+  const haystack = norm(text)
+  const words = (s: string | null) =>
+    (norm(s).match(/[a-z0-9]{3,}/g) ?? []).filter((w) => !STOP.has(w) && !GENERIC_NAME_WORDS.has(w))
+  const generic = new Set([
+    'lycee',
+    'lycees',
+    'college',
+    'fac',
+    'faculte',
+    'universite',
+    'iut',
+    'ufr',
+    'campus',
+  ])
+  const keys = words(event.schoolName).filter((w) => !generic.has(w))
+  const wanted = keys.length > 0 ? keys : words(event.city)
+  if (wanted.length === 0) return true
+  const found = wanted.filter((w) => haystack.includes(w)).length
+  return found >= Math.ceil(wanted.length / 2)
+}

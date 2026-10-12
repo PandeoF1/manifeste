@@ -40,8 +40,13 @@ export interface Beacon {
 export class AnalyticsService {
   constructor(private readonly db: Database) {}
 
+  /** Today's salt as read from the database, kept a minute: it was one write and one read per visit. */
+  private known: { at: number; salt: string } | null = null
+
   /** Today's salt, created on first use. */
   async salt(): Promise<string> {
+    // A minute at most: the day changes in the database's clock, which this one only follows.
+    if (this.known && Date.now() - this.known.at < 60_000) return this.known.salt
     const fresh = randomBytes(32).toString('hex')
     await this.db.execute(
       sql`insert into daily_salts (day, salt) values (current_date, ${fresh}) on conflict (day) do nothing`,
@@ -51,6 +56,7 @@ export class AnalyticsService {
       sql`select salt from daily_salts where day = current_date`,
     )
     if (!row) throw new Error('daily salt missing')
+    this.known = { at: Date.now(), salt: row.salt }
     return row.salt
   }
 
@@ -84,22 +90,20 @@ export class AnalyticsService {
             on conflict (slot, page) do update set views = analytics_page_views.views + 1`,
       )
     }
-    for (const m of beacon.metrics.slice(0, 12)) {
-      const [min, max] = VITAL_RANGE[m.name]
-      if (!Number.isFinite(m.value) || m.value < min || m.value > max) continue
-      await this.db.insert(schema.analyticsVitals).values({
-        page: beacon.page,
-        metric: m.name,
-        value: m.value,
+    const samples = beacon.metrics
+      .slice(0, 12)
+      .filter((m) => {
+        const [min, max] = VITAL_RANGE[m.name]
+        return Number.isFinite(m.value) && m.value >= min && m.value <= max
       })
-    }
+      .map((m) => ({ page: beacon.page, metric: m.name, value: m.value }))
+    if (samples.length > 0) await this.db.insert(schema.analyticsVitals).values(samples)
   }
 
   /** "Tab open" signal: one random id per tab, forgotten after 10 minutes. */
   async ping(session: string, page: Page): Promise<void> {
-    await this.db.execute(
-      sql`delete from analytics_live where seen_at < now() - interval '10 minutes'`,
-    )
+    // Expired tabs are removed by `snapshotOnline`, every minute: not by each of the pings of every
+    // open tab (a delete per ping was the most frequent write of the whole site).
     await this.db
       .insert(schema.analyticsLive)
       .values({ session, page })
@@ -111,6 +115,9 @@ export class AnalyticsService {
 
   /** Every minute: how many tabs signalled in the last 100 seconds. */
   async snapshotOnline(): Promise<void> {
+    await this.db.execute(
+      sql`delete from analytics_live where seen_at < now() - interval '10 minutes'`,
+    )
     await this.db.execute(
       sql`insert into analytics_online (minute, online)
           select date_trunc('minute', now()), count(*) from analytics_live

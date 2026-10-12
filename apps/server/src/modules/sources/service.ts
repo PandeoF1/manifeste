@@ -1,11 +1,12 @@
 import { schema, type Database } from '@manifeste/db'
-import { eq, gte, sql } from 'drizzle-orm'
+import { and, eq, gte, sql } from 'drizzle-orm'
 import { status } from 'elysia'
 import { ADAPTERS } from '../../ingest/adapters/index.ts'
 import { SOURCE_PRESETS } from '../../ingest/presets.ts'
 import { IdentifierError } from '../../ingest/types.ts'
 import { audit, type Actor } from '../../lib/audit.ts'
 import type { JobQueue } from '../../queue/queue.ts'
+import type { EventBus } from '../../realtime/bus.ts'
 import { rows } from '../../lib/sql.ts'
 import type { SourcesModel } from './model.ts'
 
@@ -16,6 +17,7 @@ export class SourcesService {
   constructor(
     private readonly db: Database,
     private readonly queue: JobQueue,
+    private readonly bus: EventBus | null = null,
   ) {}
 
   async list() {
@@ -107,7 +109,30 @@ export class SourcesService {
     const [before] = await this.db.select().from(schema.sources).where(eq(schema.sources.id, id))
     if (!before) return status(404, 'Unknown source')
     await this.db.update(schema.sources).set(patch).where(eq(schema.sources.id, id))
-    await audit(this.db, actor, 'source.update', id, pick(before, patch), patch)
+    // "Hide the reports of this source" (a source that misled) has to reach what it already
+    // published: the flag is copied onto each report when it is created, so changing it on the
+    // source alone would only affect the future. Switching it ON hides the existing reports.
+    // Switching it OFF only affects the next ones: the flag of a past report cannot tell a
+    // report hidden because of its source from one a moderator hid by hand, so those stay as
+    // they are (unhide them one by one from the reports tab).
+    let hidNow = 0
+    if (patch.reportsHidden === true && !before.reportsHidden) {
+      const done = await this.db
+        .update(schema.reports)
+        .set({ hidden: true })
+        .where(and(eq(schema.reports.sourceId, id), eq(schema.reports.hidden, false)))
+        .returning({ id: schema.reports.id })
+      hidNow = done.length
+      if (hidNow > 0) void this.bus?.publish({ topic: 'statuses' }).catch(() => {})
+    }
+    await audit(
+      this.db,
+      actor,
+      'source.update',
+      id,
+      pick(before, patch),
+      hidNow > 0 ? { ...patch, reportsHiddenNow: hidNow } : patch,
+    )
     return (await this.list()).find((s) => s.id === id) ?? status(404, 'Unknown source')
   }
 

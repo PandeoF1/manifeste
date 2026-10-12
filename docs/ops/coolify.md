@@ -183,3 +183,20 @@ To go back: `bun copy-blobs.js --run --reverse`, then `BLOB_STORE=fs`.
 The bucket is the only copy of the originals while they await moderation (48 h at most). It is
 encrypted at rest by R2 and private. Do not give the token more than Object Read & Write on this
 one bucket, and do not reuse the bucket for anything public.
+
+## Security headers and Content-Security-Policy
+
+The API sends `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` on every
+response, `Strict-Transport-Security` in production, and a Content-Security-Policy with the HTML
+pages (`apps/server/src/plugins/security-headers.ts`). The policy only lets in the site itself,
+the map host and Cloudflare Turnstile; the pages under `/embed` may be framed by other sites, the
+rest cannot be framed at all.
+
+- `CSP_MAP_ORIGINS`: where the map loads its style and tiles from (default
+  `https://tiles.openfreemap.org`). **Change it together with `VITE_MAP_STYLE_URL`**, or the map
+  goes blank.
+- `CSP_MODE`: `enforce` (default), `report-only` (the browser logs violations without blocking:
+  use it to try a new map provider or a new third-party script) or `off`.
+- If Cloudflare (a Transform Rule) or Traefik already adds a CSP header, both apply and a page
+  must satisfy both: remove the proxy's one, or set `CSP_MODE=off` here.
+- `e2e/tests/csp.spec.ts` loads every kind of page in Chromium and fails on any violation.

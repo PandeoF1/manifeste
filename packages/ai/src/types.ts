@@ -8,6 +8,8 @@ export interface JsonRequest {
   schema: TSchema
   /** Sampling temperature; defaults to 0 because every task here is extraction or classification. */
   temperature?: number
+  /** Cap on the generated tokens (thinking included for models that think). Unset: the provider's default. */
+  maxOutputTokens?: number
 }
 
 /** Tokens consumed. Thinking tokens are billed like output, so they are kept apart. */

@@ -37,4 +37,20 @@ describe('memoWithTtl', () => {
     await expect(memo.get('x')).rejects.toThrow('boom')
     expect(await memo.get('x')).toBe('ok')
   })
+
+  test('keeps a bounded number of keys, dropping the oldest', async () => {
+    let loads = 0
+    const memo = memoWithTtl(
+      60_000,
+      async (k: string) => `${k}:${++loads}`,
+      () => 0,
+      3,
+    )
+    for (const k of ['a', 'b', 'c', 'd']) await memo.get(k)
+    expect(loads).toBe(4)
+    await memo.get('d') // still cached
+    await memo.get('b') // still cached
+    expect(loads).toBe(4)
+    expect(await memo.get('a')).toBe('a:5') // evicted: loaded again
+  })
 })

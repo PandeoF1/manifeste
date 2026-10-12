@@ -95,7 +95,9 @@ describe('Google My Maps', () => {
       geo: { lat: 50.6371, lng: 3.0612 },
       alwaysRelevant: true,
       url: 'https://www.google.com/maps/d/viewer?mid=MID123456789',
-      externalId: 'MID123456789:Lycée Pasteur:50.6371,3.0612',
+      externalId: expect.stringMatching(
+        /^MID123456789:Lycée Pasteur:50\.6371,3\.0612:[0-9a-f]{10}$/,
+      ),
     })
     expect(items[0]?.text).toBe(
       'Carte « Plus de 35 lycées fermés dans le Nord et le Pas-de-Calais » / Lycées fermés le 2 octobre\nLycée Pasteur\nLille\nFermé toute la journée',
@@ -103,11 +105,25 @@ describe('Google My Maps', () => {
     expect(items[1]?.geo).toEqual({ lat: 50.2912, lng: 2.7801 })
   })
 
+  test('an edited point is a new item; an untouched one keeps its identifier', () => {
+    const before = parseMyMapsKml(kml, 'MID123456789', now)
+    const same = parseMyMapsKml(kml, 'MID123456789', new Date(now.getTime() + 3_600_000))
+    expect(same.map((i) => i.externalId)).toEqual(before.map((i) => i.externalId))
+    // "Fermé toute la journée" becomes "Rouvert": the old identifier would have hidden the change.
+    const edited = parseMyMapsKml(
+      kml.replace('Fermé toute la journée', 'Rouvert ce matin'),
+      'MID123456789',
+      now,
+    )
+    expect(edited[0]?.externalId).not.toBe(before[0]?.externalId)
+    expect(edited[1]?.externalId).toBe(before[1]?.externalId)
+  })
+
   test('accepts points placed by address (no coordinates)', () => {
     const byAddress = parseMyMapsKml(kml, 'MID123456789', now)[2]
     expect(byAddress?.geo).toBeUndefined()
-    expect(byAddress?.externalId).toBe(
-      'MID123456789:Lycée Elisa LEMONNIER:Lycée Elisa LEMONNIER Douai Nord',
+    expect(byAddress?.externalId).toMatch(
+      /^MID123456789:Lycée Elisa LEMONNIER:Lycée Elisa LEMONNIER Douai Nord:[0-9a-f]{10}$/,
     )
   })
 

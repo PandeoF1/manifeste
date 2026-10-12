@@ -32,6 +32,9 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       S3_PREFIX: ${S3_PREFIX:-}
+      CSP_MODE: ${CSP_MODE:-enforce}
+      CSP_MAP_ORIGINS: ${CSP_MAP_ORIGINS:-https://tiles.openfreemap.org}
+      STAFF_2FA: ${STAFF_2FA:-admin}
       INGEST_ENABLED: ${INGEST_ENABLED:-true}
     expose:
       - '3000'
