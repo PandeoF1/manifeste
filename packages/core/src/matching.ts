@@ -36,11 +36,29 @@ export function pickMatch(
   candidates: ReadonlyArray<SchoolCandidate>,
   hasCity: boolean,
   t: typeof MATCH_THRESHOLDS = MATCH_THRESHOLDS,
+  cited = '',
 ): SchoolCandidate | null {
-  // Same score: the shortest (least specific) name first, "Lycée Condorcet" before
-  // "Lycée professionnel Condorcet", then the UAI so the choice is stable.
+  // An annex ranks just behind the school it belongs to: its name is the same, so a stray
+  // article or a missing "d'" would otherwise put it first.
+  const rank = (c: SchoolCandidate) => c.score - (isAnnex(c.name) ? ANNEX_PENALTY : 0)
+  // A citation of a "lycée professionnel" wants the vocational school; any other wants the
+  // general or polyvalent twin first (that is where lycéens block).
+  const wantsVocational = normalizeWords(cited).some((w) => w === 'professionnel' || w === 'lp')
+  // In a known city, the school whose name is exactly the cited one wins over a longer name that
+  // contains it ("Lycée Saint-Charles" over "Lycée Saint-Charles Camas"). Without a city the
+  // longer name may be the right school of another town, so only a human can tell.
+  const wanted = hasCity ? stripGenericWords(cleanCitation(cited)) : ''
+  const isExact = (c: SchoolCandidate) => wanted !== '' && stripGenericWords(c.name) === wanted
+  // Same score: the exact name, the twin that fits the citation, then the shortest (least specific) name,
+  // "Lycée Condorcet" before "Lycée professionnel Condorcet", then the UAI so the choice is stable.
   const ranked = [...candidates].sort(
-    (a, b) => b.score - a.score || a.name.length - b.name.length || a.uai.localeCompare(b.uai),
+    (a, b) =>
+      rank(b) - rank(a) ||
+      Number(isExact(b)) - Number(isExact(a)) ||
+      Number(isVocational(a.name) !== wantsVocational) -
+        Number(isVocational(b.name) !== wantsVocational) ||
+      a.name.length - b.name.length ||
+      a.uai.localeCompare(b.uai),
   )
   const best = ranked[0]
   if (!best) return null
@@ -50,12 +68,46 @@ export function pickMatch(
   } else if (best.nameScore < t.minNameScoreWithoutCity) {
     return null
   }
-  // A close rival = likely namesake. Twins of one site (each with its own UAI) do not count.
+  // A close rival = likely namesake. Twins of one site (each with its own UAI) do not count,
+  // nor do the annexes of the school itself.
   const rival = ranked.find(
-    (c) => c.uai !== best.uai && best.score - c.score < t.minMargin && !sameSite(best, c),
+    (c) =>
+      c.uai !== best.uai &&
+      rank(best) - rank(c) < t.minMargin &&
+      !sameSite(best, c) &&
+      (isAnnex(best.name) || !isAnnex(c.name)) &&
+      !(isExact(best) && !isExact(c)),
   )
   return rival ? null : best
 }
+
+/** "cité scolaire Mistral" cites the lycée Mistral: the kind of place is not part of its name. */
+export function cleanCitation(name: string): string {
+  return name
+    .replace(/\bcit[ée]s?\s+scolaires?\b/giu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * A record of the directory that is a part of a school, not a school: "Section d'enseignement
+ * professionnel du lycée polyvalent Rimbaud" has its own UAI and the name of its lycée, so it
+ * always ties with it.
+ */
+export function isAnnex(name: string): boolean {
+  const first = normalizeWords(name)[0]
+  return first !== undefined && ANNEX_FIRST_WORDS.has(first)
+}
+
+const ANNEX_PENALTY = 0.12
+
+/** A vocational-only lycée ("lycée professionnel X"), as opposed to a general or polyvalent one. */
+function isVocational(name: string): boolean {
+  const words = normalizeWords(name)
+  return words.includes('professionnel') && !words.includes('polyvalent')
+}
+
+const ANNEX_FIRST_WORDS = new Set(['section', 'sep', 'segpa', 'sgt', 'annexe', 'antenne', 'micro'])
 
 /** Distance in metres (equirectangular approximation, plenty at a few hundred metres). */
 export function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {

@@ -5,6 +5,7 @@
  */
 import { sql } from 'drizzle-orm'
 import {
+  cleanCitation,
   pickMatch,
   type NearbyCandidate,
   type SchoolCandidate,
@@ -30,7 +31,7 @@ export class MatchingService {
    */
   async candidates(name: string, city: string | null, limit = 5): Promise<SchoolCandidate[]> {
     const cap = Math.max(1, Math.min(limit, 20))
-    const n = sql`strip_generic_words(${name})`
+    const n = sql`strip_generic_words(${cleanCitation(name)})`
     const c = sql`normalize_text(${city ?? ''})`
     const found = await rows<SchoolCandidate>(
       this.db,
@@ -51,7 +52,7 @@ export class MatchingService {
 
   /** The matching decision: a UAI only when the best candidate is clear. */
   async match(name: string, city: string | null): Promise<SchoolCandidate | null> {
-    return pickMatch(await this.candidates(name, city), Boolean(city?.trim()))
+    return pickMatch(await this.candidates(name, city), Boolean(city?.trim()), undefined, name)
   }
 
   /** Schools of a city (name similarity ≥ 0.8), optionally of one level. */
