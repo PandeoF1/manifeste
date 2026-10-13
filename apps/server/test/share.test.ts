@@ -141,6 +141,7 @@ describe('served pages', () => {
   test('the home page lists the schools in progress, grouped by department', async () => {
     const bot = await (await s.request('/', { headers: asBot })).text()
     expect(bot).toContain('1 établissement bloqué')
+    expect(bot).toContain('Depuis le début du mouvement, 1 établissement a été bloqué')
     expect(bot).toContain('<h3>59</h3>')
     expect(bot).toContain(`<a href="/lycee/${uai}">Lycée Pasteur</a>`)
     expect(bot).toContain('"@type":"WebSite"')

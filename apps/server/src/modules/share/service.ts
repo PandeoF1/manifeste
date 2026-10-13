@@ -17,7 +17,10 @@ export class ShareService {
   ) {}
 
   async national(): Promise<NationalSummary> {
-    const live = await this.statuses.current('live')
+    const [live, all] = await Promise.all([
+      this.statuses.current('live'),
+      this.statuses.current('all'),
+    ])
     const departments = new Set<string>()
     let blocked = 0
     let filtering = 0
@@ -26,7 +29,9 @@ export class ShareService {
       if (s.status === 'filtering') filtering++
       if (s.status !== 'lifted' && s.department) departments.add(s.department)
     }
-    return { blocked, filtering, departments: departments.size }
+    // Past periods carry each school's strongest status, so lifted ones are blocks that ended.
+    const total = all.filter((s) => s.status === 'blocked' || s.status === 'filtering').length
+    return { blocked, filtering, departments: departments.size, total }
   }
 
   /** Schools with a signal in progress (blocked or filtering), the most recent first. */

@@ -8,7 +8,6 @@ import { initWasm, Resvg } from '@resvg/resvg-wasm'
 import satori from 'satori'
 import { MARK_DATA_URI } from './brand.ts'
 import {
-  plural,
   parisTime,
   STATUS_COLOR,
   STATUS_LABEL,
@@ -62,12 +61,6 @@ function frame(content: Node, footer: string): Node {
       { alignItems: 'center', gap: 20 },
       img(MARK_DATA_URI, 72),
       h('div', { fontSize: 40, fontWeight: 900, letterSpacing: 2 }, 'MANIFESTE'),
-      h(
-        'div',
-        { alignItems: 'center', gap: 10, marginLeft: 'auto', fontSize: 26, color: '#ff453a' },
-        h('div', { width: 14, height: 14, borderRadius: 7, backgroundColor: '#ff453a' }),
-        'EN DIRECT',
-      ),
     ),
     content,
     h('div', { fontSize: 26, color: MUTED }, footer),
@@ -84,7 +77,7 @@ const national = (s: NationalSummary): Node =>
       h(
         'div',
         { fontSize: 200, fontWeight: 900, lineHeight: 1, color: '#ff453a' },
-        String(s.blocked),
+        String(s.total),
       ),
       h(
         'div',
@@ -95,14 +88,14 @@ const national = (s: NationalSummary): Node =>
           lineHeight: 1.05,
           paddingBottom: 18,
         },
-        h('div', {}, s.blocked > 1 ? 'établissements' : 'établissement'),
-        h('div', {}, s.blocked > 1 ? 'bloqués' : 'bloqué'),
+        h('div', {}, s.total > 1 ? 'établissements' : 'établissement'),
+        h('div', {}, s.total > 1 ? 'mobilisés' : 'mobilisé'),
       ),
     ),
     h(
       'div',
       { fontSize: 36, marginTop: 18, color: '#eef0f4' },
-      `${s.filtering} en barrage filtrant · dans ${plural(s.departments, 'département', 'départements')}`,
+      `depuis le début · dont ${s.blocked} bloqué${s.blocked > 1 ? 's' : ''} en ce moment`,
     ),
   )
 

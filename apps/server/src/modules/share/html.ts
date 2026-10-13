@@ -58,6 +58,8 @@ export interface ActiveSchool {
 }
 
 export interface NationalSummary {
+  /** Schools blocked or filtering at some point since the movement began. */
+  total: number
   blocked: number
   filtering: number
   departments: number
@@ -122,8 +124,8 @@ export function homeMeta(
     title:
       page === 'list'
         ? `Liste des lycées et facs bloqués : ${plural(n.blocked, 'établissement', 'établissements')} en ce moment - Manifeste`
-        : `Map des blocus : ${plural(n.blocked, 'établissement bloqué', 'établissements bloqués')} en direct (lycées et facs) - Manifeste`,
-    description: `En ce moment, ${counts}. La carte en direct des blocus de lycées et de facs en France, avec la source de chaque information.`,
+        : `Map des blocus : ${plural(n.total, 'établissement bloqué', 'établissements bloqués')} depuis le début du mouvement (lycées et facs) - Manifeste`,
+    description: `Depuis le début du mouvement, ${plural(n.total, 'établissement a été bloqué', 'établissements ont été bloqués')} ou en barrage filtrant. En ce moment, ${counts}. La carte en direct des blocus de lycées et de facs en France, avec la source de chaque information.`,
     body: `<main><h1>${h1}</h1><p>En ce moment : ${escapeHtml(counts)}. Manifeste recense en direct les lycées et les facs bloqués partout en France, à partir de la presse, des réseaux et des signalements, avec la source de chaque information.</p>${NAV}<h2>Établissements bloqués et barrages filtrants en ce moment</h2>${schoolsHtml(schools)}</main>`,
     jsonLd: {
       '@context': 'https://schema.org',
