@@ -1,0 +1,114 @@
+{
+  "runId": "2026-10-11T01-22-33-860Z",
+  "at": "2026-10-11T01:22:33.860Z",
+  "corpus": {
+    "pages": 1384,
+    "labelledOnly": true
+  },
+  "variants": {
+    "legacy": "regex parser of develop (production before the rework)",
+    "branch": "dev/better-html-parser branch (site blocklists, depth-aware regex extraction)",
+    "v2": "packages/parser (DOM based, JSON-LD, site rules, bot-wall detection)"
+  },
+  "summaries": {
+    "legacy": {
+      "pages": 1384,
+      "text": {
+        "meanChars": 2588,
+        "medianChars": 3198,
+        "emptyPct": 0.7
+      },
+      "mention": {
+        "pairs": 2705,
+        "reachable": 2583,
+        "found": 2440,
+        "recallPct": 94.5,
+        "recallFullPct": 94.5
+      },
+      "date": {
+        "labelled": 195,
+        "foundPct": 95.9,
+        "sameDayPct": 94.4,
+        "within1hPct": 87.2
+      },
+      "boilerplate": {
+        "pagesScored": 1027,
+        "meanPct": 6.2
+      },
+      "latency": {
+        "p50Ms": 0.4,
+        "p95Ms": 1.3,
+        "totalSeconds": 0.7
+      },
+      "blocked": {
+        "flagged": 0
+      }
+    },
+    "branch": {
+      "pages": 1384,
+      "text": {
+        "meanChars": 2389,
+        "medianChars": 2678,
+        "emptyPct": 0.3
+      },
+      "mention": {
+        "pairs": 2705,
+        "reachable": 2583,
+        "found": 2270,
+        "recallPct": 87.9,
+        "recallFullPct": 87.9
+      },
+      "date": {
+        "labelled": 195,
+        "foundPct": 95.9,
+        "sameDayPct": 94.4,
+        "within1hPct": 87.2
+      },
+      "boilerplate": {
+        "pagesScored": 1027,
+        "meanPct": 5.7
+      },
+      "latency": {
+        "p50Ms": 2.9,
+        "p95Ms": 8.4,
+        "totalSeconds": 4.9
+      },
+      "blocked": {
+        "flagged": 0
+      }
+    },
+    "v2": {
+      "pages": 1384,
+      "text": {
+        "meanChars": 3680,
+        "medianChars": 2810,
+        "emptyPct": 0.1
+      },
+      "mention": {
+        "pairs": 2705,
+        "reachable": 2583,
+        "found": 2480,
+        "recallPct": 96,
+        "recallFullPct": 97.9
+      },
+      "date": {
+        "labelled": 195,
+        "foundPct": 96.9,
+        "sameDayPct": 95.4,
+        "within1hPct": 87.2
+      },
+      "boilerplate": {
+        "pagesScored": 1027,
+        "meanPct": 5.7
+      },
+      "latency": {
+        "p50Ms": 6.3,
+        "p95Ms": 21,
+        "totalSeconds": 11.7
+      },
+      "blocked": {
+        "flagged": 340
+      }
+    }
+  }
+}

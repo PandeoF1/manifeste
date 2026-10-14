@@ -1,0 +1,83 @@
+{
+  "task": "judge",
+  "mode": "offline",
+  "at": "2026-10-11T01:40:14.072Z",
+  "cases": 132,
+  "withoutPage": 36,
+  "minCertainty": "medium",
+  "variants": [
+    {
+      "name": "jev-recorded",
+      "summary": {
+        "n": 52,
+        "answered": 52,
+        "auc": 0.8711711711711712,
+        "sweep": [
+          {
+            "threshold": 0.3,
+            "trueKept": 14,
+            "trueTotal": 15,
+            "falseRemoved": 17,
+            "falseTotal": 37
+          },
+          {
+            "threshold": 0.4,
+            "trueKept": 13,
+            "trueTotal": 15,
+            "falseRemoved": 28,
+            "falseTotal": 37
+          },
+          {
+            "threshold": 0.5,
+            "trueKept": 11,
+            "trueTotal": 15,
+            "falseRemoved": 33,
+            "falseTotal": 37
+          },
+          {
+            "threshold": 0.6,
+            "trueKept": 9,
+            "trueTotal": 15,
+            "falseRemoved": 33,
+            "falseTotal": 37
+          },
+          {
+            "threshold": 0.7,
+            "trueKept": 4,
+            "trueTotal": 15,
+            "falseRemoved": 35,
+            "falseTotal": 37
+          },
+          {
+            "threshold": 0.8,
+            "trueKept": 4,
+            "trueTotal": 15,
+            "falseRemoved": 37,
+            "falseTotal": 37
+          },
+          {
+            "threshold": 0.9,
+            "trueKept": 2,
+            "trueTotal": 15,
+            "falseRemoved": 37,
+            "falseTotal": 37
+          }
+        ],
+        "best": null,
+        "blockadeOnFalse": 0.16216216216216217,
+        "blockadeOrClosedOnTrue": 0.8
+      },
+      "coverage": {
+        "answered": 52,
+        "total": 52
+      },
+      "errors": {},
+      "usage": [],
+      "costUsd": 0,
+      "latencyMs": {
+        "p50": 0,
+        "p95": 0
+      }
+    }
+  ]
+}

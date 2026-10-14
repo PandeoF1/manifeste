@@ -1,0 +1,19 @@
+{
+  "name": "@manifeste/parser",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Turns a press article's HTML into clean text, a title, a publication date and a bot-wall verdict. Pure: no network, no clock.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./html": "./src/dom.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "htmlparser2": "10.1.0",
+    "domhandler": "5.0.3"
+  }
+}

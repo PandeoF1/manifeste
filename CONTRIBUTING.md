@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest. Issues and pull requests are welcome, in French or in English.
+Thanks for your interest. Issues and pull requests are welcome, in French or in English. Code, comments, tests, documentation and commit messages are in English; only the site's user-facing text is in French.
 
 ## Before you start
 
@@ -17,26 +17,27 @@ The project follows a few rules that every change must respect:
 ## Development
 
 ```bash
-npm install
-cp .env.example .env.local
-npm run dev
+bun install
+cp .env.example .env
+bun run dev
 ```
 
-Run these before opening a pull request:
+Run these before opening a pull request (see [docs/development.md](docs/development.md) for the local Postgres):
 
 ```bash
-npm run check      # type-check, lint, unit tests
-npm run test:db    # SQL tests (needs a local Postgres 16 with PostGIS, pg_trgm, unaccent)
-npm run build
+bun run check      # type-check, lint, unit and integration tests
+bun run build
 ```
 
-Code style is enforced by Prettier and ESLint (`npm run format`). TypeScript is strict.
+Code style is enforced by Prettier and ESLint (`bun run format`). TypeScript is strict.
 
 ## Database changes
 
-Add a new file in `supabase/migrations/` (never edit one that is already applied) and cover it with
-a test in `supabase/tests/`. Row level security is the real access control: every new table needs
-policies, and functions that use `security definer` must check the caller's role.
+Change the Drizzle schema in `packages/db/src/schema/` and generate a migration
+(`bun run --filter @manifeste/db generate`). Never edit a migration that is already applied, and
+cover new rules with a test. Business rules live in `packages/core` as pure, tested functions; SQL
+is for set-based queries. Access control is done in the API (`apps/server`): every new route needs
+a permission check unless it is public by design.
 
 ## Pull requests
 

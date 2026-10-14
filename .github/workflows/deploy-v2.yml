@@ -1,0 +1,80 @@
+name: Deploy v2
+
+# The tested image goes to ghcr.io, then Coolify is asked to redeploy with it.
+#   push to develop or rework/elysia-backend -> Staging (automatic)
+#   manual run                    -> Production (GitHub environment with required reviewers)
+# Secrets per GitHub environment: COOLIFY_WEBHOOK (the resource's deploy webhook URL) and
+# COOLIFY_TOKEN (a Coolify API token with deploy rights). See docs/ops/coolify.md.
+on:
+  push:
+    branches: [develop, rework/elysia-backend]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target
+        type: choice
+        options: [Staging, Production]
+        default: Staging
+
+concurrency:
+  group: deploy-v2-${{ github.event.inputs.environment || 'Staging' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  image:
+    needs: checks
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      # The sha tag is kept for rollbacks; the moving tag is what the Coolify stack pulls.
+      - id: meta
+        env:
+          TARGET: ${{ github.event.inputs.environment || 'Staging' }}
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "tag=$repo:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "moving=$repo:${TARGET,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.moving }}
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+            VITE_TURNSTILE_SITE_KEY=${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: image
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'Staging' }}
+    env:
+      COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+      COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+    steps:
+      - name: Warn when the environment is not configured
+        if: ${{ env.COOLIFY_WEBHOOK == '' }}
+        run: echo "::warning::COOLIFY_WEBHOOK is empty in this environment, nothing was deployed."
+      - name: Trigger the Coolify deployment
+        if: ${{ env.COOLIFY_WEBHOOK != '' }}
+        run: |
+          echo "Deploying ${{ needs.image.outputs.tag }}"
+          curl --fail-with-body -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_WEBHOOK"

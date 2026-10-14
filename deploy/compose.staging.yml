@@ -1,0 +1,46 @@
+# Staging for Coolify: one process runs the API and the worker, migrations at boot.
+# Its own Postgres resource (PostGIS); AI providers use cheap or replayed settings (phase 4).
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/pandeof1/manifeste:staging}
+    restart: unless-stopped
+    volumes:
+      - photos:/data
+    environment:
+      NODE_ENV: production
+      ROLE: all
+      MIGRATE_ON_BOOT: 'true'
+      DATABASE_URL: ${DATABASE_URL:?}
+      AUTH_SECRET: ${AUTH_SECRET:?}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      COOLIFY_URL: ${COOLIFY_URL:-}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_SERVICE_NAME: manifeste-staging
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      JEV_API_KEY: ${JEV_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_ENABLED: ${AI_ENABLED:-}
+      AI_DAILY_BUDGET_USD: ${AI_DAILY_BUDGET_USD:-}
+      # Photos: `fs` (the volume below) or `s3` (Cloudflare R2, MinIO...). See docs/ops/coolify.md.
+      BLOB_STORE: ${BLOB_STORE:-fs}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_PREFIX: ${S3_PREFIX:-}
+      CSP_MODE: ${CSP_MODE:-enforce}
+      CSP_MAP_ORIGINS: ${CSP_MAP_ORIGINS:-https://tiles.openfreemap.org}
+      STAFF_2FA: ${STAFF_2FA:-admin}
+      INGEST_ENABLED: ${INGEST_ENABLED:-true}
+    expose:
+      - '3000'
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+volumes:
+  photos:

@@ -5,7 +5,15 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'dev-dist', 'src/routeTree.gen.ts', 'supabase/functions/**/!(_shared)/**'] },
+  {
+    ignores: [
+      '**/dist',
+      '**/dev-dist',
+      'apps/web/src/routeTree.gen.ts',
+      'legacy/supabase/functions/**/!(_shared)/**',
+      'packages/db/migrations/**',
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.strict],
     files: ['**/*.{ts,tsx}'],

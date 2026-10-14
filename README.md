@@ -39,40 +39,49 @@ The project is informative, not partisan: no call to demonstrate, only sourced f
 
 ## Stack
 
-Vite, React 18, TypeScript (strict), TanStack Router and Query, Tailwind CSS v4, MapLibre GL,
-Supabase (Postgres with PostGIS and RLS, Edge Functions on Deno, pg_cron, Storage), Vercel (static
-site plus a few edge functions in `api/`), Vitest.
+The project is being moved from Supabase to a Bun backend (see [ADR 0001](docs/adr/0001-v2-architecture.md)
+and the [roadmap](docs/v2-roadmap.md)). Until the cutover, production still runs the legacy stack.
+
+- **Front end** (`apps/web`): Vite, React 18, TypeScript (strict), TanStack Router and Query,
+  Tailwind CSS v4, MapLibre GL.
+- **v2 backend** (`apps/server`, `packages/*`): Bun, Elysia (HTTP, WebSocket, jobs), Postgres with
+  PostGIS and Drizzle, pg-boss queue, better-auth for staff accounts, OpenTelemetry, deployed with
+  Coolify.
+- **Legacy backend** (`legacy/`): Supabase (Postgres, RLS, Edge Functions on Deno, pg_cron,
+  Storage) and Vercel edge functions. Removed as each part is ported.
 
 ## Getting started
 
-Requirements: Node 22+, a Supabase project (or the Supabase CLI for a local stack) and a Gemini API
-key for the collector.
+Requirements: [Bun](https://bun.sh) and a Postgres 17 with PostGIS. Details in
+[docs/development.md](docs/development.md).
 
 ```bash
-npm install
-cp .env.example .env.local     # set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
-npm run dev
+bun install
+cp .env.example .env           # set AUTH_SECRET, DATABASE_URL
+bun run --filter @manifeste/web build
+bun run --filter @manifeste/server dev
 ```
 
 Useful scripts:
 
-| Command                    | Purpose                                                              |
-| -------------------------- | -------------------------------------------------------------------- |
-| `npm run check`            | type-check, lint and unit tests                                      |
-| `npm run test:db`          | SQL tests on a throwaway local Postgres (PostGIS, pg_trgm, unaccent) |
-| `npm run import:schools`   | import the high school directory (needs the service role key)        |
-| `npm run import:higher-ed` | import universities, IUTs and schools                                |
-| `npm run build`            | production build                                                     |
+| Command                                   | Purpose                                                |
+| ----------------------------------------- | ------------------------------------------------------ |
+| `bun run check`                           | type-check, lint and unit tests for every workspace    |
+| `bun run test`                            | tests only (integration tests need the local Postgres) |
+| `bun run dev`                             | Vite dev server for the front end                      |
+| `bun run --filter @manifeste/server dev`  | the API and worker, with migrations applied at boot    |
+| `bun run --filter @manifeste/db generate` | write a SQL migration from a schema change             |
 
 ## Documentation
 
-Detailed notes are in French:
-
-- [docs/architecture.fr.md](docs/architecture.fr.md): collection pipeline, on-site reports, data
-  imports, adding sources, tests.
-- [docs/ci-cd.md](docs/ci-cd.md): branches, pipelines and one-time setup for the automatic deploys.
-- [docs/deploiement.fr.md](docs/deploiement.fr.md): step-by-step deployment (Supabase, Vercel,
-  Cloudflare Turnstile, Gemini).
+- [docs/development.md](docs/development.md): layout, local setup, checks, database changes.
+- [docs/adr/0001-v2-architecture.md](docs/adr/0001-v2-architecture.md) and
+  [docs/v2-roadmap.md](docs/v2-roadmap.md): the v2 architecture decisions and the phased plan.
+- [docs/ops/coolify.md](docs/ops/coolify.md): running production, staging and PR previews.
+- [docs/legacy/architecture.md](docs/legacy/architecture.md): the legacy collection pipeline,
+  on-site reports and operations.
+- [docs/legacy/deployment.md](docs/legacy/deployment.md): the legacy Supabase and Vercel deployment.
+- [docs/ci-cd.md](docs/ci-cd.md): the legacy branches and pipelines.
 
 ## Contributing and security
 
