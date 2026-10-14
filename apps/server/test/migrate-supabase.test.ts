@@ -53,6 +53,8 @@ beforeAll(async () => {
       primary key (bucket, task, model));
     create table analytics_daily (day date primary key, visitors int);
     create table analytics_pageviews (hour timestamptz, page text, views int, primary key (hour, page));
+    create table analytics_new_visitors (slot timestamptz primary key, n int);
+    create table analytics_online (minute timestamptz primary key, online int);
     create table analytics_vitals (id bigserial primary key, at timestamptz, page text, metric text, value real);
     create table moderation_audit (id bigserial primary key, at timestamptz, actor_email text, action text, target text, before jsonb, after jsonb);
 
@@ -82,6 +84,8 @@ beforeAll(async () => {
     insert into ai_usage values ('2026-10-05T08:00:00Z', 'extraction', 'gemini-3.5-flash-lite', 3, 30000, 6000, 0), ('2026-10-05T08:00:00Z', 'backfill', 'gemini-3.5-flash-lite', 1, 1000, 100, 0);
     insert into analytics_daily values ('2026-10-04', 120);
     insert into analytics_pageviews values ('2026-10-05T08:00:00Z', 'carte', 40), ('2026-10-05T08:00:00Z', 'a-propos', 2);
+    insert into analytics_new_visitors values ('2026-10-05T08:05:00Z', 7);
+    insert into analytics_online values (now() - interval '1 hour', 12);
     insert into analytics_vitals (at, page, metric, value) values (now(), 'carte', 'LCP', 1800);
     insert into moderation_audit (at, actor_email, action, target, before, after) values (now(), 'old@example.org', 'validate', 'x', null, '{"a":1}');
   `)
@@ -221,7 +225,7 @@ describe('migration from Supabase', () => {
     })
     const usage = await s.ctx.db.select().from(schema.aiUsage)
     expect(usage).toHaveLength(1) // extraction and backfill share a bucket once renamed
-    expect(usage[0]).toMatchObject({ task: 'extract', provider: 'gemini', calls: 3 })
+    expect(usage[0]).toMatchObject({ task: 'extract', provider: 'gemini', calls: 4 })
     expect(Number(usage[0]?.costUsd)).toBeGreaterThan(0)
     expect((await s.ctx.db.select().from(schema.analyticsDaily))[0]).toMatchObject({
       day: '2026-10-04',
@@ -231,6 +235,8 @@ describe('migration from Supabase', () => {
       (await s.ctx.db.select().from(schema.analyticsPageViews)).map((p) => p.page).sort(),
     ).toEqual(['about', 'map'])
     expect(await s.ctx.db.select().from(schema.analyticsVitals)).toHaveLength(1)
+    expect(await s.ctx.db.select().from(schema.analyticsNewVisitors)).toMatchObject([{ count: 7 }])
+    expect(await s.ctx.db.select().from(schema.analyticsOnline)).toMatchObject([{ online: 12 }])
     expect((await s.ctx.db.select().from(schema.moderationAudit))[0]).toMatchObject({
       action: 'legacy:validate',
       actorEmail: 'old@example.org',
@@ -247,6 +253,20 @@ describe('migration from Supabase', () => {
     expect(await s.ctx.db.select().from(schema.moderationAudit)).toHaveLength(1)
     expect(await s.ctx.db.select().from(schema.analyticsVitals)).toHaveLength(1)
     expect(await s.ctx.db.select().from(schema.unmatched)).toHaveLength(1)
+  })
+
+  test('statistics that kept counting in the old system are brought up to date', async () => {
+    await legacy.query(`
+      update analytics_pageviews set views = 55 where page = 'carte';
+      insert into analytics_vitals (at, page, metric, value) values (now(), 'carte', 'LCP', 2100);`)
+    await migrateFromSupabase(source, s.ctx.db, { dryRun: false })
+    const views = await s.ctx.db.select().from(schema.analyticsPageViews)
+    expect(views.find((v) => v.page === 'map')?.views).toBe(55)
+    expect(await s.ctx.db.select().from(schema.analyticsVitals)).toHaveLength(2)
+    await legacy.query(`update analytics_pageviews set views = 40 where page = 'carte'`)
+    await migrateFromSupabase(source, s.ctx.db, { dryRun: false })
+    const after = await s.ctx.db.select().from(schema.analyticsPageViews)
+    expect(after.find((v) => v.page === 'map')?.views).toBe(55) // never goes down
   })
 
   test('the delta since the last run is carried: a decision taken in the old system arrives', async () => {

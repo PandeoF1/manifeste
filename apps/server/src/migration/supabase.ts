@@ -9,7 +9,7 @@
  * What is carried: the school directory (hand-added schools included), sources, trusted domains,
  * settings, reports with their judge opinions, the staff queues (unmatched facts, proposed
  * schools), the last days of seen items (so nothing is analysed twice), media analyses, AI usage,
- * site statistics and the moderation audit. Published photos can be copied too.
+ * site statistics (visits, page views, new visitors, online, web vitals) and the moderation audit. Published photos can be copied too.
  *
  * What is not: staff accounts (re-invite them: better-auth has its own users and a second factor),
  * private photos (deleted within 48 h anyway), article text, collector logs.
@@ -653,44 +653,56 @@ async function aiUsage(src: SourceDb, tx: Tx): Promise<TableReport> {
   const r = report('ai_usage')
   const rows = await src.query<Row>(`select * from ai_usage`)
   r.read = rows.length
-  for (const batch of chunks(rows)) {
-    const values = batch.flatMap((u) => {
-      const task = AI_TASK[String(u.task)]
-      if (!task) {
-        r.skipped++
-        return []
-      }
-      const usage = {
-        calls: num(u.calls),
-        promptTokens: num(u.prompt_tokens),
-        outputTokens: num(u.output_tokens),
-        thoughtsTokens: num(u.thoughts_tokens),
-      }
-      return [
-        {
-          hour: date(u.bucket) ?? new Date(),
-          task,
-          provider: task === 'judge' ? 'jev' : 'gemini',
-          model: String(u.model),
-          promptVersion: 'v1',
-          calls: usage.calls,
-          failures: 0,
-          promptTokens: usage.promptTokens,
-          outputTokens: usage.outputTokens,
-          thoughtsTokens: usage.thoughtsTokens,
-          costUsd: costOf(DEFAULT_PRICES, String(u.model), usage).toFixed(6),
-          latencyMsTotal: 0,
-        },
-      ]
+  // Several legacy tasks map to one (extraction, backfill → extract): summed per v2 key, since one
+  // upsert cannot touch the same row twice.
+  type Usage = typeof schema.aiUsage.$inferInsert
+  const merged = new Map<string, Usage>()
+  for (const u of rows) {
+    const task = AI_TASK[String(u.task)]
+    if (!task) {
+      r.skipped++
+      continue
+    }
+    const hour = date(u.bucket) ?? new Date()
+    const model = String(u.model)
+    const key = `${hour.toISOString()}|${task}|${model}`
+    const prev = merged.get(key)
+    const usage = {
+      calls: (prev?.calls ?? 0) + num(u.calls),
+      promptTokens: (prev?.promptTokens ?? 0) + num(u.prompt_tokens),
+      outputTokens: (prev?.outputTokens ?? 0) + num(u.output_tokens),
+      thoughtsTokens: (prev?.thoughtsTokens ?? 0) + num(u.thoughts_tokens),
+    }
+    merged.set(key, {
+      hour,
+      task,
+      provider: task === 'judge' ? 'jev' : 'gemini',
+      model,
+      promptVersion: 'v1',
+      ...usage,
+      failures: 0,
+      costUsd: costOf(DEFAULT_PRICES, model, usage).toFixed(6),
+      latencyMsTotal: 0,
     })
-    if (values.length === 0) continue
+  }
+  // Counters only grow: when both sides have the row (the cutover hour), the larger one wins.
+  const t = schema.aiUsage
+  for (const batch of chunks([...merged.values()])) {
     const out = await tx
-      .insert(schema.aiUsage)
-      .values(values)
-      .onConflictDoNothing()
-      .returning({ calls: schema.aiUsage.calls })
-    r.inserted += out.length
-    r.updated += values.length - out.length
+      .insert(t)
+      .values(batch)
+      .onConflictDoUpdate({
+        target: [t.hour, t.task, t.provider, t.model, t.promptVersion],
+        set: {
+          calls: sql`greatest(${t.calls}, excluded.calls)`,
+          promptTokens: sql`greatest(${t.promptTokens}, excluded.prompt_tokens)`,
+          outputTokens: sql`greatest(${t.outputTokens}, excluded.output_tokens)`,
+          thoughtsTokens: sql`greatest(${t.thoughtsTokens}, excluded.thoughts_tokens)`,
+          costUsd: sql`greatest(${t.costUsd}, excluded.cost_usd)`,
+        },
+      })
+      .returning({ fresh: sql<boolean>`(xmax = 0)` })
+    tally(r, out)
   }
   return r
 }
@@ -714,19 +726,61 @@ async function analytics(src: SourceDb, tx: Tx): Promise<TableReport[]> {
   const views = report('analytics_page_views')
   const hours = await src.query<Row>(`select hour, page, views from analytics_pageviews`)
   views.read = hours.length
-  for (const batch of chunks(hours)) {
-    const values = batch.map((h) => ({
-      slot: date(h.hour) ?? new Date(),
-      page: PAGE[String(h.page)] ?? 'other',
-      views: num(h.views),
-    }))
+  // Legacy pages can fold into one (unknown → other): summed first. Counters only grow, so on the
+  // slot both sides have, the larger count wins.
+  const perSlot = new Map<string, { slot: Date; page: (typeof PAGE)[string]; views: number }>()
+  for (const h of hours) {
+    const slot = date(h.hour) ?? new Date()
+    const page = PAGE[String(h.page)] ?? 'other'
+    const key = `${slot.toISOString()}|${page}`
+    const prev = perSlot.get(key)
+    perSlot.set(key, { slot, page, views: (prev?.views ?? 0) + num(h.views) })
+  }
+  const pv = schema.analyticsPageViews
+  for (const batch of chunks([...perSlot.values()])) {
     const out = await tx
-      .insert(schema.analyticsPageViews)
-      .values(values)
-      .onConflictDoNothing()
-      .returning({ views: schema.analyticsPageViews.views })
-    views.inserted += out.length
-    views.updated += values.length - out.length
+      .insert(pv)
+      .values(batch)
+      .onConflictDoUpdate({
+        target: [pv.slot, pv.page],
+        set: { views: sql`greatest(${pv.views}, excluded.views)` },
+      })
+      .returning({ fresh: sql<boolean>`(xmax = 0)` })
+    tally(views, out)
+  }
+
+  const fresh = report('analytics_new_visitors')
+  const newcomers = await src.query<Row>(`select slot, n from analytics_new_visitors where n > 0`)
+  fresh.read = newcomers.length
+  const nv = schema.analyticsNewVisitors
+  for (const batch of chunks(newcomers)) {
+    const out = await tx
+      .insert(nv)
+      .values(batch.map((x) => ({ slot: date(x.slot) ?? new Date(), count: num(x.n) })))
+      .onConflictDoUpdate({
+        target: nv.slot,
+        set: { count: sql`greatest(${nv.count}, excluded.count)` },
+      })
+      .returning({ fresh: sql<boolean>`(xmax = 0)` })
+    tally(fresh, out)
+  }
+
+  const online = report('analytics_online')
+  const minutes = await src.query<Row>(
+    `select minute, online from analytics_online where minute >= now() - interval '14 days'`,
+  )
+  online.read = minutes.length
+  const on = schema.analyticsOnline
+  for (const batch of chunks(minutes)) {
+    const out = await tx
+      .insert(on)
+      .values(batch.map((x) => ({ minute: date(x.minute) ?? new Date(), online: num(x.online) })))
+      .onConflictDoUpdate({
+        target: on.minute,
+        set: { online: sql`greatest(${on.online}, excluded.online)` },
+      })
+      .returning({ fresh: sql<boolean>`(xmax = 0)` })
+    tally(online, out)
   }
 
   const vitals = report('analytics_vitals')
@@ -734,22 +788,32 @@ async function analytics(src: SourceDb, tx: Tx): Promise<TableReport[]> {
     `select at, page, metric, value from analytics_vitals where at >= now() - interval '30 days'`,
   )
   vitals.read = samples.length
-  // Samples have no identity: carried once, only into an empty window, so a second run adds nothing.
-  const [existing] = await tx.select({ n: sql<number>`count(*)::int` }).from(schema.analyticsVitals)
-  if ((existing?.n ?? 0) === 0)
-    for (const batch of chunks(samples)) {
-      await tx.insert(schema.analyticsVitals).values(
-        batch.map((v) => ({
-          at: date(v.at) ?? new Date(),
-          page: PAGE[String(v.page)] ?? 'other',
-          metric: String(v.metric) as 'LCP',
-          value: Number(v.value),
-        })),
-      )
-      vitals.inserted += batch.length
-    }
-  else vitals.skipped = samples.length
-  return [daily, views, vitals]
+  // Samples have no identity: one already in v2 (same instant, page, metric and value) is not
+  // added again, so a second run adds nothing and the cutover delta only brings the new ones.
+  const known = new Set<string>()
+  const vkey = (at: Date, page: string, metric: string, value: number) =>
+    `${at.getTime()}|${page}|${metric}|${value}`
+  const t = schema.analyticsVitals
+  for (const v of await tx.select().from(t)) known.add(vkey(v.at, v.page, v.metric, v.value))
+  const wanted = samples
+    .map((v) => ({
+      at: date(v.at) ?? new Date(),
+      page: PAGE[String(v.page)] ?? 'other',
+      metric: String(v.metric) as 'LCP',
+      value: Number(v.value),
+    }))
+    .filter((v) => {
+      const key = vkey(v.at, v.page, v.metric, v.value)
+      if (known.has(key)) return false
+      known.add(key)
+      return true
+    })
+  vitals.skipped = samples.length - wanted.length
+  for (const batch of chunks(wanted)) {
+    await tx.insert(t).values(batch)
+    vitals.inserted += batch.length
+  }
+  return [daily, views, fresh, online, vitals]
 }
 
 async function audit(src: SourceDb, tx: Tx): Promise<TableReport> {
