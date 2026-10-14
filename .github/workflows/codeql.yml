@@ -1,7 +1,8 @@
 name: CodeQL
 
 # Static analysis of the TypeScript code (injection, unsafe regexes, path handling…).
-# Results appear under Security > Code scanning.
+# Results appear under Security > Code scanning. A private repository needs GitHub Advanced Security
+# for that, so the job is skipped there (it would fail on every push).
 on:
   pull_request:
   push:
@@ -16,6 +17,7 @@ permissions:
 
 jobs:
   analyze:
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
