@@ -13,7 +13,6 @@
     "apps/*",
     "packages/*",
     "bench",
-    "legacy",
     "e2e"
   ],
   "scripts": {

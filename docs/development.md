@@ -2,13 +2,12 @@
 
 v2 layout (see [ADR 0001](adr/0001-v2-architecture.md)):
 
-| Path          | What                                                               |
-| ------------- | ------------------------------------------------------------------ |
-| `apps/server` | Elysia API, WebSocket and job worker (`ROLE=api\|worker\|all`)     |
-| `apps/web`    | Vite + React SPA (public site and admin), served by the server     |
-| `packages/db` | Drizzle schema, SQL migrations, test database helpers              |
-| `legacy/`     | Supabase-era backend, kept until each part is ported, then deleted |
-| `deploy/`     | Compose files for Coolify (production, staging)                    |
+| Path          | What                                                           |
+| ------------- | -------------------------------------------------------------- |
+| `apps/server` | Elysia API, WebSocket and job worker (`ROLE=api\|worker\|all`) |
+| `apps/web`    | Vite + React SPA (public site and admin), served by the server |
+| `packages/db` | Drizzle schema, SQL migrations, test database helpers          |
+| `deploy/`     | Compose files for Coolify (production, staging)                |
 
 ## Requirements
 

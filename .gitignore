@@ -8,8 +8,6 @@ node_modules
 dist
 dev-dist
 *.local
-legacy/supabase/.temp
-legacy/supabase/.branches
 .data/
 cache/
 bench/.cache/

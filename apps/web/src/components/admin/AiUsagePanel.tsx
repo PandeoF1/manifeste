@@ -59,14 +59,13 @@ export function AiUsagePanel() {
       {usage.isPending && <div className="h-64 animate-pulse rounded-xl bg-surface" />}
       {usage.isError && (
         <p className="text-sm text-poor" role="alert">
-          Impossible de charger la consommation : {usage.error.message}. La migration
-          <code className="mx-1">ai_usage</code>est-elle appliquée (<code>supabase db push</code>) ?
+          Impossible de charger la consommation : {usage.error.message}.
         </p>
       )}
       {usage.isSuccess && usage.data.length === 0 && (
         <p className="rounded-lg border border-border bg-surface p-4 text-sm">
           Rien d'enregistré sur cette période. La consommation est comptée à partir du prochain
-          passage de la collecte (une fois la migration et les fonctions déployées).
+          passage de la collecte.
         </p>
       )}
       {usage.isSuccess && usage.data.length > 0 && <AiUsageCharts rows={usage.data} days={days} />}

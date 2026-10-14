@@ -39,16 +39,14 @@ The project is informative, not partisan: no call to demonstrate, only sourced f
 
 ## Stack
 
-The project is being moved from Supabase to a Bun backend (see [ADR 0001](docs/adr/0001-v2-architecture.md)
-and the [roadmap](docs/v2-roadmap.md)). Until the cutover, production still runs the legacy stack.
+The backend moved from Supabase to Bun and Elysia (see [ADR 0001](docs/adr/0001-v2-architecture.md)
+and the [roadmap](docs/v2-roadmap.md)).
 
 - **Front end** (`apps/web`): Vite, React 18, TypeScript (strict), TanStack Router and Query,
   Tailwind CSS v4, MapLibre GL.
 - **v2 backend** (`apps/server`, `packages/*`): Bun, Elysia (HTTP, WebSocket, jobs), Postgres with
   PostGIS and Drizzle, pg-boss queue, better-auth for staff accounts, OpenTelemetry, deployed with
   Coolify.
-- **Legacy backend** (`legacy/`): Supabase (Postgres, RLS, Edge Functions on Deno, pg_cron,
-  Storage) and Vercel edge functions. Removed as each part is ported.
 
 ## Getting started
 
@@ -78,10 +76,7 @@ Useful scripts:
 - [docs/adr/0001-v2-architecture.md](docs/adr/0001-v2-architecture.md) and
   [docs/v2-roadmap.md](docs/v2-roadmap.md): the v2 architecture decisions and the phased plan.
 - [docs/ops/coolify.md](docs/ops/coolify.md): running production, staging and PR previews.
-- [docs/legacy/architecture.md](docs/legacy/architecture.md): the legacy collection pipeline,
-  on-site reports and operations.
-- [docs/legacy/deployment.md](docs/legacy/deployment.md): the legacy Supabase and Vercel deployment.
-- [docs/ci-cd.md](docs/ci-cd.md): the legacy branches and pipelines.
+- [docs/ops/cutover.md](docs/ops/cutover.md): moving the data and the traffic from Supabase.
 
 ## Contributing and security
 
