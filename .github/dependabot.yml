@@ -1,9 +1,12 @@
 # Weekly dependency updates, one pull request per ecosystem group so that they are reviewable.
+# They target `develop` (main only receives what develop already ran); Dependabot reads this file
+# from the default branch, so it has to be on main too.
 # Every one goes through the same CI as any change (typecheck, lint, tests, e2e, image build).
 version: 2
 updates:
   - package-ecosystem: bun
     directory: /
+    target-branch: develop
     schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 5
     groups:
@@ -11,7 +14,9 @@ updates:
         update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule: { interval: weekly, day: monday }
   - package-ecosystem: docker
     directory: /
+    target-branch: develop
     schedule: { interval: weekly, day: monday }
