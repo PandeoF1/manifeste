@@ -65,6 +65,46 @@ const og = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
 </svg>`
 writeFileSync('public/og-default.png', png(og, 1200))
 
+// Social networks: X profile picture (400 x 400) and header (1500 x 500). The header keeps its
+// text clear of the bottom-left corner, where the profile picture overlaps it on desktop, and
+// of the edges, which narrow screens crop.
+writeFileSync('brand/x-avatar.png', png(tile(0.06, 0), 400))
+
+/** Dots standing for the schools on the map: a fixed seed, so the picture is the same every run. */
+function dots(width: number, height: number): string {
+  let seed = 7
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647
+    return seed / 2147483647
+  }
+  let out = ''
+  for (let i = 0; i < 260; i++) {
+    const x = rand() * width
+    const y = rand() * height
+    // Denser and brighter toward the right edge, fading out behind the text.
+    const weight = Math.min(1, Math.max(0, (x - 300) / 900)) ** 1.4
+    if (rand() > 0.18 + weight * 0.8) continue
+    const r = 2.5 + rand() * 5.5
+    const hot = rand() < 0.22 + weight * 0.2
+    const color = hot ? RED : '#9aa3b2'
+    out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${color}" opacity="${(hot ? 0.35 + weight * 0.5 : 0.1 + weight * 0.15).toFixed(2)}"/>`
+  }
+  return out
+}
+
+const header = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500">
+  <rect width="1500" height="500" fill="${INK}"/>
+  ${dots(1500, 500)}
+  <g transform="translate(1130 130) scale(0.5)">${tile(0, 64).replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g>
+  <rect x="284" y="156" width="12" height="90" fill="${RED}"/>
+  ${wordmark(320, 240, 96)}
+  <text x="322" y="302" font-family="DejaVu Sans, Arial, sans-serif" font-size="36" fill="#eef0f4">Les lycées et les facs bloqués, en direct.</text>
+  <text x="322" y="350" font-family="DejaVu Sans, Arial, sans-serif" font-size="26" fill="#9aa3b2">Chaque point de la carte renvoie vers sa source.</text>
+  <text x="322" y="410" font-family="DejaVu Sans, Arial, sans-serif" font-weight="700" font-size="28" fill="${RED}">manifeste.pandeo.fr</text>
+</svg>`
+writeFileSync('brand/x-header.svg', header)
+writeFileSync('brand/x-header.png', png(header, 1500))
+
 // Symbol for the dynamic Open Graph images (satori accepts SVG data URIs).
 writeFileSync(
   '../server/src/modules/share/brand.ts',

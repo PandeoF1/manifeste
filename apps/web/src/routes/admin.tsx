@@ -15,6 +15,7 @@ import { SettingsPanel } from '@/components/admin/SettingsPanel'
 import { SourcesPanel } from '@/components/admin/SourcesPanel'
 import { StatsPanel } from '@/components/admin/StatsPanel'
 import { TeamPanel } from '@/components/admin/TeamPanel'
+import { TweetsPanel } from '@/components/admin/TweetsPanel'
 import { TrustedDomainsPanel } from '@/components/admin/TrustedDomainsPanel'
 import { UnmatchedPanel } from '@/components/admin/UnmatchedPanel'
 import { TABS, TAB_LABELS, tabsFor, visibleTab, type Tab } from '@/lib/adminTabs'
@@ -85,6 +86,7 @@ function AdminPage() {
         {tab === 'stats' && <StatsPanel />}
         {tab === 'ia' && <AiUsagePanel />}
         {tab === 'medias' && <MediaPanel />}
+        {tab === 'tweets' && <TweetsPanel />}
         {tab === 'juge' && <JudgePanel />}
         {tab === 'reglages' && <SettingsPanel />}
         {tab === 'journal' && <AuditPanel />}
