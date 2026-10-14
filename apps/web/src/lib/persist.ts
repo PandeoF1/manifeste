@@ -1,6 +1,7 @@
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client'
 import { del, get, set } from 'idb-keyval'
+import { reviveDates } from '@/lib/api'
 
 const KEY = 'manifest-cache-v1'
 
@@ -13,10 +14,12 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
       removeItem: (k) => del(k),
     },
     key: KEY,
+    // JSON turns Dates into strings: bring them back, or `lastSignalAt.getTime()` throws.
+    deserialize: (cached) => reviveDates(JSON.parse(cached)),
     throttleTime: 2000,
   }),
   maxAge: 24 * 3_600_000,
-  buster: '1',
+  buster: '2',
   dehydrateOptions: {
     // Public data only (never the admin nor the session).
     shouldDehydrateQuery: (q) =>
