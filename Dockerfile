@@ -15,7 +15,6 @@ COPY packages/parser/package.json packages/parser/
 COPY packages/ai/package.json packages/ai/
 COPY bench/package.json bench/
 COPY e2e/package.json e2e/
-COPY legacy/package.json legacy/
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY packages/core packages/core
 COPY packages/db packages/db

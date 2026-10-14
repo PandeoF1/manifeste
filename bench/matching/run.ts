@@ -75,7 +75,7 @@ function citation(text: string, officialName: string): string | null {
   for (const m of text.matchAll(pattern)) {
     // One school per citation: stop at "et", "ou", "puis"…
     const words: string[] = []
-    for (const w of m[2]!.split(/\s+/)) {
+    for (const w of (m[2] ?? '').split(/\s+/)) {
       if (/^(et|ou|puis|ainsi|comme|lyc[ée]es?)$/i.test(w)) break
       words.push(w)
     }
@@ -142,10 +142,11 @@ try {
   for (const m of mentions) {
     const uais = byKey.get(`${norm(m.school)}|${norm(m.city)}`)
     const entry = pages.get(m.urlHash)
-    if (uais?.length !== 1 || !entry) continue
+    const truth = uais?.length === 1 ? uais[0] : undefined
+    if (!truth || !entry) continue
     const page = parse((await readPage(entry)).html, entry.url)
     const cited = citation(`${page.title}\n${page.text}`, m.school)
-    if (cited) cases.push({ cited, city: m.city, truth: uais[0]!, official: m.school })
+    if (cited) cases.push({ cited, city: m.city, truth, official: m.school })
   }
   console.log(`${cases.length} citations with a known school (of ${mentions.length} mentions)\n`)
 
