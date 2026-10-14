@@ -10,11 +10,14 @@
     "parser": "bun parser/run.ts",
     "ai": "bun ai/run.ts",
     "corpus:push": "bun corpus-sync.ts push",
-    "corpus:pull": "bun corpus-sync.ts pull"
+    "corpus:pull": "bun corpus-sync.ts pull",
+    "matching": "bun matching/run.ts"
   },
   "dependencies": {
     "@manifeste/ai": "workspace:*",
     "@manifeste/core": "workspace:*",
-    "@manifeste/parser": "workspace:*"
+    "@manifeste/parser": "workspace:*",
+    "@manifeste/db": "workspace:*",
+    "drizzle-orm": "0.45.4"
   }
 }

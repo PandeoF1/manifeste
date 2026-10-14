@@ -2,12 +2,12 @@ name: Deploy v2
 
 # The tested image goes to ghcr.io, then Coolify is asked to redeploy with it.
 #   push to develop or rework/elysia-backend -> Staging (automatic)
-#   manual run                    -> Production (GitHub environment with required reviewers)
+#   push to main, or a manual run             -> Production (GitHub environment with required reviewers)
 # Secrets per GitHub environment: COOLIFY_WEBHOOK (the resource's deploy webhook URL) and
 # COOLIFY_TOKEN (a Coolify API token with deploy rights). See docs/ops/coolify.md.
 on:
   push:
-    branches: [develop, rework/elysia-backend]
+    branches: [main, develop, rework/elysia-backend]
   workflow_dispatch:
     inputs:
       environment:
@@ -17,7 +17,7 @@ on:
         default: Staging
 
 concurrency:
-  group: deploy-v2-${{ github.event.inputs.environment || 'Staging' }}
+  group: deploy-v2-${{ github.event.inputs.environment || (github.ref_name == 'main' && 'Production') || 'Staging' }}
   cancel-in-progress: false
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
       # The sha tag is kept for rollbacks; the moving tag is what the Coolify stack pulls.
       - id: meta
         env:
-          TARGET: ${{ github.event.inputs.environment || 'Staging' }}
+          TARGET: ${{ github.event.inputs.environment || (github.ref_name == 'main' && 'Production') || 'Staging' }}
         run: |
           repo="ghcr.io/${GITHUB_REPOSITORY,,}"
           echo "tag=$repo:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
@@ -65,7 +65,7 @@ jobs:
   deploy:
     needs: image
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'Staging' }}
+    environment: ${{ github.event.inputs.environment || (github.ref_name == 'main' && 'Production') || 'Staging' }}
     env:
       COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
       COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}

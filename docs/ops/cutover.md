@@ -36,4 +36,4 @@ Everything public currently sits behind a Cloudflare Worker, so the switch is a 
 
 ## 5. Decommission (after about 30 days)
 
-Keep Supabase read-only for 30 days, take a final dump to R2, then delete the Supabase project, the Vercel project and `legacy/`.
+Keep Supabase read-only for 30 days, take a final dump to R2, then delete the Supabase project and the Vercel project (the legacy code is already gone from the repository: see the git history before the commit that removed `legacy/`).

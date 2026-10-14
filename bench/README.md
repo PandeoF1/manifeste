@@ -93,6 +93,30 @@ reports kept (must drop), status correct among kept; plus cost and latency per v
 
 The decision rule for changing the production model or prompt is in `docs/ai.md`.
 
+## School matching
+
+`bun bench/matching/run.ts` measures how often the name an article cites is attached to the right
+school. Truth: the (article, school) pairs of `datasets/parser/mentions.jsonl`, resolved to a UAI
+through the Annuaire de l'éducation (downloaded once into the corpus folder). Input: the way each
+saved page cites the school ("lycée" and the words after it that belong to the official name),
+matched with the city and without. Needs the local Postgres of `docs/development.md` and the
+corpus. Each citation ends up **right**, **wrong** (a report attached to another school: the costly
+error) or **none** (left to a human). A few "wrong" are noise in the labels (twin lycées of one
+site, a pair the judge mislabelled), so compare runs, not the absolute figure.
+
+| 1,735 citations          | right | wrong | none  |
+| ------------------------ | ----- | ----- | ----- |
+| with the city, before    | 68.1% | 1.6%  | 30.3% |
+| with the city, after     | 94.6% | 1.3%  | 4.0%  |
+| without the city, before | 25.0% | 1.1%  | 73.9% |
+| without the city, after  | 37.9% | 0.7%  | 61.4% |
+
+What changed: the directory holds annexes of a lycée under its own name ("Section d'enseignement
+professionnel du lycée X", "Micro-lycée X") with their own UAI, and they tied with the lycée so
+the match was refused as a namesake. Annexes now rank behind their school, the exact name beats a
+longer one in a known city, "cité scolaire" is not part of a name, and twins of one site resolve
+to the general lycée unless the citation says "professionnel".
+
 ## Corpus
 
 Raw press HTML is copyrighted and large, so it is **not in git**. The 1,951 saved pages live in

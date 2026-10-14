@@ -97,13 +97,13 @@ Same as production with `deploy/compose.staging.yml`, branch `rework/elysia-back
 
 ## 5. GitHub
 
-- Packages: the deploy workflow pushes `ghcr.io/<owner>/manifeste:<sha>` and moves `:staging` or
-  `:production` to it. If the package is
+- Packages: the deploy workflow pushes `ghcr.io/<owner>/manifeste:<sha>` and moves `:staging`
+  (push to `develop`) or `:production` (push to `main`, or a manual run) to it. The `:production`
+  tag does not exist until the first run on `main` has finished: deploy it from Coolify after that. If the package is
   private, add a GHCR pull token to Coolify (Settings > Docker registries).
 - Environments `Staging` and `Production` (required reviewers on Production), each with
   `COOLIFY_WEBHOOK` (the resource's deploy webhook) and `COOLIFY_TOKEN` (Coolify > Keys & Tokens).
-- Variables `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY` until the SPA
-  moves to the Eden client (phase 6).
+- Variable `VITE_TURNSTILE_SITE_KEY` (build argument of the image).
 
 ## 6. First staff account
 
