@@ -7,8 +7,6 @@
 .env
 .env.*
 !.env.example
-legacy/**
-!legacy/package.json
 bench/**
 !bench/package.json
 e2e/**

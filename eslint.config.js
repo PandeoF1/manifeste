@@ -10,7 +10,6 @@ export default tseslint.config(
       '**/dist',
       '**/dev-dist',
       'apps/web/src/routeTree.gen.ts',
-      'legacy/supabase/functions/**/!(_shared)/**',
       'packages/db/migrations/**',
     ],
   },
