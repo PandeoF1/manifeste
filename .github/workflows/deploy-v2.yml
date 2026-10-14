@@ -34,7 +34,7 @@ jobs:
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # The sha tag is kept for rollbacks; the moving tag is what the Coolify stack pulls.
       - id: meta
         env:
