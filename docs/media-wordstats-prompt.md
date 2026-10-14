@@ -15,7 +15,7 @@ The admin **Medias** tab currently runs an AI call per batch of press articles (
 `maxMediaCalls`, `analyseMedia`) to describe how each article treats the mobilisation. At full
 coverage this costs too much, so today it only covers a capped slice of the articles.
 
-Add a **deterministic, zero-AI-cost statistics layer** built from word counts over *all* press
+Add a **deterministic, zero-AI-cost statistics layer** built from word counts over _all_ press
 articles that the pipeline reads, and make it the backbone of the Medias page. The AI analysis
 stays, but becomes optional and sampled (a small budget, e.g. the N most recent or most
 ambiguous articles), displayed next to the counts, never required for the page to be useful.
@@ -35,7 +35,7 @@ ambiguous articles), displayed next to the counts, never required for the page t
    numbers. Reuse the pipeline's same-article merge (`absorbed`/`kept` in `read-stage.ts`): count
    an article once per merged group, and credit the other outlets as "relays" in a separate column.
 4. **Cheap and bounded.** Aggregates in one table with a composite primary key and `ON CONFLICT DO
-   UPDATE SET count = count + excluded.count`. Retention job: delete rows older than a configurable
+UPDATE SET count = count + excluded.count`. Retention job: delete rows older than a configurable
    number of days (default 180). Give a back-of-envelope size estimate (distinct terms × days ×
    domains) before choosing the cap.
 5. **Quality-aware.** About 17 % of items only expose a title (sites block bots). Track per domain
@@ -49,7 +49,7 @@ ambiguous articles), displayed next to the counts, never required for the page t
 
 Put it in `packages/core` (pure, no I/O), with a corpus of fixtures:
 
-- Lowercase, strip accents for the *key* (keep a display form), split on non-letters, keep
+- Lowercase, strip accents for the _key_ (keep a display form), split on non-letters, keep
   apostrophe/hyphen compounds sensibly (`l'ordre`, `blocus-éclair`).
 - French stop-word list (articles, prepositions, auxiliaries, generic news filler like
   `selon`, `afin`, `ainsi`) **plus a domain stop list** (outlet names, "Lire aussi", cookie/consent
@@ -60,10 +60,10 @@ Put it in `packages/core` (pure, no I/O), with a corpus of fixtures:
   `chaîne humaine`, `dégradations`, with a PMI/frequency threshold so we keep only meaningful
   ones.
 - A **tracked-lexicon** file (data, editable by staff later): groups such as
-  *mobilisation* (blocage, piquet, assemblée générale, grève), *incidents* (violences, heurts,
-  gaz lacrymogène, interpellations), *demands* (revendications, réforme, abrogation),
-  *actors* (CRS, proviseur, rectorat, syndicats, parents d'élèves, élèves/lycéens/étudiants),
-  *framing* (émeutiers vs lycéens mobilisés, jeunes, casseurs). Counts for the lexicon are stored
+  _mobilisation_ (blocage, piquet, assemblée générale, grève), _incidents_ (violences, heurts,
+  gaz lacrymogène, interpellations), _demands_ (revendications, réforme, abrogation),
+  _actors_ (CRS, proviseur, rectorat, syndicats, parents d'élèves, élèves/lycéens/étudiants),
+  _framing_ (émeutiers vs lycéens mobilisés, jeunes, casseurs). Counts for the lexicon are stored
   even when a term would otherwise be pruned.
 
 ## Metrics to ship (all SQL, no AI)
