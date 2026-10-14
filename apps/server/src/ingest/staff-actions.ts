@@ -12,7 +12,8 @@ export async function linkUnmatched(
   deps: IngestDeps,
   id: string,
   uai: string,
-  userId: string,
+  /** The moderator, or null when the pipeline attaches by itself (the report then follows moderation). */
+  userId: string | null,
 ): Promise<LinkResult> {
   const { db } = deps
   const [row] = await db.select().from(schema.unmatched).where(eq(schema.unmatched.id, id))
@@ -33,7 +34,7 @@ export async function linkUnmatched(
     const d = await decide(deps, { ...fact, text: fact.text || row.context || '' }, null, {
       forceUai: uai,
       recordUnmatched: false,
-      staffUserId: userId,
+      staffUserId: userId ?? undefined,
     })
     outcome = d.outcome
     reportId = d.reportId ?? null
@@ -64,7 +65,7 @@ export async function linkUnmatched(
       dateBasis: 'published',
       verdict: null,
       schoolLevel: school.level,
-      approvedBy: userId,
+      approvedBy: userId ?? undefined,
     })
     outcome = stored.outcome === 'inserted' ? 'reported' : stored.outcome
     reportId = stored.outcome === 'inserted' ? stored.reportId : null

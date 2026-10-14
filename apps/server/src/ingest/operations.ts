@@ -18,6 +18,7 @@ import { chunk, mapLimit } from './http.ts'
 import { readItems } from './reader.ts'
 import { computeTier } from './report-store.ts'
 import { decide, loadFacts, type Decision } from './resolve-stage.ts'
+import { linkUnmatched } from './staff-actions.ts'
 import type { IngestService } from './service.ts'
 
 export const OPERATION_KINDS = ['backfill', 'reextract', 'rejudge', 'rematch'] as const
@@ -305,8 +306,26 @@ export class IngestOperations {
       .orderBy(schema.unmatched.createdAt)
       .limit(op.limit ?? 500)
     const useAi = Boolean(op.useAi) && this.deps.ai.config.enabled
+    // Rows whose extraction is gone (imported from the previous site, or deleted): they carry the
+    // name, city, status and source themselves, so they are attached from those.
+    const orphans = await db
+      .select({
+        id: schema.unmatched.id,
+        schoolName: schema.unmatched.schoolName,
+        city: schema.unmatched.city,
+        status: schema.unmatched.status,
+        context: schema.unmatched.context,
+      })
+      .from(schema.unmatched)
+      .where(and(isNull(schema.unmatched.resolvedAt), isNull(schema.unmatched.extractionId)))
+      .orderBy(schema.unmatched.createdAt)
+      .limit(op.limit ?? 500)
     if (dryRun)
-      return { waiting: open.length, estimatedAiCalls: useAi ? Math.ceil(open.length / 20) : 0 }
+      return {
+        waiting: open.length + orphans.length,
+        withoutExtraction: orphans.length,
+        estimatedAiCalls: useAi ? Math.ceil((open.length + orphans.length) / 20) : 0,
+      }
 
     const judge = this.deps.ai.judge()
     let matched = 0
@@ -385,6 +404,42 @@ export class IngestOperations {
       }
       await this.deps.aiUsage.flush()
     }
-    return { waiting: open.length, matched, reports, stillUnmatched: open.length - matched }
+
+    const left: typeof orphans = []
+    for (const row of orphans) {
+      const hit = await this.deps.matching.match(row.schoolName, row.city)
+      if (hit && (await linkUnmatched(this.deps, row.id, hit.uai, null)).ok) matched++
+      else left.push(row)
+    }
+    if (useAi && left.length > 0) {
+      const chain = this.deps.ai.reanalyseChain()
+      for (const group of chunk(left, 20)) {
+        const items: ReanalyseItem[] = []
+        for (const row of group)
+          items.push({
+            id: row.id,
+            schoolName: row.schoolName,
+            city: row.city,
+            status: row.status,
+            context: row.context ?? '',
+            candidates: (await this.deps.matching.candidates(row.schoolName, row.city, 8)).map(
+              (c) => ({ uai: c.uai, name: c.name, city: c.city, department: null }),
+            ),
+          })
+        let chosen: Map<string, string>
+        try {
+          chosen = await reanalyse(chain, items)
+        } catch {
+          break
+        }
+        for (const row of group) {
+          const uai = chosen.get(row.id)
+          if (uai && (await linkUnmatched(this.deps, row.id, uai, null)).ok) matched++
+        }
+      }
+      await this.deps.aiUsage.flush()
+    }
+    const total = open.length + orphans.length
+    return { waiting: total, matched, reports, stillUnmatched: total - matched }
   }
 }
