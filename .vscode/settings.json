@@ -1,7 +1,0 @@
-{
-  // The Bun extension lists bun's tests only: `*.test.ts`. The Playwright specs (`e2e/tests/*.spec.ts`)
-  // run with `bun run test:e2e` or the Playwright extension.
-  "bun.test.filePattern": "**/*.test.{ts,tsx}",
-  "files.exclude": { "**/node_modules": true },
-  "search.exclude": { "bench/results": true, "**/dist": true, "bun.lock": true }
-}
