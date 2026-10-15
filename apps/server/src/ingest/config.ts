@@ -17,6 +17,11 @@ export interface IngestConfig {
   extractBatchSize: number
   /** AI calls per run of the extract stage; the rest waits for the next run. */
   maxExtractCalls: number
+  /**
+   * An extract sweep waits for a full batch (every call repeats the instructions); items that
+   * have waited this long go anyway. 0 sends whatever is ready.
+   */
+  extractMaxWaitMinutes: number
   /** Extracted facts handled per run of the resolve stage. */
   resolveBatch: number
   /** Facts below this certainty are dropped. */
@@ -27,6 +32,10 @@ export interface IngestConfig {
   mediaAnalysis: boolean
   /** AI calls per run of the media stage. */
   maxMediaCalls: number
+  /** Articles per media call. */
+  mediaBatchSize: number
+  /** The media stage is not urgent: it waits for a full batch up to this long. 0 sends whatever is ready. */
+  mediaMaxWaitMinutes: number
   /** Ask a reading gateway for the text of pages closed to robots. */
   readerGateway: boolean
   /** Attempts before an item goes to the failed lane. */
@@ -49,11 +58,14 @@ export const DEFAULT_INGEST_CONFIG: IngestConfig = {
   // and an answer is never cut by its length. 15 x 12 handles as many items per run as 50 x 4 did.
   extractBatchSize: 15,
   maxExtractCalls: 12,
+  extractMaxWaitMinutes: 10,
   resolveBatch: 200,
   minCertainty: 'medium',
   maxJudgeCalls: 60,
   mediaAnalysis: true,
   maxMediaCalls: 2,
+  mediaBatchSize: 20,
+  mediaMaxWaitMinutes: 120,
   readerGateway: true,
   maxAttempts: 3,
   contentRetentionDays: 7,

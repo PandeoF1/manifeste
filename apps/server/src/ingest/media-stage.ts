@@ -9,6 +9,7 @@ import { schema } from '@manifeste/db'
 import { and, desc, eq, gte, inArray, notExists, sql } from 'drizzle-orm'
 import type { IngestDeps } from './deps.ts'
 import { inSpan } from './events.ts'
+import { takeBatches } from './batching.ts'
 import { chunk } from './http.ts'
 
 export interface MediaSweepResult {
@@ -16,8 +17,6 @@ export interface MediaSweepResult {
   calls: number
   more: boolean
 }
-
-const BATCH = 20
 
 /** The title of an item: the first non-empty line of its text. */
 const titleOf = (text: string, stored: string): string =>
@@ -29,7 +28,7 @@ export async function mediaSweep(deps: IngestDeps): Promise<MediaSweepResult> {
   if (!config.mediaAnalysis || !ai.config.enabled) return result
 
   const since = new Date(deps.now().getTime() - config.contentRetentionDays * 86_400_000)
-  const limit = BATCH * config.maxMediaCalls
+  const limit = config.mediaBatchSize * config.maxMediaCalls
   const rows = await db
     .select({
       id: schema.ingestItems.id,
@@ -37,6 +36,7 @@ export async function mediaSweep(deps: IngestDeps): Promise<MediaSweepResult> {
       url: schema.ingestItems.url,
       publishedAt: schema.ingestItems.publishedAt,
       publisherDomain: schema.ingestItems.publisherDomain,
+      waitingSince: schema.ingestItems.discoveredAt,
       text: schema.itemContents.text,
       title: schema.itemContents.title,
     })
@@ -60,11 +60,16 @@ export async function mediaSweep(deps: IngestDeps): Promise<MediaSweepResult> {
     .orderBy(desc(schema.ingestItems.publishedAt))
     .limit(limit + 1)
   result.more = rows.length > limit
-  const items = rows.slice(0, limit)
-  if (items.length === 0) return result
+  const items = takeBatches(
+    rows.slice(0, limit),
+    config.mediaBatchSize,
+    config.mediaMaxWaitMinutes * 60_000,
+    deps.now(),
+  )
+  if (items.length === 0) return { ...result, more: false }
 
   const chain = ai.mediaChain()
-  for (const group of chunk(items, BATCH)) {
+  for (const group of chunk(items, config.mediaBatchSize)) {
     const request = group.map((g, i) => ({ id: String(i), text: g.text }))
     let analyses
     try {

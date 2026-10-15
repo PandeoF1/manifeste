@@ -32,7 +32,7 @@ async function build(ai: AiConfig = aiConfig()) {
     now: () => NOW,
     ai: createAi(ai, { fetch: geminiFetch, sink: meter, sleep: async () => {} }),
     trigger: async () => {},
-    config: { readerGateway: false },
+    config: { readerGateway: false, extractMaxWaitMinutes: 0, mediaMaxWaitMinutes: 0 },
   })
 }
 
@@ -103,6 +103,30 @@ describe('the whole pipeline', () => {
       promptVersion: 'v1',
     })
     expect(extraction?.reportId).toBe(report?.id)
+  })
+
+  test('one article waits for a full batch (every call repeats the instructions), then goes once it has waited', async () => {
+    ingest = new IngestService(s.ctx, {
+      fetchFn,
+      now: () => NOW,
+      ai: createAi(aiConfig(), { fetch: geminiFetch, sink: meter, sleep: async () => {} }),
+      trigger: async () => {},
+      config: { readerGateway: false, extractMaxWaitMinutes: 10 },
+    })
+    await ingest.discover(sourceId, 'manual')
+    await ingest.drain()
+    expect(await states()).toEqual({ a1: 'read', a2: 'irrelevant' })
+    expect(world.geminiCalls).toBe(0)
+
+    // 16 minutes later (the item entered the "read" state at NOW minus 16 minutes).
+    await s.ctx.db
+      .update(schema.ingestItems)
+      .set({ updatedAt: new Date(NOW.getTime() - 16 * 60_000) })
+      .where(eq(schema.ingestItems.state, 'read'))
+    await ingest.drain()
+    expect(await states()).toEqual({ a1: 'done', a2: 'irrelevant' })
+    expect(world.geminiCalls).toBeGreaterThan(0)
+    expect(await allReports()).toHaveLength(1)
   })
 
   test('a trusted domain publishes without moderation, and the realtime bus is told', async () => {
@@ -249,6 +273,7 @@ describe('what is dropped, and why', () => {
         ),
       now: () => NOW,
       ai: ingest.deps.ai,
+      config: { extractMaxWaitMinutes: 0, mediaMaxWaitMinutes: 0 },
       trigger: async () => {},
     })
     await telegram.discover(second?.id ?? '', 'manual')
@@ -353,7 +378,7 @@ describe('duplicates are settled before any page is downloaded', () => {
       now: () => NOW,
       ai: createAi(aiConfig(), { fetch: geminiFetch, sink: meter, sleep: async () => {} }),
       trigger: async () => {},
-      config: { readerGateway: false },
+      config: { readerGateway: false, extractMaxWaitMinutes: 0, mediaMaxWaitMinutes: 0 },
     })
     return { svc, pageHits: () => hits.filter((u) => u.includes('/pasteur')) }
   }
