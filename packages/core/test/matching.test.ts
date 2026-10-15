@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { cleanCitation, isAnnex, pickMatch, type SchoolCandidate } from '../src/matching.ts'
+import {
+  cleanCitation,
+  institutionKey,
+  isAnnex,
+  isGenericSchoolName,
+  isPartOfUniversity,
+  pickMatch,
+  type SchoolCandidate,
+} from '../src/matching.ts'
 
 const candidate = (uai: string, name: string, score = 1, extra: Partial<SchoolCandidate> = {}) => ({
   uai,
@@ -56,5 +64,101 @@ describe('cleanCitation', () => {
   test('"cité scolaire" is the kind of place, not part of the name', () => {
     expect(cleanCitation('cité scolaire Mistral')).toBe('Mistral')
     expect(cleanCitation('Lycée Jean Moulin')).toBe('Lycée Jean Moulin')
+  })
+})
+
+describe('cleanCitation', () => {
+  test('decodes HTML entities left by the scraper', () => {
+    expect(cleanCitation('Lyc&eacute;e D&eacute;odat-de-S&eacute;verac')).toBe(
+      'Lycée Déodat-de-Séverac',
+    )
+    expect(cleanCitation('IUT de Saint-J&#233;rome')).toBe('IUT de Saint-Jérome')
+    expect(cleanCitation('R&amp;D &unknown;')).toBe('R&D &unknown;')
+  })
+
+  test('drops the kind of place', () => {
+    expect(cleanCitation('groupe scolaire La Pérouse-Kerichen')).toBe('La Pérouse-Kerichen')
+    expect(cleanCitation('institution Sacré-Cœur')).toBe('Sacré-Cœur')
+  })
+})
+
+describe('pickMatch and the sites of one university', () => {
+  const site = (uai: string, name: string) =>
+    candidate(uai, name, 1, { level: 'higher', city: 'Lyon' })
+
+  test('two sites of one university are not rivals', () => {
+    const sites = [
+      site('A', 'Université Jean Moulin - Lyon 3 – Lyon 7e'),
+      site('B', 'Université Jean Moulin - Lyon 3 – Lyon 8e'),
+    ]
+    expect(institutionKey('Université Jean Moulin - Lyon 3 – Lyon 7e')).toBe(
+      institutionKey('Université Jean Moulin - Lyon 3 – Lyon 8e'),
+    )
+    expect(pickMatch(sites, true, undefined, 'Lyon 3')?.uai).toBe('A')
+  })
+
+  test('two universities are rivals', () => {
+    const rivals = [
+      site('A', 'Université Lyon 1 – Lyon 7e'),
+      site('B', 'Université Lyon 2 – Lyon 7e'),
+    ]
+    expect(pickMatch(rivals, true, undefined, 'université de Lyon')).toBeNull()
+  })
+
+  test('a bare name is a lycée, "fac" is higher education', () => {
+    const lycee = candidate('L', 'Lycée Lumière', 1, { level: 'secondary', city: 'Lyon' })
+    const univ = candidate('U', 'Université Lumière - Lyon 2', 1, { level: 'higher', city: 'Lyon' })
+    expect(pickMatch([univ, lycee], true, undefined, 'Lumière')?.uai).toBe('L')
+    expect(pickMatch([univ, lycee], true, undefined, 'fac Lumière')?.uai).toBe('U')
+  })
+})
+
+describe('pickMatch and a misspelt name', () => {
+  const malherbe = candidate('M', 'Lycée François de Malherbe', 0.58, {
+    nameScore: 0.58,
+    score: 0.55,
+    city: 'Caen',
+  })
+  const other = candidate('S', 'Lycée Sainte-Marie', 0.3, {
+    nameScore: 0.3,
+    score: 0.5,
+    city: 'Caen',
+  })
+
+  test('a word one letter away, in the exact city, with no other close school', () => {
+    expect(pickMatch([malherbe, other], true, undefined, 'Marlherbe')?.uai).toBe('M')
+  })
+
+  test('not when no word of the citation looks like the name', () => {
+    const univ = candidate('U', "Université d'Angers – Angers", 0.54, {
+      nameScore: 0.54,
+      score: 0.55,
+      city: 'Angers',
+    })
+    expect(pickMatch([univ], true, undefined, "Catho d'Angers")).toBeNull()
+  })
+})
+
+describe('isGenericSchoolName', () => {
+  test('a kind of school and a town name no school', () => {
+    expect(
+      isGenericSchoolName('lycée agricole de Saint-Aubin-du-Cormier', 'Saint-Aubin-du-Cormier'),
+    ).toBe(true)
+    expect(isGenericSchoolName('lycée agricole', null)).toBe(true)
+    expect(isGenericSchoolName('lycée Brizeux', 'Quimper')).toBe(false)
+  })
+})
+
+describe('isPartOfUniversity', () => {
+  test('a faculty, an IUT or a campus is a part of a university', () => {
+    for (const n of [
+      'fac de droit',
+      'IUT',
+      'campus de la Fonderie',
+      'pôle universitaire Jules-Verne',
+    ])
+      expect(isPartOfUniversity(n)).toBe(true)
+    expect(isPartOfUniversity('lycée Condorcet')).toBe(false)
+    expect(isPartOfUniversity('Lyon 3')).toBe(false)
   })
 })

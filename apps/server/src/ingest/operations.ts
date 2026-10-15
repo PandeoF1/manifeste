@@ -17,7 +17,7 @@ import { discoverSource } from './discover.ts'
 import { chunk, mapLimit } from './http.ts'
 import { readItems } from './reader.ts'
 import { computeTier } from './report-store.ts'
-import { decide, loadFacts, type Decision } from './resolve-stage.ts'
+import { decide, findSchool, loadFacts, type Decision } from './resolve-stage.ts'
 import { linkUnmatched } from './staff-actions.ts'
 import type { IngestService } from './service.ts'
 
@@ -315,6 +315,7 @@ export class IngestOperations {
         city: schema.unmatched.city,
         status: schema.unmatched.status,
         context: schema.unmatched.context,
+        sourceUrl: schema.unmatched.sourceUrl,
       })
       .from(schema.unmatched)
       .where(and(isNull(schema.unmatched.resolvedAt), isNull(schema.unmatched.extractionId)))
@@ -407,8 +408,15 @@ export class IngestOperations {
 
     const left: typeof orphans = []
     for (const row of orphans) {
-      const hit = await this.deps.matching.match(row.schoolName, row.city)
-      if (hit && (await linkUnmatched(this.deps, row.id, hit.uai, null)).ok) matched++
+      const uai = await findSchool(this.deps.matching, {
+        schoolName: row.schoolName,
+        city: row.city,
+        geoLat: null,
+        geoLng: null,
+        text: row.context ?? '',
+        url: row.sourceUrl,
+      })
+      if (uai && (await linkUnmatched(this.deps, row.id, uai, null)).ok) matched++
       else left.push(row)
     }
     if (useAi && left.length > 0) {
