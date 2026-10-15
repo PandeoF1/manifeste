@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { EN_VIEWS } from '../src/modules/open-data/index.ts'
 import { DICTIONARY, dictionaryRows, dictionaryText } from '../src/modules/open-data/dictionary.ts'
 import {
   COLUMNS,
@@ -9,6 +10,7 @@ import {
   shapeRows,
   toCsv,
   toGeoJson,
+  VIEWS,
   type Row,
 } from '../src/modules/open-data/format.ts'
 
@@ -103,5 +105,12 @@ describe('data dictionary', () => {
       rows.find((r) => r.vue === 'signalements' && r.colonne === 'origine')?.valeurs,
     ).toContain('utilisateur :')
     expect(rows.every((r) => (r.description ?? '').length > 0)).toBe(true)
+  })
+})
+
+describe('English alias', () => {
+  test('every published view has an English name, and nothing points elsewhere', () => {
+    const targets = Object.values(EN_VIEWS).sort()
+    expect(targets).toEqual([...VIEWS, 'dictionnaire'].sort())
   })
 })

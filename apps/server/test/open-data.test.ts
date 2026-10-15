@@ -198,4 +198,31 @@ describe('/api/donnees', () => {
     const bad = await s.request('/api/donnees?vue=dictionnaire&format=geojson')
     expect(bad.status).toBe(400)
   })
+
+  test('the English alias serves the same data with English parameters and envelope', async () => {
+    const res = await s.request('/api/open-data')
+    expect(res.status).toBe(200)
+    const summary = (await res.json()) as Loose
+    expect(summary).toMatchObject({ license: 'CC BY 4.0', view: 'summary' })
+    expect(summary.data.etablissements).toBe(2)
+
+    const fr = (await donnees('?vue=etablissements')).body.donnees
+    const en = ((await (await s.request('/api/open-data?view=schools')).json()) as Loose).data
+    expect(en).toEqual(fr)
+
+    const geo = await s.request('/api/open-data?view=schools&format=geojson')
+    expect(geo.headers.get('content-type')).toContain('application/geo+json')
+    const csv = await s.request('/api/open-data?view=days&format=csv&download=1')
+    expect(csv.headers.get('content-disposition')).toContain('manifeste-jours-')
+    const dict = await s.request('/api/open-data?view=dictionary&format=txt')
+    expect(await dict.text()).toContain('DICTIONNAIRE')
+  })
+
+  test('the English alias answers errors in English with an { error } key', async () => {
+    for (const query of ['?view=users', '?format=xml', '?view=days&format=geojson']) {
+      const res = await s.request(`/api/open-data${query}`)
+      expect(res.status).toBe(400)
+      expect(Object.keys((await res.json()) as object)).toEqual(['error'])
+    }
+  })
 })

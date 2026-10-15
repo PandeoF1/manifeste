@@ -264,6 +264,7 @@ export function dictionaryText(): string {
     '          vues : resume, jours, departements, academies, etablissements, signalements',
     '          formats : json (par défaut), csv (séparateur « ; », UTF-8), geojson (établissements seulement)',
     '          ce dictionnaire : /api/donnees?vue=dictionnaire (&format=json, csv ou txt)',
+    '          alias anglais : /api/open-data?view=schools|reports|days|departments|academies|summary|dictionary',
     '',
     j.avertissement,
   ]
