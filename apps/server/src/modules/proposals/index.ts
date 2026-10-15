@@ -28,6 +28,7 @@ const proposal = t.Object({
   name: t.String(),
   city: t.String(),
   status: t.UnionEnum([...REPORT_STATUSES]),
+  mobilisation: t.Boolean(),
   lat: t.Number(),
   lng: t.Number(),
   hasPhoto: t.Boolean(),
@@ -74,6 +75,7 @@ export const proposalsModule = (
               name: p.name,
               city: p.city,
               status: p.status,
+              mobilisation: p.mobilisation,
               lat: p.lat,
               lng: p.lng,
               hasPhoto: p.photoKey !== null,
@@ -175,7 +177,9 @@ export const proposalsModule = (
               sourceUrl: p.sourceUrl,
               sourceDomain: domain,
               moderation: 'pending',
-              tier: tierOf({ probability: null, nature: null, status: p.status, onSite: true }),
+              tier: p.mobilisation
+                ? 'mobilisation'
+                : tierOf({ probability: null, nature: null, status: p.status, onSite: true }),
               observedAt: p.createdAt,
             })
             .returning({ id: schema.reports.id })

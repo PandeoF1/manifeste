@@ -8,6 +8,7 @@
 import { Elysia, t } from 'elysia'
 import {
   ATTRIBUTION,
+  DOCUMENTATION,
   filename,
   flattenSummary,
   isFormat,
@@ -80,6 +81,7 @@ export const openDataModule = (service: OpenDataService) =>
         JSON.stringify({
           licence: LICENCE,
           attribution: ATTRIBUTION,
+          documentation: DOCUMENTATION,
           vue: view,
           genere_le: new Date().toISOString(),
           donnees: data,

@@ -14,6 +14,15 @@ describe('parseSubmission', () => {
     })
   })
 
+  test('a mobilisation signalée is stored as a blocked status with the mobilisation flag', () => {
+    expect(parseSubmission({ ...ok, status: 'mobilisation' })).toMatchObject({
+      status: 'blocked',
+      mobilisation: true,
+    })
+    expect(parseSubmission(ok)).toMatchObject({ status: 'blocked', mobilisation: false })
+    expect(parseSubmission({ ...ok, status: 'rassemblement' })).toBeNull()
+  })
+
   test('a proposed school needs a name and a city', () => {
     const base = { status: 'filtering', lat: 1, lng: 1 }
     expect(

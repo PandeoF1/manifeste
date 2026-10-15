@@ -20,6 +20,8 @@ export type Format = (typeof FORMATS)[number]
 
 export const LICENCE = 'CC BY 4.0'
 export const ATTRIBUTION = 'Manifeste (manifeste.pandeo.fr)'
+/** The data dictionary: every column and every value, in plain text. */
+export const DOCUMENTATION = 'https://manifeste.pandeo.fr/dictionnaire-donnees.txt'
 
 type Cell = string | number | boolean | null | undefined
 export type Row = Record<string, Cell | Record<string, unknown> | unknown[]>
@@ -75,6 +77,7 @@ const COLUMNS: Record<Exclude<View, 'resume'>, string[]> = {
     'dernier_signalement',
     'dernier_statut',
     'statut_direct',
+    'categorie',
     'signalements',
     'sites_sources',
     'origines',
@@ -90,6 +93,7 @@ const COLUMNS: Record<Exclude<View, 'resume'>, string[]> = {
     'academie',
     'niveau',
     'statut',
+    'categorie',
     'origine',
     'site_source',
     'lien_source',
@@ -176,6 +180,7 @@ export function toGeoJson(rows: ReadonlyArray<Row>): string {
     type: 'FeatureCollection',
     licence: LICENCE,
     attribution: ATTRIBUTION,
+    documentation: DOCUMENTATION,
     features,
   })
 }

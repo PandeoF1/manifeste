@@ -64,6 +64,13 @@
       "when": 1791762844276,
       "tag": "0008_ingest_items_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792061739442,
+      "tag": "0009_proposal_mobilisation",
+      "breakpoints": true
     }
   ]
 }

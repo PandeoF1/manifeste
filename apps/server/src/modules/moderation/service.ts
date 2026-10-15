@@ -229,7 +229,7 @@ export class ModerationService {
     const nextStatus = patch.status ?? before.status
     // A new status can change what the judge's answer means: recompute the tier.
     const tier = patch.status
-      ? await this.tierFor(id, nextStatus, patch.schoolUai ?? before.schoolUai)
+      ? await this.tierFor(id, nextStatus, patch.schoolUai ?? before.schoolUai, before)
       : undefined
     await this.db
       .update(schema.reports)
@@ -258,12 +258,23 @@ export class ModerationService {
     return { ok: true as const }
   }
 
-  private async tierFor(id: string, reportStatus: 'blocked' | 'filtering' | 'lifted', uai: string) {
+  private async tierFor(
+    id: string,
+    reportStatus: 'blocked' | 'filtering' | 'lifted',
+    uai: string,
+    before: { origin: string; tier: string },
+  ) {
     const [judgement] = await this.db
       .select()
       .from(schema.judgements)
       .where(eq(schema.judgements.reportId, id))
-    if (!judgement) return 'unjudged' as const
+    // No judge opinion: an on-site report keeps its tier (a mobilisation stays one), any other is unjudged.
+    if (!judgement)
+      return before.origin === 'on_site'
+        ? before.tier === 'mobilisation'
+          ? 'mobilisation'
+          : 'confirmed'
+        : ('unjudged' as const)
     const [school] = await this.db
       .select({ level: schema.schools.level })
       .from(schema.schools)

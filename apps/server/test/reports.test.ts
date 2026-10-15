@@ -252,3 +252,39 @@ describe('GET /api/photos/:file', () => {
     expect((await s.request('/api/photos/not-a-uuid.jpg')).status).toBe(422)
   })
 })
+
+describe('mobilisation signalée (on-site form)', () => {
+  test('is stored as a blocked-status report with the mobilisation tier, never as confirmed', async () => {
+    const { res } = await send({ ...valid(), status: 'mobilisation' })
+    expect(res.status).toBe(201)
+    const found = await s.ctx.db
+      .select()
+      .from(schema.reports)
+      .where(eq(schema.reports.tier, 'mobilisation'))
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ origin: 'on_site', status: 'blocked', moderation: 'pending' })
+  })
+
+  test('a proposed school keeps the mobilisation flag until staff approve it', async () => {
+    const { res } = await send({
+      newSchoolName: 'Lycée Voisin',
+      newSchoolCity: 'Rodez',
+      status: 'mobilisation',
+      lat: '44.3500',
+      lng: '2.5750',
+    })
+    expect(res.status).toBe(201)
+    const flagged = await s.ctx.db
+      .select()
+      .from(schema.schoolProposals)
+      .where(eq(schema.schoolProposals.mobilisation, true))
+    expect(flagged).toHaveLength(1)
+    expect(flagged[0]).toMatchObject({ name: 'Lycée Voisin', status: 'blocked' })
+  })
+
+  test('an unknown status is still refused', async () => {
+    const { res, body } = await send({ ...valid(), status: 'rassemblement' })
+    expect(res.status).toBe(400)
+    expect(body.error).toBe('invalid_input')
+  })
+})

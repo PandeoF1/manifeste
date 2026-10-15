@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, Link2, MapPin, Plus, Trash2 } from 'lucide-react'
-import { STATUS_LABELS } from '@/lib/labels'
+import { MOBILISATION_LABEL, STATUS_LABELS } from '@/lib/labels'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatSchoolName } from '@/lib/schoolName'
 import {
@@ -80,7 +80,8 @@ function ProposalCard({ p, canReject }: { p: Proposal; canReject: boolean }) {
             « {p.name} » · {p.city}
           </h2>
           <p className="text-xs text-muted">
-            {STATUS_LABELS[p.status]} · {dateFmt.format(p.createdAt)} ·{' '}
+            {p.mobilisation ? MOBILISATION_LABEL : STATUS_LABELS[p.status]} ·{' '}
+            {dateFmt.format(p.createdAt)} ·{' '}
             <a
               className="inline-flex items-center gap-1 underline"
               href={`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}`}

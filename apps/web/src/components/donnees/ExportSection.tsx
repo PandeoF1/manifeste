@@ -91,6 +91,15 @@ export function CopyBox({ code, label }: { code: string; label: string }) {
 export function ExportSection() {
   return (
     <div className="space-y-6">
+      <p className="rounded-lg border border-border bg-surface p-3 text-sm">
+        <strong>Que veulent dire les colonnes ?</strong> Le{' '}
+        <a className="font-semibold underline" href="/dictionnaire-donnees.txt">
+          dictionnaire des données
+        </a>{' '}
+        définit chaque champ et chaque valeur : <code>categorie</code> (bloque, filtrant,
+        mobilisation, leve), <code>confiance</code> et <code>origine</code> (presse, syndicat,
+        collecteur, utilisateur).
+      </p>
       <ul className="divide-y divide-border border-y border-border">
         {DATASETS.map((d) => (
           <li key={d.vue} className="flex flex-wrap items-center justify-between gap-3 py-3">

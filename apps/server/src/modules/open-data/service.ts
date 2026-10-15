@@ -256,12 +256,12 @@ export class OpenDataService {
           select school_uai,
             count(*)::int as signalements,
             count(distinct source_domain) filter (where origin <> 'on_site')::int as sites_sources,
-            string_agg(distinct ${FR_ORIGIN('origin')}, ' ' order by ${FR_ORIGIN('origin')}) as origines,
+            string_agg(distinct ${FR_ORIGIN('origin')}, ', ' order by ${FR_ORIGIN('origin')}) as origines,
             min(observed_at) filter (where status <> 'lifted') as premier_blocage,
             max(observed_at) as dernier_signalement,
             case
               when not ${tiersOn}::boolean then null
-              when bool_or(tier = 'confirmed' or origin = 'on_site') then 'confirmé'
+              when bool_or(tier = 'confirmed' or (origin = 'on_site' and tier <> 'mobilisation')) then 'confirmé'
               when bool_or(tier = 'unjudged') then 'non jugé'
               else 'mobilisation'
             end as confiance
@@ -279,6 +279,7 @@ export class OpenDataService {
           to_char(${DAY('a.premier_blocage')}, 'YYYY-MM-DD') as premier_blocage,
           a.dernier_signalement,
           ${FR_STATUS('l.latest_status')} as dernier_statut,
+          case when a.confiance = 'mobilisation' then 'mobilisation' else ${FR_STATUS('l.latest_status')} end as categorie,
           a.confiance
         from agg a
         join schools s on s.uai = a.school_uai
@@ -303,8 +304,10 @@ export class OpenDataService {
           case when rp.origin = 'on_site' then null else rp.source_domain end as site_source,
           case when rp.origin = 'on_site' then null else rp.source_url end as lien_source,
           ${FR_CERTAINTY('rp.certainty')} as certitude,
+          case when ${tiersOn}::boolean and rp.tier = 'mobilisation' and rp.status <> 'lifted'
+            then 'mobilisation' else ${FR_STATUS('rp.status')} end as categorie,
           case when ${tiersOn}::boolean then
-            case when rp.origin = 'on_site' or rp.tier = 'confirmed' then 'confirmé'
+            case when rp.tier = 'confirmed' or (rp.origin = 'on_site' and rp.tier <> 'mobilisation') then 'confirmé'
                  when rp.tier = 'unjudged' then 'non jugé' else 'mobilisation' end
           end as confiance
         from reports rp join schools s on s.uai = rp.school_uai

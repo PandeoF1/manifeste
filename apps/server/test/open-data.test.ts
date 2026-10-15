@@ -131,9 +131,10 @@ describe('/api/donnees', () => {
       niveau: 'lycee',
       dernier_statut: 'bloque',
       statut_direct: 'bloque',
+      categorie: 'bloque',
       signalements: 2,
     })
-    expect(String(lille?.origines)).toBe('presse syndicat')
+    expect(String(lille?.origines)).toBe('presse, syndicat')
     expect(rows.find((r) => r.uai === uai.marseille)).toMatchObject({
       origines: 'utilisateur',
       sites_sources: 0,

@@ -4,7 +4,7 @@ import { Check, ExternalLink, Image as ImageIcon, MapPin, X } from 'lucide-react
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { PhotoRedactor } from '@/components/report/PhotoRedactor'
 import type { StaffRole } from '@/lib/auth'
-import { ORIGIN_LABELS } from '@/lib/labels'
+import { MOBILISATION_LABEL, ORIGIN_LABELS } from '@/lib/labels'
 import { loadImage, toJpeg } from '@/lib/photo'
 import { queryKeys } from '@/lib/queryKeys'
 import { decideReport, originalPhotoUrl, pendingQuery, type PendingReport } from '@/queries/admin'
@@ -94,6 +94,9 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
                   </div>
                   <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
                     <StatusBadge status={r.status} />
+                    {r.origin === 'on_site' && r.tier === 'mobilisation' && (
+                      <span className="font-semibold">{MOBILISATION_LABEL}</span>
+                    )}
                     <span>{dateFmt.format(r.observedAt)}</span>
                     <span>
                       {r.origin === 'on_site'
