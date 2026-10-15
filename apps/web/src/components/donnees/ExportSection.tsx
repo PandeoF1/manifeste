@@ -93,7 +93,7 @@ export function ExportSection() {
     <div className="space-y-6">
       <p className="rounded-lg border border-border bg-surface p-3 text-sm">
         <strong>Que veulent dire les colonnes ?</strong> Le{' '}
-        <a className="font-semibold underline" href="/dictionnaire-donnees.txt">
+        <a className="font-semibold underline" href="/api/donnees?vue=dictionnaire&format=txt">
           dictionnaire des données
         </a>{' '}
         définit chaque champ et chaque valeur : <code>categorie</code> (bloque, filtrant,
@@ -129,8 +129,9 @@ export function ExportSection() {
         <p className="text-sm">
           Les mêmes fichiers sont disponibles à une adresse stable, sans clé ni inscription. Les
           paramètres : <code>vue</code> (resume, jours, departements, academies, etablissements,
-          signalements), <code>format</code> (json, csv, geojson pour les établissements). La
-          réponse est mise en cache cinq minutes ; merci de ne pas interroger plus souvent.
+          signalements, dictionnaire), <code>format</code> (json, csv, geojson pour les
+          établissements ; txt pour le dictionnaire). La réponse est mise en cache cinq minutes ;
+          merci de ne pas interroger plus souvent.
         </p>
         <CopyBox
           label="Copier la commande"

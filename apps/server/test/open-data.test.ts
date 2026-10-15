@@ -178,4 +178,24 @@ describe('/api/donnees', () => {
       expect(Object.keys((await res.json()) as object)).toEqual(['erreur'])
     }
   })
+
+  test('the data dictionary is served in json, csv and plain text, without touching the database', async () => {
+    const json = await s.request('/api/donnees?vue=dictionnaire')
+    expect(json.status).toBe(200)
+    expect(json.headers.get('access-control-allow-origin')).toBe('*')
+    const body = (await json.json()) as { vues: Array<{ vue: string }>; licence: string }
+    expect(body.licence).toBe('CC BY 4.0')
+    expect(body.vues.map((v) => v.vue)).toContain('etablissements')
+
+    const txt = await s.request('/api/donnees?vue=dictionnaire&format=txt')
+    expect(txt.headers.get('content-type')).toContain('text/plain')
+    expect(await txt.text()).toContain('collecteur')
+
+    const csv = await s.request('/api/donnees?vue=dictionnaire&format=csv')
+    expect(csv.headers.get('content-type')).toContain('text/csv')
+    expect(await csv.text()).toContain('origines')
+
+    const bad = await s.request('/api/donnees?vue=dictionnaire&format=geojson')
+    expect(bad.status).toBe(400)
+  })
 })

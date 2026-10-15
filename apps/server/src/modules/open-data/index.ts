@@ -1,6 +1,7 @@
 /**
  * Open data at /api/donnees (CC BY 4.0, open to every origin, 5-minute CDN cache):
- *   vue    : resume, jours, departements, academies, etablissements, signalements
+ *   vue    : resume, jours, departements, academies, etablissements, signalements,
+ *            dictionnaire (what every column and value means; format json, csv or txt)
  *   format : json (default), csv, geojson (etablissements only)
  *   telecharger=1 : force a file download
  * Parameter names, view names and the `erreur` key are the published contract, kept in French.
@@ -19,6 +20,7 @@ import {
   toGeoJson,
   type Row,
 } from './format.ts'
+import { dictionaryJson, dictionaryRows, dictionaryText } from './dictionary.ts'
 import type { OpenDataService } from './service.ts'
 
 const COMMON = {
@@ -38,10 +40,26 @@ export const openDataModule = (service: OpenDataService) =>
     async ({ query }) => {
       const view = query.vue ?? 'resume'
       const format = query.format ?? 'json'
+      // The data dictionary: no database, three formats (json, csv, txt).
+      if (view === 'dictionnaire') {
+        if (format === 'txt')
+          return new Response(dictionaryText(), {
+            headers: { ...COMMON, 'content-type': 'text/plain; charset=utf-8' },
+          })
+        if (format === 'csv')
+          return new Response(toCsv(dictionaryRows()), {
+            headers: { ...COMMON, 'content-type': 'text/csv; charset=utf-8' },
+          })
+        if (format === 'json')
+          return new Response(JSON.stringify(dictionaryJson()), {
+            headers: { ...COMMON, 'content-type': 'application/json; charset=utf-8' },
+          })
+        return fail(400, 'format inconnu pour le dictionnaire (json, csv, txt)')
+      }
       if (!isView(view))
         return fail(
           400,
-          'vue inconnue (resume, jours, departements, academies, etablissements, signalements)',
+          'vue inconnue (resume, jours, departements, academies, etablissements, signalements, dictionnaire)',
         )
       if (!isFormat(format)) return fail(400, 'format inconnu (json, csv, geojson)')
       if (format === 'geojson' && view !== 'etablissements')
@@ -100,7 +118,7 @@ export const openDataModule = (service: OpenDataService) =>
         tags: ['open-data'],
         summary: 'Open data (CC BY 4.0): summary, days, zones, schools, reports',
         description:
-          'Views: resume, jours, departements, academies, etablissements, signalements. ' +
+          'Views: resume, jours, departements, academies, etablissements, signalements, dictionnaire (the data dictionary: json, csv or txt). ' +
           'Formats: json, csv (semicolon, UTF-8 with BOM, for French Excel), geojson (etablissements only).',
       },
     },

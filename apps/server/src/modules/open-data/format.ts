@@ -21,7 +21,7 @@ export type Format = (typeof FORMATS)[number]
 export const LICENCE = 'CC BY 4.0'
 export const ATTRIBUTION = 'Manifeste (manifeste.pandeo.fr)'
 /** The data dictionary: every column and every value, in plain text. */
-export const DOCUMENTATION = 'https://manifeste.pandeo.fr/dictionnaire-donnees.txt'
+export const DOCUMENTATION = 'https://manifeste.pandeo.fr/api/donnees?vue=dictionnaire&format=txt'
 
 type Cell = string | number | boolean | null | undefined
 export type Row = Record<string, Cell | Record<string, unknown> | unknown[]>
@@ -43,7 +43,7 @@ const ZONE_COLUMNS = (zone: string) => [
  * Column order of each view: the order a reader expects (day, name… before the counters).
  * Zone views name their first column "departement" or "academie" in the exports.
  */
-const COLUMNS: Record<Exclude<View, 'resume'>, string[]> = {
+export const COLUMNS: Record<Exclude<View, 'resume'>, string[]> = {
   jours: [
     'jour',
     'etablissements',

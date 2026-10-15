@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import { DICTIONARY, dictionaryRows, dictionaryText } from '../src/modules/open-data/dictionary.ts'
 import {
+  COLUMNS,
   filename,
   flattenSummary,
   isFormat,
@@ -72,5 +74,34 @@ describe('open data exports', () => {
     expect(filename('jours', 'csv', new Date('2026-10-07T10:00:00Z'))).toBe(
       'manifeste-jours-2026-10-07.csv',
     )
+  })
+})
+
+describe('data dictionary', () => {
+  test('every published column is documented, and nothing else is', () => {
+    for (const [view, columns] of Object.entries(COLUMNS)) {
+      const documented = DICTIONARY.find((v) => v.vue === view)?.colonnes.map((c) => c.nom) ?? []
+      expect(documented.sort()).toEqual([...columns].sort())
+    }
+  })
+
+  test('every view has a description, and the categorical columns list their values', () => {
+    for (const v of DICTIONARY) expect(v.description.length).toBeGreaterThan(10)
+    const cols = DICTIONARY.find((v) => v.vue === 'etablissements')?.colonnes ?? []
+    const values = (name: string) => Object.keys(cols.find((c) => c.nom === name)?.valeurs ?? {})
+    expect(values('categorie')).toEqual(['bloque', 'filtrant', 'mobilisation', 'leve'])
+    expect(values('origines')).toEqual(['presse', 'syndicat', 'collecteur', 'utilisateur'])
+    expect(values('confiance')).toContain('mobilisation')
+  })
+
+  test('the text and the rows carry the same definitions', () => {
+    const text = dictionaryText()
+    expect(text).toContain('MANIFESTE - DICTIONNAIRE')
+    expect(text).toContain('« presse, utilisateur »')
+    const rows = dictionaryRows()
+    expect(
+      rows.find((r) => r.vue === 'signalements' && r.colonne === 'origine')?.valeurs,
+    ).toContain('utilisateur :')
+    expect(rows.every((r) => (r.description ?? '').length > 0)).toBe(true)
   })
 })
