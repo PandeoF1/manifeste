@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import { cardSpec } from '../src/lib/tweets/card-spec'
-import { daysOf, figuresFor, shiftDay, type TweetData } from '../src/lib/tweets/figures'
-import { TEMPLATES, headline, templateById } from '../src/lib/tweets/templates'
+import { daysOf, figuresFor, shiftDay, topNow, type TweetData } from '../src/lib/tweets/figures'
+import {
+  TEMPLATES,
+  deltaPhrase,
+  headline,
+  replyText,
+  templateById,
+} from '../src/lib/tweets/templates'
 import { MAX_TWEET, compose, parseHashtags, tweetLength } from '../src/lib/tweets/text'
 import { niceAxis } from '../src/lib/tweets/card'
 import type { Jour, Resume, Zone } from '../src/queries/donnees'
@@ -172,5 +178,65 @@ describe('local reset', () => {
     expect(withoutReset('https://manifeste.pandeo.fr/?reset=1&lat=46.4&lng=2.4#x')).toBe(
       '/?lat=46.4&lng=2.4#x',
     )
+  })
+})
+
+describe('mobilisations, yesterday, lycées / facs', () => {
+  const withMob: TweetData = {
+    ...data,
+    resume: { ...data.resume, mobilises: 4 },
+    jours: [...data.jours, day('2026-10-13', 20, { facs: 5, mobilises: 2 })],
+  }
+  it('"en ce moment" counts blocked, filtering and mobilisations', () => {
+    const f = figuresFor(withMob, 'all')
+    const body = templateById('maintenant').body({ data: withMob, figures: f })
+    expect(body).toContain('7 établissements bloqués')
+    expect(body).toContain('3 en filtrage')
+    expect(body).toContain('4 mobilisations signalées')
+    const stats = cardSpec(templateById('maintenant'), withMob, f).body
+    expect(stats.kind === 'numbers' && stats.stats.map((s) => s.tone)).toEqual([
+      'bloque',
+      'filtrant',
+      'mobilisation',
+    ])
+  })
+  it('the third kind is left out when there is none (judge tiers off)', () => {
+    const f = figuresFor(data, 'all')
+    expect(templateById('maintenant').body({ data, figures: f })).not.toContain('mobilisation')
+    const stats = cardSpec(templateById('maintenant'), data, f).body
+    expect(stats.kind === 'numbers' && stats.stats).toHaveLength(2)
+  })
+  it('the bilan adds mobilisations apart from the blocked schools', () => {
+    const f = figuresFor(withMob, 'all')
+    expect(templateById('bilan').body({ data: withMob, figures: f })).toContain(
+      '4 mobilisations signalées',
+    )
+    expect(figuresFor(withMob, '30d').mobilised).toBe(2)
+  })
+  it('yesterday is compared with the day before, never with a running day', () => {
+    const f = figuresFor(withMob, 'all')
+    expect(f.yesterday).toEqual({ jour: '2026-10-13', schools: 20, before: null })
+    expect(deltaPhrase(20, 12)).toBe('+8 vs la veille')
+    expect(deltaPhrase(5, 9)).toBe('−4 vs la veille')
+    expect(deltaPhrase(5, 5)).toBe('autant que la veille')
+    expect(deltaPhrase(5, null)).toBe('')
+  })
+  it('lycées + facs add up to the schools shown', () => {
+    const f = figuresFor(withMob, '30d')
+    expect(f.lycees + f.facs).toBe(f.schools)
+    const all = figuresFor(withMob, 'all')
+    expect(all.lycees).toBe(120 - 12)
+  })
+  it('departments right now: only the ones with something, most first', () => {
+    const z = [
+      { zone: '75', bloques_maintenant: 2, filtrants_maintenant: 1 },
+      { zone: '69', bloques_maintenant: 0, filtrants_maintenant: 0 },
+      { zone: '13', bloques_maintenant: 5, filtrants_maintenant: 0 },
+    ].map((r) => ({ ...zones[0], ...r })) as typeof zones
+    expect(topNow(z, 5).map((d) => d.code)).toEqual(['13', '75'])
+  })
+  it('the reply carries the link', () => {
+    expect(replyText(' https://manifeste.pandeo.fr ')).toContain('https://manifeste.pandeo.fr')
+    expect(replyText('https://x.fr')).not.toContain('  ')
   })
 })

@@ -14,8 +14,14 @@ const C = {
   muted: '#9aa3b2',
   red: '#ff453a',
   orange: '#ff9f0a',
+  gold: '#e0b23a',
 }
-const TONE: Record<Tone, string> = { bloque: C.red, filtrant: C.orange, neutral: C.fg }
+const TONE: Record<Tone, string> = {
+  bloque: C.red,
+  filtrant: C.orange,
+  mobilisation: C.gold,
+  neutral: C.fg,
+}
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif'
 const PAD = 90
 const TOP = 250
@@ -100,7 +106,7 @@ function drawNumbers(ctx: Ctx, body: Extract<CardBody, { kind: 'numbers' }>, top
     ctx.fillStyle = TONE[s.tone]
     ctx.fillRect(x, top, 8, h)
     ctx.fillStyle = TONE[s.tone]
-    ctx.font = `900 ${n > 2 ? 150 : 190}px ${FONT}`
+    ctx.font = `900 ${n > 3 ? 110 : n > 2 ? 150 : 190}px ${FONT}`
     ctx.fillText(s.value, x + 48, top + h / 2 + 30, w - 72)
     ctx.fillStyle = C.muted
     ctx.font = `500 34px ${FONT}`

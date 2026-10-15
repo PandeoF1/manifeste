@@ -5,7 +5,7 @@ import { download } from '@/lib/mediaExport'
 import { cardPng, drawCard } from '@/lib/tweets/card'
 import { cardSpec } from '@/lib/tweets/card-spec'
 import { RANGES, RANGE_LABEL, figuresFor, parisToday, type Range } from '@/lib/tweets/figures'
-import { TEMPLATES, templateById } from '@/lib/tweets/templates'
+import { TEMPLATES, replyText, templateById } from '@/lib/tweets/templates'
 import { MAX_TWEET, compose, intentUrl, parseHashtags } from '@/lib/tweets/text'
 import { departementsQuery, joursQuery, resumeQuery } from '@/queries/donnees'
 
@@ -23,9 +23,11 @@ export function TweetsPanel() {
   const [range, setRange] = useState<Range>('all')
   const [tags, setTags] = useState(DEFAULT_TAGS)
   const [url, setUrl] = useState(SITE_URL)
+  // X shows a post with an outside link to fewer people: the link goes in the first reply.
+  const [linkInReply, setLinkInReply] = useState(true)
   // The body is generated; once edited by hand it stays until the template or range changes.
   const [edited, setEdited] = useState<string | null>(null)
-  const [copied, setCopied] = useState<'text' | 'image' | null>(null)
+  const [copied, setCopied] = useState<'text' | 'image' | 'reply' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const template = templateById(templateId)
@@ -44,7 +46,11 @@ export function TweetsPanel() {
   const figures = useMemo(() => (data ? figuresFor(data, range) : null), [data, range])
   const generated = data && figures ? template.body({ data, figures }) : ''
   const body = edited ?? generated
-  const composition = useMemo(() => compose(body, url, parseHashtags(tags)), [body, url, tags])
+  const composition = useMemo(
+    () => compose(body, linkInReply ? '' : url, parseHashtags(tags)),
+    [body, url, tags, linkInReply],
+  )
+  const reply = replyText(url)
   const spec = useMemo(
     () => (data && figures ? cardSpec(template, data, figures) : null),
     [data, figures, template],
@@ -67,7 +73,7 @@ export function TweetsPanel() {
     if (!canvas.current) throw new Error('Image indisponible')
     return cardPng(canvas.current)
   }
-  const flash = (what: 'text' | 'image') => {
+  const flash = (what: 'text' | 'image' | 'reply') => {
     setCopied(what)
     window.setTimeout(() => setCopied(null), 2000)
   }
@@ -77,6 +83,15 @@ export function TweetsPanel() {
     try {
       await navigator.clipboard.writeText(composition.text)
       flash('text')
+    } catch {
+      setError('Copie impossible : sélectionne le texte à la main.')
+    }
+  }
+  async function copyReply() {
+    setError(null)
+    try {
+      await navigator.clipboard.writeText(reply)
+      flash('reply')
     } catch {
       setError('Copie impossible : sélectionne le texte à la main.')
     }
@@ -198,7 +213,7 @@ export function TweetsPanel() {
               </div>
               <div className="field">
                 <label htmlFor="tweet-url" className="font-semibold">
-                  Lien
+                  Lien du site
                 </label>
                 <input
                   id="tweet-url"
@@ -208,6 +223,21 @@ export function TweetsPanel() {
                 />
               </div>
             </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={linkInReply}
+                onChange={(e) => setLinkInReply(e.target.checked)}
+              />
+              <span>
+                Lien en réponse (conseillé)
+                <span className="block text-xs text-muted">
+                  X montre un post avec lien externe à moins de monde : le post principal reste sans
+                  lien, le lien part dans la première réponse.
+                </span>
+              </span>
+            </label>
           </section>
 
           <section className="space-y-3" aria-label="Aperçu">
@@ -217,12 +247,30 @@ export function TweetsPanel() {
                 className={`mt-2 text-xs ${composition.tooLong ? 'font-semibold text-poor' : 'text-muted'}`}
                 aria-live="polite"
               >
-                {composition.length} / {MAX_TWEET} caractères (un lien compte pour 23)
+                {composition.length} / {MAX_TWEET} caractères
                 {composition.droppedTags.length > 0 &&
                   ` · hashtags retirés pour tenir : ${composition.droppedTags.join(' ')}`}
                 {composition.tooLong && ' · trop long : raccourcis le texte'}
               </p>
             </div>
+            {linkInReply && (
+              <div className="rounded-xl border border-dashed border-border bg-surface p-3">
+                <p className="text-xs font-semibold text-muted">1re réponse (avec le lien)</p>
+                <p className="mt-1 text-sm break-words">{reply}</p>
+                <button
+                  type="button"
+                  className="btn-secondary mt-2 min-h-9 px-3"
+                  onClick={() => void copyReply()}
+                >
+                  {copied === 'reply' ? (
+                    <Check size={16} aria-hidden="true" />
+                  ) : (
+                    <Clipboard size={16} aria-hidden="true" />
+                  )}
+                  {copied === 'reply' ? 'Copiée' : 'Copier la réponse'}
+                </button>
+              </div>
+            )}
 
             <canvas
               ref={canvas}
