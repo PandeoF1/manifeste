@@ -19,3 +19,10 @@ export const SOURCE_KEY = sql.raw(`
  * (a search for "%" would match everything and scan the table) and `\` is the escape character.
  */
 export const escapeLike = (text: string): string => text.replace(/[\\%_]/g, (c) => `\\${c}`)
+
+/**
+ * Today's date in Paris. The database clock runs in UTC, so `current_date` turns over at 02:00
+ * (01:00 in winter) Paris time: "today" in the statistics would still be yesterday during the
+ * first hours of the French day, and the curves (drawn in Paris time) would not match the days.
+ */
+export const PARIS_TODAY = sql`(now() at time zone 'Europe/Paris')::date`
