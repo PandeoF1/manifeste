@@ -65,14 +65,14 @@ export const METRIC_INFO: Record<
   },
   TTFB: {
     label: 'Réponse du serveur',
-    help: 'TTFB : temps avant le premier octet de la page (Vercel).',
+    help: 'TTFB : temps avant le premier octet de la page.',
     good: 800,
     poor: 1800,
     unit: 'ms',
   },
   API: {
     label: 'Latence de la base',
-    help: 'Temps jusqu’au premier octet des lectures Supabase vues par les visiteurs.',
+    help: 'Temps jusqu’au premier octet des lectures de l’API vues par les visiteurs.',
     good: 800,
     poor: 2000,
     unit: 'ms',

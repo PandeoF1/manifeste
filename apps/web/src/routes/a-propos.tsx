@@ -3,7 +3,13 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { DEFAULT_SETTINGS, periodDescription } from '@/lib/periods'
 import { settingsQuery } from '@/queries/settings'
-import { CONTACT_EMAIL, CREATOR_GITHUB, CREATOR_NAME, HOST_CLOUDFLARE } from '@/config/legal'
+import {
+  CONTACT_EMAIL,
+  CREATOR_GITHUB,
+  CREATOR_NAME,
+  HOST_CLOUDFLARE,
+  HOST_SERVER,
+} from '@/config/legal'
 
 export const Route = createFileRoute('/a-propos')({
   component: AboutPage,
@@ -41,9 +47,10 @@ function AboutPage() {
         <p>
           Toutes les 10 minutes, le site lit la presse (nationale, régionale, locale) et des canaux
           Telegram et comptes Bluesky publics. Une IA (Google Gemini) repère les établissements
-          cités et leur situation ; je ne garde que l'établissement, le statut, l'heure et le lien.
-          Tu peux aussi signaler un blocus sur place, ou me proposer un établissement qui manque :
-          tout est vérifié à la main avant d'apparaître.
+          cités et leur situation, puis un second modèle (Jev) donne un deuxième avis sur le
+          résultat ; je ne garde que l'établissement, le statut, l'heure et le lien. Tu peux aussi
+          signaler un blocus sur place, ou me proposer un établissement qui manque : tout est
+          vérifié à la main avant d'apparaître.
         </p>
         <p>
           Une info de la presse passe directement si le média est reconnu, ou si deux sources
@@ -63,6 +70,31 @@ function AboutPage() {
           « Direct » retire un établissement après {settings.statusTtlHours} h sans nouveau signal.
           « 24 h », « 7 jours » et « Tout » donnent le bilan d'une période, avec le pire statut
           connu. « Tout » remonte {periodDescription('tout', settings)}.
+        </p>
+      </Section>
+
+      <Section id="donnees" title="Données libres">
+        <p>
+          Les chiffres sont ouverts à tout le monde : établissements, signalements, bilan par jour,
+          par département et par académie, en JSON, CSV ou GeoJSON, sous licence{' '}
+          <a
+            href="https://creativecommons.org/licenses/by/4.0/deed.fr"
+            className="underline"
+            rel="noopener noreferrer"
+          >
+            CC BY 4.0
+          </a>{' '}
+          (réutilisation libre, avec mention de Manifeste). Chaque colonne est expliquée dans un
+          dictionnaire, et la carte peut s'intégrer sur un autre site.
+        </p>
+        <p>
+          <Link to="/donnees" className="underline">
+            Voir les chiffres et télécharger les données
+          </Link>
+          {' · '}
+          <a href="/api/docs" className="underline">
+            Documentation de l'API
+          </a>
         </p>
       </Section>
 
@@ -102,9 +134,15 @@ function AboutPage() {
               titre et le chapeau de l'article 7 jours, le temps de vérifier.
             </li>
             <li>
-              Cloudflare Turnstile (anti-robot du formulaire), Vercel et Supabase (hébergement) et
-              OpenFreeMap (fond de carte) reçoivent, comme tout service en ligne, tes données
-              techniques de connexion.
+              Cloudflare (réseau et anti-robot Turnstile du formulaire) et OpenFreeMap (fond de
+              carte) reçoivent, comme tout service en ligne, tes données techniques de connexion. Le
+              site tourne sur mon propre serveur : tes données n'y sont pas confiées à un hébergeur
+              de bases de données tiers. Les mesures techniques du serveur (erreurs, temps de
+              réponse) sont suivies avec Grafana Cloud.
+            </li>
+            <li>
+              Les textes d'articles publics sont envoyés à Google (Gemini) et à Jev pour être
+              analysés ; jamais tes signalements, ta photo ni ta position.
             </li>
             <li>
               Tu peux accéder à tes données, les faire corriger ou effacer en écrivant à {mail}, ou
@@ -121,8 +159,8 @@ function AboutPage() {
       <Section id="mentions" title="Mentions légales">
         <p>
           Site édité à titre non professionnel par {CREATOR_NAME} (pseudonyme) ; mon identité a été
-          communiquée aux hébergeurs, comme la loi le prévoit. Hébergement : l'ensemble du site
-          passe par Cloudflare ({HOST_CLOUDFLARE}).
+          communiquée aux hébergeurs, comme la loi le prévoit. Hébergement : le site tourne sur{' '}
+          {HOST_SERVER} ; tout le trafic passe par Cloudflare ({HOST_CLOUDFLARE}).
         </p>
         <p>
           Une erreur, un contenu illicite, une demande de retrait : {mail}. Manifeste recense des
