@@ -150,6 +150,8 @@ export const schoolProposals = pgTable(
     name: text().notNull(),
     city: text().notNull(),
     status: reportStatus().notNull(),
+    /** Reported as a mobilisation (no blockade): the report staff approve gets the mobilisation tier. */
+    mobilisation: boolean().notNull().default(false),
     lat: doublePrecision().notNull(),
     lng: doublePrecision().notNull(),
     photoKey: text(),

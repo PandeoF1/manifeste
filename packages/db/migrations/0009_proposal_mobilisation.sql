@@ -1,0 +1,1 @@
+ALTER TABLE "school_proposals" ADD COLUMN "mobilisation" boolean DEFAULT false NOT NULL;

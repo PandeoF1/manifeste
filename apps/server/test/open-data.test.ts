@@ -131,9 +131,10 @@ describe('/api/donnees', () => {
       niveau: 'lycee',
       dernier_statut: 'bloque',
       statut_direct: 'bloque',
+      categorie: 'bloque',
       signalements: 2,
     })
-    expect(String(lille?.origines)).toBe('presse syndicat')
+    expect(String(lille?.origines)).toBe('presse, syndicat')
     expect(rows.find((r) => r.uai === uai.marseille)).toMatchObject({
       origines: 'utilisateur',
       sites_sources: 0,
@@ -175,6 +176,53 @@ describe('/api/donnees', () => {
       const res = await s.request(`/api/donnees${query}`)
       expect(res.status).toBe(400)
       expect(Object.keys((await res.json()) as object)).toEqual(['erreur'])
+    }
+  })
+
+  test('the data dictionary is served in json, csv and plain text, without touching the database', async () => {
+    const json = await s.request('/api/donnees?vue=dictionnaire')
+    expect(json.status).toBe(200)
+    expect(json.headers.get('access-control-allow-origin')).toBe('*')
+    const body = (await json.json()) as { vues: Array<{ vue: string }>; licence: string }
+    expect(body.licence).toBe('CC BY 4.0')
+    expect(body.vues.map((v) => v.vue)).toContain('etablissements')
+
+    const txt = await s.request('/api/donnees?vue=dictionnaire&format=txt')
+    expect(txt.headers.get('content-type')).toContain('text/plain')
+    expect(await txt.text()).toContain('collecteur')
+
+    const csv = await s.request('/api/donnees?vue=dictionnaire&format=csv')
+    expect(csv.headers.get('content-type')).toContain('text/csv')
+    expect(await csv.text()).toContain('origines')
+
+    const bad = await s.request('/api/donnees?vue=dictionnaire&format=geojson')
+    expect(bad.status).toBe(400)
+  })
+
+  test('the English alias serves the same data with English parameters and envelope', async () => {
+    const res = await s.request('/api/open-data')
+    expect(res.status).toBe(200)
+    const summary = (await res.json()) as Loose
+    expect(summary).toMatchObject({ license: 'CC BY 4.0', view: 'summary' })
+    expect(summary.data.etablissements).toBe(2)
+
+    const fr = (await donnees('?vue=etablissements')).body.donnees
+    const en = ((await (await s.request('/api/open-data?view=schools')).json()) as Loose).data
+    expect(en).toEqual(fr)
+
+    const geo = await s.request('/api/open-data?view=schools&format=geojson')
+    expect(geo.headers.get('content-type')).toContain('application/geo+json')
+    const csv = await s.request('/api/open-data?view=days&format=csv&download=1')
+    expect(csv.headers.get('content-disposition')).toContain('manifeste-jours-')
+    const dict = await s.request('/api/open-data?view=dictionary&format=txt')
+    expect(await dict.text()).toContain('DICTIONNAIRE')
+  })
+
+  test('the English alias answers errors in English with an { error } key', async () => {
+    for (const query of ['?view=users', '?format=xml', '?view=days&format=geojson']) {
+      const res = await s.request(`/api/open-data${query}`)
+      expect(res.status).toBe(400)
+      expect(Object.keys((await res.json()) as object)).toEqual(['error'])
     }
   })
 })

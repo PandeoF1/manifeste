@@ -91,6 +91,15 @@ export function CopyBox({ code, label }: { code: string; label: string }) {
 export function ExportSection() {
   return (
     <div className="space-y-6">
+      <p className="rounded-lg border border-border bg-surface p-3 text-sm">
+        <strong>Que veulent dire les colonnes ?</strong> Le{' '}
+        <a className="font-semibold underline" href="/api/donnees?vue=dictionnaire&format=txt">
+          dictionnaire des données
+        </a>{' '}
+        définit chaque champ et chaque valeur : <code>categorie</code> (bloque, filtrant,
+        mobilisation, leve), <code>confiance</code> et <code>origine</code> (presse, syndicat,
+        collecteur, utilisateur).
+      </p>
       <ul className="divide-y divide-border border-y border-border">
         {DATASETS.map((d) => (
           <li key={d.vue} className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -120,8 +129,9 @@ export function ExportSection() {
         <p className="text-sm">
           Les mêmes fichiers sont disponibles à une adresse stable, sans clé ni inscription. Les
           paramètres : <code>vue</code> (resume, jours, departements, academies, etablissements,
-          signalements), <code>format</code> (json, csv, geojson pour les établissements). La
-          réponse est mise en cache cinq minutes ; merci de ne pas interroger plus souvent.
+          signalements, dictionnaire), <code>format</code> (json, csv, geojson pour les
+          établissements ; txt pour le dictionnaire). La réponse est mise en cache cinq minutes ;
+          merci de ne pas interroger plus souvent.
         </p>
         <CopyBox
           label="Copier la commande"

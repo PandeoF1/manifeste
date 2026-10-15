@@ -140,6 +140,7 @@ export class ReportsService {
         name: input.school.name,
         city: input.school.city,
         status: input.status,
+        mobilisation: input.mobilisation,
         lat,
         lng,
         photoKey,
@@ -158,8 +159,11 @@ export class ReportsService {
           sourceUrl: input.sourceUrl,
           sourceDomain: input.sourceDomain,
           moderation: 'pending',
-          // On-site reports are never judged: a person was there, a human checks them.
-          tier: tierOf({ probability: null, nature: null, status: input.status, onSite: true }),
+          // On-site reports are never judged: a person was there, a human checks them. A
+          // mobilisation signalée keeps its tier: it is shown apart, never counted as blocked.
+          tier: input.mobilisation
+            ? 'mobilisation'
+            : tierOf({ probability: null, nature: null, status: input.status, onSite: true }),
           observedAt: new Date(),
         })
         .returning({ id: schema.reports.id })

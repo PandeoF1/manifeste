@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Camera, Check, LocateFixed, MapPin, ShieldCheck } from 'lucide-react'
 import { z } from 'zod'
-import { REPORT_STATUSES, type ReportStatus } from '@manifeste/core'
-import { STATUS_LABELS } from '@/lib/labels'
+import type { SubmitStatus } from '@manifeste/core'
+import { MOBILISATION_LABEL, STATUS_LABELS } from '@/lib/labels'
 import { parseSubmission, roundCoord } from '@manifeste/core'
-import { StatusIcon } from '@/components/status/StatusIcon'
+import { MobilisationIcon, StatusIcon } from '@/components/status/StatusIcon'
 import { PhotoRedactor } from '@/components/report/PhotoRedactor'
 import { Turnstile, turnstileEnabled } from '@/components/report/Turnstile'
 import { loadImage, toJpeg } from '@/lib/photo'
@@ -26,11 +26,20 @@ export const Route = createFileRoute('/signaler')({
 type Position = { lat: number; lng: number; accuracy: number }
 type School = { uai: string; name: string; city: string; distance_m?: number }
 
-const STATUS_HELP: Record<ReportStatus, string> = {
+const STATUS_HELP: Record<SubmitStatus, string> = {
   blocked: "L'entrée de l'établissement est bloquée",
   filtering: 'Barrage filtrant, entrée partielle',
+  mobilisation: "Rassemblement ou mobilisation devant l'établissement, sans blocage de l'entrée",
   lifted: 'Le blocus est terminé',
 }
+
+const CHOICE_LABEL: Record<SubmitStatus, string> = {
+  ...STATUS_LABELS,
+  mobilisation: MOBILISATION_LABEL,
+}
+
+/** In the order a visitor thinks of them: from the strongest to the end of the blockade. */
+const CHOICES: ReadonlyArray<SubmitStatus> = ['blocked', 'filtering', 'mobilisation', 'lifted']
 
 function ReportPage() {
   const { uai: preferredUai } = Route.useSearch()
@@ -40,7 +49,7 @@ function ReportPage() {
   const [school, setSchool] = useState<School | null>(null)
   /** School missing from the list: name and city typed (checked by the team). */
   const [customSchool, setCustomSchool] = useState<{ name: string; city: string } | null>(null)
-  const [status, setStatus] = useState<ReportStatus | null>(null)
+  const [status, setStatus] = useState<SubmitStatus | null>(null)
   const [photo, setPhoto] = useState<HTMLCanvasElement | null>(null)
   const [redacted, setRedacted] = useState<HTMLCanvasElement | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -215,8 +224,8 @@ function ReportPage() {
 
         <fieldset className="space-y-3">
           <legend className="text-lg font-bold">3. Que se passe-t-il ?</legend>
-          <div className="grid gap-2 sm:grid-cols-3" role="radiogroup">
-            {REPORT_STATUSES.map((s) => (
+          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
+            {CHOICES.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -226,7 +235,12 @@ function ReportPage() {
                 className="flex min-h-20 flex-col items-start justify-center gap-1 rounded-xl border-2 border-border bg-surface p-3 text-left aria-checked:border-bloque"
               >
                 <span className="flex items-center gap-2 font-bold">
-                  <StatusIcon status={s} size={20} /> {STATUS_LABELS[s]}
+                  {s === 'mobilisation' ? (
+                    <MobilisationIcon size={20} />
+                  ) : (
+                    <StatusIcon status={s} size={20} />
+                  )}{' '}
+                  {CHOICE_LABEL[s]}
                 </span>
                 <span className="text-xs text-muted">{STATUS_HELP[s]}</span>
               </button>
@@ -322,6 +336,10 @@ function SchoolPicker({
   const nearby = useQuery(nearbySchoolsQuery(position.lat, position.lng))
   const [query, setQuery] = useState('')
   const search = useQuery(searchSchoolsQuery(query))
+  // Once a school is chosen the list and the search give way to a summary: no doubt about what
+  // was chosen, and no name left half typed. "Changer" brings the list back.
+  const [changing, setChanging] = useState(false)
+  const searchBox = useRef<HTMLInputElement>(null)
   // School coming from the map if in range, otherwise the nearest.
   const nearest = nearby.data?.find((s) => s.uai === preferredUai) ?? nearby.data?.[0]
 
@@ -329,55 +347,112 @@ function SchoolPicker({
   useEffect(() => {
     if (!selected && !custom && nearest) onSelect(nearest)
   }, [nearest, selected, custom, onSelect])
+  useEffect(() => {
+    if (changing) searchBox.current?.focus()
+  }, [changing])
 
   const list: School[] = query.trim().length >= 2 ? (search.data ?? []) : (nearby.data ?? [])
+  const chosen = custom ? null : selected
+  const browsing = !chosen || changing
 
   return (
     <fieldset className="space-y-3">
       <legend className="text-lg font-bold">2. Quel établissement ?</legend>
-      {nearby.isPending && <div className="h-14 animate-pulse rounded-lg bg-surface" />}
-      {nearby.data?.length === 0 && !query && (
-        <p className="text-sm text-muted">
-          Aucun établissement à moins de 2 km. Cherche-le par son nom :
-        </p>
+      {chosen && !changing && (
+        <div
+          role="status"
+          className="flex items-center gap-3 rounded-xl border-2 border-bloque bg-surface p-3"
+        >
+          <Check size={24} className="shrink-0 text-bloque" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold tracking-wider text-muted uppercase">
+              Établissement choisi
+            </p>
+            <p className="font-bold break-words">{chosen.name}</p>
+            <p className="text-sm text-muted">
+              {chosen.city}
+              {chosen.distance_m != null
+                ? ` · ${chosen.distance_m < 1000 ? `${chosen.distance_m} m` : `${(chosen.distance_m / 1000).toFixed(1)} km`}`
+                : ''}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-secondary min-h-10 shrink-0 px-3"
+            onClick={() => {
+              setQuery('')
+              setChanging(true)
+            }}
+          >
+            Changer
+          </button>
+        </div>
       )}
-      <input
-        type="search"
-        className="input w-full"
-        placeholder="Chercher un lycée ou une fac (nom, ville)"
-        aria-label="Chercher un établissement"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      <ul
-        className="divide-y divide-border rounded-lg border border-border bg-surface"
-        role="radiogroup"
-      >
-        {list.map((s) => (
-          <li key={s.uai}>
+      {browsing && (
+        <>
+          {nearby.isPending && <div className="h-14 animate-pulse rounded-lg bg-surface" />}
+          {nearby.data?.length === 0 && !query && (
+            <p className="text-sm text-muted">
+              Aucun établissement à moins de 2 km. Cherche-le par son nom :
+            </p>
+          )}
+          <input
+            ref={searchBox}
+            type="search"
+            className="input w-full"
+            placeholder="Chercher un lycée ou une fac (nom, ville)"
+            aria-label="Chercher un établissement"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <p className="text-xs text-muted">Touche un établissement de la liste pour le choisir.</p>
+          <ul
+            className="divide-y divide-border rounded-lg border border-border bg-surface"
+            role="radiogroup"
+          >
+            {list.map((s) => (
+              <li key={s.uai}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selected?.uai === s.uai}
+                  onClick={() => {
+                    onSelect(s)
+                    setChanging(false)
+                    setQuery('')
+                  }}
+                  className="flex min-h-14 w-full items-center justify-between gap-3 px-3 py-2 text-left aria-checked:bg-bg"
+                >
+                  <span className="min-w-0">
+                    <span className="line-clamp-2 font-medium break-words">{s.name}</span>
+                    <span className="block text-sm text-muted">
+                      {s.city}
+                      {s.distance_m != null
+                        ? ` · ${s.distance_m < 1000 ? `${s.distance_m} m` : `${(s.distance_m / 1000).toFixed(1)} km`}`
+                        : ''}
+                    </span>
+                  </span>
+                  {selected?.uai === s.uai && (
+                    <span className="shrink-0 text-sm font-semibold text-bloque">Choisi</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {chosen && (
             <button
               type="button"
-              role="radio"
-              aria-checked={selected?.uai === s.uai}
-              onClick={() => onSelect(s)}
-              className="flex min-h-14 w-full items-center justify-between gap-3 px-3 py-2 text-left aria-checked:bg-bg"
+              className="text-sm text-muted underline"
+              onClick={() => {
+                setChanging(false)
+                setQuery('')
+              }}
             >
-              <span className="min-w-0">
-                <span className="line-clamp-2 font-medium break-words">{s.name}</span>
-                <span className="block text-sm text-muted">
-                  {s.city}
-                  {s.distance_m != null
-                    ? ` · ${s.distance_m < 1000 ? `${s.distance_m} m` : `${(s.distance_m / 1000).toFixed(1)} km`}`
-                    : ''}
-                </span>
-              </span>
-              {selected?.uai === s.uai && (
-                <Check size={20} className="shrink-0 text-bloque" aria-hidden="true" />
-              )}
+              Garder « {chosen.name} »
             </button>
-          </li>
-        ))}
-      </ul>
+          )}
+        </>
+      )}
       <p className="text-xs text-muted">
         Seuls les établissements à moins de 2 km de ta position seront acceptés.
       </p>

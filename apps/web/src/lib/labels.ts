@@ -11,6 +11,9 @@ export const STATUS_LABELS: Record<ReportStatus, string> = {
   lifted: 'Levé',
 }
 
+/** The third kind: a gathering or mobilisation, without the entrance being blocked. */
+export const MOBILISATION_LABEL = 'Mobilisation signalée'
+
 /** The red status in a sentence, agreed in number: "bloqué", "bloqués". */
 export function blockedPhrase(count: number): string {
   return count > 1 ? 'bloqués' : 'bloqué'

@@ -16,10 +16,21 @@ export interface RawSubmission {
   turnstileToken?: string
 }
 
+/**
+ * What the form offers: the three statuses plus "mobilisation signalée" (a gathering or a
+ * mobilisation without the entrance being blocked). The last one is stored as a "blocked" report
+ * with the `mobilisation` tier, exactly like a press report the judge places there.
+ */
+export const SUBMIT_STATUSES = [...REPORT_STATUSES, 'mobilisation'] as const
+export type SubmitStatus = (typeof SUBMIT_STATUSES)[number]
+
 export interface Submission {
   /** A school of the directory, or a proposed one (name + city) that staff will check. */
   school: { uai: string } | { name: string; city: string }
+  /** The stored status ('blocked' for a mobilisation). */
   status: ReportStatus
+  /** A mobilisation signalée: shown apart, never counted as blocked (judge tiers on). */
+  mobilisation: boolean
   lat: number
   lng: number
   sourceUrl: string | null
@@ -39,12 +50,14 @@ export function parseSubmission(raw: RawSubmission): Submission | null {
   const uai = blank(raw.schoolUai)
   const name = blank(raw.newSchoolName)
   const city = blank(raw.newSchoolCity)
-  const status = raw.status as ReportStatus
+  const asked = raw.status as SubmitStatus
+  const mobilisation = asked === 'mobilisation'
+  const status: ReportStatus = mobilisation ? 'blocked' : (asked as ReportStatus)
   const lat = Number(raw.lat)
   const lng = Number(raw.lng)
   const url = blank(raw.sourceUrl)
 
-  if (!REPORT_STATUSES.includes(status)) return null
+  if (!SUBMIT_STATUSES.includes(asked)) return null
   if (!inRange(lat, -90, 90) || !inRange(lng, -180, 180)) return null
   if (raw.lat === '' || raw.lng === '' || raw.lat == null || raw.lng == null) return null
 
@@ -66,6 +79,7 @@ export function parseSubmission(raw: RawSubmission): Submission | null {
   return {
     school,
     status,
+    mobilisation,
     lat,
     lng,
     sourceUrl: url ?? null,
