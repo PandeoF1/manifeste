@@ -4,14 +4,14 @@ import { type Database } from '@manifeste/db'
 import { sql } from 'drizzle-orm'
 import type { Auth } from '../../auth/auth.ts'
 import { authPlugin } from '../../auth/plugin.ts'
-import { rows } from '../../lib/sql.ts'
+import { PARIS_TODAY, rows } from '../../lib/sql.ts'
 
 const RANGES = {
-  '2h': { interval: '2 hours', step: 300 },
-  '24h': { interval: '24 hours', step: 900 },
-  '7d': { interval: '7 days', step: 3600 },
-  '30d': { interval: '30 days', step: 86_400 },
-  '90d': { interval: '90 days', step: 86_400 },
+  '2h': { interval: '2 hours', step: 300, days: 0 },
+  '24h': { interval: '24 hours', step: 900, days: 0 },
+  '7d': { interval: '7 days', step: 3600, days: 0 },
+  '30d': { interval: '30 days', step: 86_400, days: 30 },
+  '90d': { interval: '90 days', step: 86_400, days: 90 },
 } as const
 type Range = keyof typeof RANGES
 
@@ -29,16 +29,17 @@ export class AnalyticsStaffService {
     )
     const [today] = await rows<{ n: number }>(
       this.db,
-      sql`select count(*)::int as n from analytics_visitors_today where day = current_date`,
+      sql`select count(*)::int as n from analytics_visitors_today where day = ${PARIS_TODAY}`,
     )
     const daily = await rows<{ day: string; visitors: number; views: number }>(
       this.db,
       sql`select g.day::date::text as day,
-            coalesce(ad.visitors, case when g.day::date = current_date
-              then (select count(*)::int from analytics_visitors_today where day = current_date) end, 0)::int as visitors,
+            coalesce(ad.visitors, case when g.day::date = ${PARIS_TODAY}
+              then (select count(*)::int from analytics_visitors_today where day = ${PARIS_TODAY}) end, 0)::int as visitors,
             coalesce((select sum(views) from analytics_page_views
-              where slot >= g.day and slot < g.day + interval '1 day'), 0)::int as views
-          from generate_series(current_date - (${days}::int - 1), current_date, interval '1 day') g(day)
+              where slot >= g.day at time zone 'Europe/Paris'
+                and slot < (g.day + interval '1 day') at time zone 'Europe/Paris'), 0)::int as views
+          from generate_series(${PARIS_TODAY} - (${days}::int - 1), ${PARIS_TODAY}, interval '1 day') g(day)
           left join analytics_daily ad on ad.day = g.day::date
           order by 1`,
     )
@@ -83,7 +84,30 @@ export class AnalyticsStaffService {
 
   /** Curves for one zoom level: views, new visitors, online, and 75th percentile of LCP, INP and API. */
   async series(range: Range) {
-    const { interval, step } = RANGES[range]
+    const { interval, step, days } = RANGES[range]
+    const daily = step >= 86_400
+    // Slots: every `step` seconds on the clock (sub-daily), or one per Paris day, from midnight to
+    // midnight Paris time (a day is 23 or 25 hours twice a year, hence the local arithmetic).
+    const slots = daily
+      ? sql`select (d at time zone 'Europe/Paris') as t, ((d + interval '1 day') at time zone 'Europe/Paris') as t_end
+            from generate_series(
+              date_trunc('day', now() at time zone 'Europe/Paris') - make_interval(days => ${days - 1}),
+              date_trunc('day', now() at time zone 'Europe/Paris'),
+              interval '1 day') d`
+      : sql`select s as t, s + make_interval(secs => ${step}) as t_end
+            from generate_series(
+              to_timestamp(floor(extract(epoch from now() - ${interval}::interval) / ${step}) * ${step}),
+              to_timestamp(floor(extract(epoch from now()) / ${step}) * ${step}),
+              make_interval(secs => ${step})) s`
+    // New visitors: a slot without any is 0 once the counting has started, unknown before. A day
+    // not rolled up yet (today) is counted from today's hashes.
+    const visitors = daily
+      ? sql`coalesce(
+              (select visitors from analytics_daily where day = (g.t at time zone 'Europe/Paris')::date),
+              case when (g.t at time zone 'Europe/Paris')::date = ${PARIS_TODAY}
+                then (select count(*)::int from analytics_visitors_today where day = ${PARIS_TODAY}) end)`
+      : sql`case when g.t_end > (select min(slot) from analytics_new_visitors)
+              then coalesce((select sum(count)::int from analytics_new_visitors where slot >= g.t and slot < g.t_end), 0) end`
     const points = await rows<{
       t: Date
       views: number
@@ -94,20 +118,14 @@ export class AnalyticsStaffService {
       api: number | null
     }>(
       this.db,
-      sql`with g as (
-            select generate_series(
-              to_timestamp(floor(extract(epoch from now() - ${interval}::interval) / ${step}) * ${step}),
-              to_timestamp(floor(extract(epoch from now()) / ${step}) * ${step}),
-              make_interval(secs => ${step})) as t)
+      sql`with g as (${slots})
           select g.t,
-            coalesce((select sum(views) from analytics_page_views where slot >= g.t and slot < g.t + make_interval(secs => ${step})), 0)::int as views,
-            case when ${step} >= 86400
-              then (select visitors from analytics_daily where day = (g.t at time zone 'Europe/Paris')::date)
-              else (select sum(count)::int from analytics_new_visitors where slot >= g.t and slot < g.t + make_interval(secs => ${step})) end as visitors,
-            (select max(online)::int from analytics_online where minute >= g.t and minute < g.t + make_interval(secs => ${step})) as online,
-            (select percentile_cont(0.75) within group (order by value) from analytics_vitals where metric = 'LCP' and at >= g.t and at < g.t + make_interval(secs => ${step})) as lcp,
-            (select percentile_cont(0.75) within group (order by value) from analytics_vitals where metric = 'INP' and at >= g.t and at < g.t + make_interval(secs => ${step})) as inp,
-            (select percentile_cont(0.75) within group (order by value) from analytics_vitals where metric = 'API' and at >= g.t and at < g.t + make_interval(secs => ${step})) as api
+            coalesce((select sum(views) from analytics_page_views where slot >= g.t and slot < g.t_end), 0)::int as views,
+            ${visitors} as visitors,
+            (select max(online)::int from analytics_online where minute >= g.t and minute < g.t_end) as online,
+            (select percentile_cont(0.75) within group (order by value) from analytics_vitals where metric = 'LCP' and at >= g.t and at < g.t_end) as lcp,
+            (select percentile_cont(0.75) within group (order by value) from analytics_vitals where metric = 'INP' and at >= g.t and at < g.t_end) as inp,
+            (select percentile_cont(0.75) within group (order by value) from analytics_vitals where metric = 'API' and at >= g.t and at < g.t_end) as api
           from g order by g.t`,
     )
     const pages = await rows<{ page: string; views: number }>(

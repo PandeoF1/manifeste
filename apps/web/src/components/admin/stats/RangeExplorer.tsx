@@ -9,6 +9,8 @@ import {
   formatBucket,
   formatMetric,
   fromApiSeries,
+  isMajorTick,
+  isPartialSlot,
   type RangeId,
 } from '@/lib/siteStats'
 import { TrendChart } from './TrendChart'
@@ -40,6 +42,8 @@ export function RangeExplorer() {
       label: formatBucket(p.t, s.stepSeconds, true),
       axis: formatAxis(p.t, s.stepSeconds),
       value: pick(p),
+      major: isMajorTick(p.t, range),
+      partial: isPartialSlot(p.t, s.stepSeconds, Date.now()),
     })) ?? []
   const totalPages = s?.pages.reduce((a, p) => a + p.views, 0) ?? 0
   const visitorsTotal = s?.points.reduce((a, p) => a + (p.visitors ?? 0), 0) ?? 0

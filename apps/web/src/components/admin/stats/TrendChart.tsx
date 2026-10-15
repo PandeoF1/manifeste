@@ -6,6 +6,10 @@ export interface TrendPoint {
   /** Short label for the axis. */
   axis: string
   value: number | null
+  /** Gets a label on the axis (a round time). */
+  major?: boolean
+  /** The slot is still running: drawn dashed, not as a drop. */
+  partial?: boolean
 }
 
 const H = 132
@@ -53,9 +57,20 @@ export function TrendChart({
     } else cur.push([x(i), y(p.value)])
   })
   if (cur.length) segments.push(cur)
+  // The running slot holds only part of its time: the last stretch is dashed, not a plunge.
+  let tail: Array<[number, number]> | null = null
+  const lastPoint = points[n - 1]
+  if (lastPoint?.partial && lastPoint.value != null) {
+    const seg = segments.at(-1)
+    if (seg && seg.length > 1) {
+      tail = [seg[seg.length - 2] as [number, number], seg[seg.length - 1] as [number, number]]
+      seg.pop()
+    }
+  }
   const line = (seg: Array<[number, number]>) =>
     seg.map(([px, py], k) => `${k ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)}`).join(' ')
 
+  const hasMajor = points.some((p) => p.major)
   const labelEvery = Math.max(1, Math.ceil(n / 6))
   const hovered = hover != null ? points[hover] : null
   const pct = (i: number) => (n <= 1 ? 50 : (i / (n - 1)) * 100)
@@ -154,6 +169,18 @@ export function TrendChart({
                 />
               </g>
             ))}
+            {tail && (
+              <path
+                d={line(tail)}
+                fill="none"
+                stroke={color}
+                strokeWidth="2"
+                strokeDasharray="4 5"
+                strokeOpacity="0.7"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
           </svg>
           {/* Isolated points (surrounded by gaps): otherwise invisible. */}
           {segments
@@ -188,7 +215,10 @@ export function TrendChart({
                   transform: `translateX(${pct(hover) > 70 ? '-105%' : pct(hover) < 30 ? '5%' : '-50%'})`,
                 }}
               >
-                <span className="text-muted">{hovered?.label}</span>{' '}
+                <span className="text-muted">
+                  {hovered?.label}
+                  {hovered?.partial ? ' (en cours)' : ''}
+                </span>{' '}
                 <span className="font-semibold tabular-nums">
                   {hovered?.value != null ? format(hovered.value) : '–'}
                 </span>
@@ -198,16 +228,17 @@ export function TrendChart({
         </div>
         <div className="relative mt-1 h-4" aria-hidden="true">
           {points.map((p, i) => {
-            // One label every `labelEvery`, plus the last one (without overlapping its neighbour).
-            const regular = i % labelEvery === 0 && n - 1 - i >= labelEvery * 0.6
-            if (!regular && i !== n - 1) return null
+            // Round times only. If none is marked (an unexpected period), fall back to evenly spaced.
+            if (hasMajor ? !p.major : !(i % labelEvery === 0 && n - 1 - i >= labelEvery * 0.6))
+              return null
+            const edge = pct(i)
             return (
               <span
                 key={i}
                 className="absolute text-[10px] whitespace-nowrap text-muted"
                 style={{
-                  left: `${pct(i)}%`,
-                  transform: `translateX(${i === 0 ? '0' : i === n - 1 ? '-100%' : '-50%'})`,
+                  left: `${edge}%`,
+                  transform: `translateX(${edge < 4 ? '0' : edge > 96 ? '-100%' : '-50%'})`,
                 }}
               >
                 {p.axis}

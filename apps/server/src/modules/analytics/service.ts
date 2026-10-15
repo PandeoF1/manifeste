@@ -7,7 +7,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { schema, type Database } from '@manifeste/db'
-import { rows } from '../../lib/sql.ts'
+import { PARIS_TODAY, rows } from '../../lib/sql.ts'
 
 type Page = (typeof schema.analyticsPage.enumValues)[number]
 type Vital = (typeof schema.webVital.enumValues)[number]
@@ -49,11 +49,11 @@ export class AnalyticsService {
     if (this.known && Date.now() - this.known.at < 60_000) return this.known.salt
     const fresh = randomBytes(32).toString('hex')
     await this.db.execute(
-      sql`insert into daily_salts (day, salt) values (current_date, ${fresh}) on conflict (day) do nothing`,
+      sql`insert into daily_salts (day, salt) values (${PARIS_TODAY}, ${fresh}) on conflict (day) do nothing`,
     )
     const [row] = await rows<{ salt: string }>(
       this.db,
-      sql`select salt from daily_salts where day = current_date`,
+      sql`select salt from daily_salts where day = ${PARIS_TODAY}`,
     )
     if (!row) throw new Error('daily salt missing')
     this.known = { at: Date.now(), salt: row.salt }
@@ -72,7 +72,7 @@ export class AnalyticsService {
       const visitor = await this.visitor(ip, 'visit')
       const inserted = await rows<{ n: number }>(
         this.db,
-        sql`insert into analytics_visitors_today (day, visitor) values (current_date, ${visitor})
+        sql`insert into analytics_visitors_today (day, visitor) values (${PARIS_TODAY}, ${visitor})
             on conflict do nothing returning 1 as n`,
       )
       // A "new visitor of the day" is counted in its 5-minute slot (a number, no hash): the curve
@@ -133,11 +133,11 @@ export class AnalyticsService {
   async rollup(): Promise<void> {
     await this.db.execute(
       sql`insert into analytics_daily (day, visitors)
-          select day, count(*)::int from analytics_visitors_today where day < current_date group by day
+          select day, count(*)::int from analytics_visitors_today where day < ${PARIS_TODAY} group by day
           on conflict (day) do update set visitors = excluded.visitors`,
     )
-    await this.db.execute(sql`delete from analytics_visitors_today where day < current_date`)
-    await this.db.execute(sql`delete from daily_salts where day < current_date`)
+    await this.db.execute(sql`delete from analytics_visitors_today where day < ${PARIS_TODAY}`)
+    await this.db.execute(sql`delete from daily_salts where day < ${PARIS_TODAY}`)
     await this.db.execute(sql`delete from submission_limits where day < current_date`)
     await this.db.execute(sql`delete from analytics_vitals where at < now() - interval '30 days'`)
     await this.db.execute(

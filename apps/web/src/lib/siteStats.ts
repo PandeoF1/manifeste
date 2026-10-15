@@ -252,6 +252,46 @@ export function formatAxis(iso: string, stepSeconds: number): string {
   )
 }
 
+const PARIS_PARTS = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Paris',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+  hourCycle: 'h23',
+})
+
+/** Day of month, hour and minute of an instant, Paris time. */
+function parisParts(iso: string): { day: number; hour: number; minute: number } {
+  const get = (type: string) =>
+    Number(PARIS_PARTS.formatToParts(new Date(iso)).find((p) => p.type === type)?.value ?? 0)
+  return { day: get('day'), hour: get('hour'), minute: get('minute') }
+}
+
+/**
+ * Slots that get a label on the time axis: round times (every 30 min over 2 h, every 4 h over 24 h,
+ * midnights over 7 days, the 1st / 6th / 11th... over 30 days, the 1st and 15th over 90 days),
+ * not "every 17th point", which gave 06:00, 10:15, 14:30...
+ */
+export function isMajorTick(iso: string, range: RangeId): boolean {
+  const { day, hour, minute } = parisParts(iso)
+  switch (range) {
+    case '2h':
+      return minute % 30 === 0
+    case '24h':
+      return minute === 0 && hour % 4 === 0
+    case '7d':
+      return minute === 0 && hour === 0
+    case '30d':
+      return [1, 6, 11, 16, 21, 26].includes(day)
+    case '90d':
+      return day === 1 || day === 15
+  }
+}
+
+/** The slot still running: it holds a fraction of its time, so its low value is not a drop. */
+export const isPartialSlot = (iso: string, stepSeconds: number, nowMs: number): boolean =>
+  new Date(iso).getTime() + stepSeconds * 1000 > nowMs
+
 /** The API's overview (camelCase, dates as Date) in the shape the dashboard draws. */
 export function fromApiOverview(o: {
   live: number

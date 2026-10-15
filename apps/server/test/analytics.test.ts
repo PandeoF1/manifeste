@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { sql } from 'drizzle-orm'
 import { schema } from '@manifeste/db'
 import { AnalyticsService } from '../src/modules/analytics/service.ts'
+import { AnalyticsStaffService } from '../src/modules/analytics/staff.ts'
+import { PARIS_TODAY } from '../src/lib/sql.ts'
 import { startTestServer, type TestServer } from './helpers.ts'
 
 let s: TestServer
@@ -101,23 +103,23 @@ describe('anonymous analytics', () => {
 
   test('the nightly rollup keeps counts and destroys hashes and old salts', async () => {
     const db = s.ctx.db
-    await db.execute(sql`insert into daily_salts (day, salt) values (current_date - 1, 'old')`)
+    await db.execute(sql`insert into daily_salts (day, salt) values (${PARIS_TODAY} - 1, 'old')`)
     await db.execute(
-      sql`insert into analytics_visitors_today (day, visitor) values (current_date - 1, 'a'), (current_date - 1, 'b')`,
+      sql`insert into analytics_visitors_today (day, visitor) values (${PARIS_TODAY} - 1, 'a'), (${PARIS_TODAY} - 1, 'b')`,
     )
     await db.execute(
       sql`insert into submission_limits (visitor, day, count) values ('x', current_date - 1, 3)`,
     )
     await service.rollup()
     const daily = (
-      await db.execute(sql`select visitors from analytics_daily where day = current_date - 1`)
+      await db.execute(sql`select visitors from analytics_daily where day = ${PARIS_TODAY} - 1`)
     ).rows
     expect(daily[0]?.visitors).toBe(2)
     expect(await count('daily_salts')).toBe(1)
     expect(
       (
         await db.execute(
-          sql`select count(*)::int as n from analytics_visitors_today where day < current_date`,
+          sql`select count(*)::int as n from analytics_visitors_today where day < ${PARIS_TODAY}`,
         )
       ).rows[0]?.n,
     ).toBe(0)
@@ -126,7 +128,7 @@ describe('anonymous analytics', () => {
     expect(
       (
         await db.execute(
-          sql`select count(*)::int as n from analytics_visitors_today where day = current_date`,
+          sql`select count(*)::int as n from analytics_visitors_today where day = ${PARIS_TODAY}`,
         )
       ).rows[0]?.n,
     ).toBe(2)
@@ -145,5 +147,23 @@ describe('the pages the site reports', () => {
     const { PAGES } = await import('../../web/src/lib/pageGroup.ts')
     const { ANALYTICS_PAGES } = await import('@manifeste/db')
     expect([...PAGES].sort()).toEqual([...ANALYTICS_PAGES].sort())
+  })
+
+  test('the curves: 0 (not unknown) between new visitors, today counted in the daily curve', async () => {
+    await beacon('203.0.113.50', { page: 'map', view: true, metrics: [] })
+    const staff = new AnalyticsStaffService(s.ctx.db)
+    const short = await staff.series('2h')
+    const visitors = short.points.map((p) => p.visitors)
+    const first = visitors.findIndex((v) => v != null)
+    expect(first).toBeGreaterThanOrEqual(0)
+    // Once counting has started, a slot without a new visitor is 0, never a hole in the curve.
+    expect(visitors.slice(first).every((v) => v != null)).toBe(true)
+
+    // 30 Paris days, the last one is today, whose visitors are not rolled up yet.
+    const month = await staff.series('30d')
+    expect(month.points).toHaveLength(30)
+    expect(month.points.at(-1)?.visitors).toBe((await staff.overview(1)).todayVisitors)
+    // Each day starts at midnight Paris time (22:00 or 23:00 UTC), whatever the season.
+    for (const p of month.points) expect([22, 23]).toContain(new Date(p.t).getUTCHours())
   })
 })
