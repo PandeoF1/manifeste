@@ -9,6 +9,7 @@ import { schema } from '@manifeste/db'
 import { and, asc, eq, inArray, like, sql } from 'drizzle-orm'
 import { errorMessage, type IngestDeps } from './deps.ts'
 import { inSpan, type PipelineEvent } from './events.ts'
+import { takeBatches } from './batching.ts'
 import { chunk } from './http.ts'
 
 export interface ExtractSweepResult {
@@ -61,6 +62,7 @@ export async function extractSweep(deps: IngestDeps): Promise<ExtractSweepResult
       publishedAt: schema.ingestItems.publishedAt,
       attempts: schema.ingestItems.attempts,
       alwaysRelevant: schema.ingestItems.alwaysRelevant,
+      waitingSince: schema.ingestItems.updatedAt,
       text: schema.itemContents.text,
     })
     .from(schema.ingestItems)
@@ -70,8 +72,14 @@ export async function extractSweep(deps: IngestDeps): Promise<ExtractSweepResult
     .orderBy(asc(schema.ingestItems.publishedAt))
     .limit(limit + 1)
   result.more = rows.length > limit
-  const items = rows.slice(0, limit)
-  if (items.length === 0) return result
+  // A full batch, or what has waited long enough: see takeBatches.
+  const items = takeBatches(
+    rows.slice(0, limit),
+    config.extractBatchSize,
+    config.extractMaxWaitMinutes * 60_000,
+    deps.now(),
+  )
+  if (items.length === 0) return { ...result, more: false }
 
   const defer = async (ids: string[], reason: string, why: PipelineEvent['detail'] = {}) => {
     if (ids.length === 0) return

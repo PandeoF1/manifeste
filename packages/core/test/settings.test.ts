@@ -9,6 +9,7 @@ describe('settings', () => {
       judge_tiers: false,
       judge_keep: 0.5,
       judge_low: 0.3,
+      media_analysis: true,
       concordance_window_hours: 2,
     })
   })

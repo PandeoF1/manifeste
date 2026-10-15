@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { createAi, createMeter, type AiConfig } from '@manifeste/ai'
+import { readSettings } from '@manifeste/core'
 import { schema } from '@manifeste/db'
 import { eq } from 'drizzle-orm'
 import { IngestService } from '../../src/ingest/service.ts'
@@ -32,7 +33,7 @@ async function build(ai: AiConfig = aiConfig()) {
     now: () => NOW,
     ai: createAi(ai, { fetch: geminiFetch, sink: meter, sleep: async () => {} }),
     trigger: async () => {},
-    config: { readerGateway: false },
+    config: { readerGateway: false, extractMaxWaitMinutes: 0, mediaMaxWaitMinutes: 0 },
   })
 }
 
@@ -103,6 +104,30 @@ describe('the whole pipeline', () => {
       promptVersion: 'v1',
     })
     expect(extraction?.reportId).toBe(report?.id)
+  })
+
+  test('one article waits for a full batch (every call repeats the instructions), then goes once it has waited', async () => {
+    ingest = new IngestService(s.ctx, {
+      fetchFn,
+      now: () => NOW,
+      ai: createAi(aiConfig(), { fetch: geminiFetch, sink: meter, sleep: async () => {} }),
+      trigger: async () => {},
+      config: { readerGateway: false, extractMaxWaitMinutes: 10 },
+    })
+    await ingest.discover(sourceId, 'manual')
+    await ingest.drain()
+    expect(await states()).toEqual({ a1: 'read', a2: 'irrelevant' })
+    expect(world.geminiCalls).toBe(0)
+
+    // 16 minutes later (the item entered the "read" state at NOW minus 16 minutes).
+    await s.ctx.db
+      .update(schema.ingestItems)
+      .set({ updatedAt: new Date(NOW.getTime() - 16 * 60_000) })
+      .where(eq(schema.ingestItems.state, 'read'))
+    await ingest.drain()
+    expect(await states()).toEqual({ a1: 'done', a2: 'irrelevant' })
+    expect(world.geminiCalls).toBeGreaterThan(0)
+    expect(await allReports()).toHaveLength(1)
   })
 
   test('a trusted domain publishes without moderation, and the realtime bus is told', async () => {
@@ -249,6 +274,7 @@ describe('what is dropped, and why', () => {
         ),
       now: () => NOW,
       ai: ingest.deps.ai,
+      config: { extractMaxWaitMinutes: 0, mediaMaxWaitMinutes: 0 },
       trigger: async () => {},
     })
     await telegram.discover(second?.id ?? '', 'manual')
@@ -353,7 +379,7 @@ describe('duplicates are settled before any page is downloaded', () => {
       now: () => NOW,
       ai: createAi(aiConfig(), { fetch: geminiFetch, sink: meter, sleep: async () => {} }),
       trigger: async () => {},
-      config: { readerGateway: false },
+      config: { readerGateway: false, extractMaxWaitMinutes: 0, mediaMaxWaitMinutes: 0 },
     })
     return { svc, pageHits: () => hits.filter((u) => u.includes('/pasteur')) }
   }
@@ -604,5 +630,19 @@ describe('media analysis', () => {
     ingest.deps.ai = mediaAi()
     ingest.deps.config.mediaAnalysis = false
     expect(await ingest.media()).toMatchObject({ analysed: 0, calls: 0 })
+  })
+
+  test('the admin switch stops the AI calls at once and keeps what was analysed', async () => {
+    await s.ctx.db.delete(schema.mediaAnalyses)
+    await ingest.discover(sourceId, 'manual')
+    await ingest.read()
+    ingest.deps.ai = mediaAi()
+    ingest.deps.settings = {
+      all: async () => readSettings([{ key: 'media_analysis', value: false }]),
+    }
+    expect(await ingest.media()).toMatchObject({ analysed: 0, calls: 0 })
+    expect(await s.ctx.db.select().from(schema.mediaAnalyses)).toHaveLength(0)
+    ingest.deps.settings = { all: async () => readSettings([]) }
+    expect(await ingest.media()).toMatchObject({ analysed: 1, calls: 1 })
   })
 })

@@ -18,6 +18,11 @@ export const SETTINGS = {
   judge_keep: { schema: t.Number({ minimum: 0, maximum: 1 }), default: 0.5, public: false },
   /** Judge probability below which a report is not retained (unless gathering or incident). */
   judge_low: { schema: t.Number({ minimum: 0, maximum: 1 }), default: 0.3, public: false },
+  /**
+   * Analyse how the press treats the mobilisation (admin "Médias" tab). It spends AI calls on
+   * every article read and nothing else uses the answers: switch off to stop the spending.
+   */
+  media_analysis: { schema: t.Boolean(), default: true, public: false },
   /** Two independent sources within this many hours approve each other. */
   concordance_window_hours: {
     schema: t.Integer({ minimum: 1, maximum: 24 }),

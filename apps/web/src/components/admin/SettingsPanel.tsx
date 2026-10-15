@@ -33,6 +33,12 @@ const FIELDS = [
     type: 'boolean',
   },
   {
+    key: 'media_analysis',
+    label: 'Analyse des médias (IA)',
+    help: 'Activé : chaque article de presse lu est aussi analysé par l’IA (revendications citées, qui s’exprime, angle, ton) pour l’onglet « Médias ». C’est ~40 % des appels Gemini. Désactivé : plus aucun appel pour ça, les analyses déjà faites restent.',
+    type: 'boolean',
+  },
+  {
     key: 'judge_keep',
     label: 'Seuil « confirmé » du juge',
     help: 'Probabilité à partir de laquelle un signalement est confirmé (0,05 à 1). Recommandé : 0,5.',

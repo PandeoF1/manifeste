@@ -26,7 +26,7 @@ const build = (ai: AiConfig = aiConfig(), fetchOverride = fetchFn) => {
     now: () => NOW,
     ai: createAi(ai, { fetch: geminiFetch, sleep: async () => {} }),
     trigger: async () => {},
-    config: { readerGateway: false },
+    config: { readerGateway: false, extractMaxWaitMinutes: 0, mediaMaxWaitMinutes: 0 },
   })
   ops = new IngestOperations(ingest)
 }
