@@ -43,7 +43,15 @@ export interface Figures {
   lastDay: string | null
   nowBlocked: number
   nowFiltering: number
+  /** Schools with only a reported mobilisation right now (judge tiers on, else 0). */
+  nowMobilised: number
   firstDay: string | null
+  /** Schools with a reported mobilisation: distinct since the start, else the peak of one day. */
+  mobilised: number
+  /** Lycées in `schools` (what is not a higher-education site). */
+  lycees: number
+  /** The last complete day and the one before it: a running day is never compared with a full one. */
+  yesterday: { jour: string; schools: number; before: number | null } | null
 }
 
 const sortByDay = (days: ReadonlyArray<Jour>) =>
@@ -83,18 +91,36 @@ export function figuresFor(data: TweetData, range: Range): Figures {
   const curvePeak = peakOf(curve)
   const all = range === 'all'
   const last = days.at(-1) ?? null
+  const yesterdayDay = shiftDay(data.today, -1)
+  const yesterdayRow = data.jours.find((j) => j.jour === yesterdayDay)
+  const beforeRow = data.jours.find((j) => j.jour === shiftDay(data.today, -2))
+  const schools = all ? data.resume.etablissements : (peakDay?.etablissements ?? 0)
+  // The facs of the same day as the peak, so that lycées + facs add up to the schools shown.
+  const facs = all ? data.resume.facs : (peakDay?.facs ?? 0)
   return {
     range,
     days,
     curve,
-    schools: all ? data.resume.etablissements : (peakDay?.etablissements ?? 0),
+    schools,
     schoolsIsPeak: !all,
     peak: curvePeak ? { jour: curvePeak.jour, etablissements: curvePeak.etablissements } : null,
     departments: all
       ? data.resume.departements
       : days.reduce((m, j) => Math.max(m, j.departements), 0),
     reports: all ? data.resume.signalements : days.reduce((s, j) => s + j.signalements, 0),
-    facs: all ? data.resume.facs : days.reduce((m, j) => Math.max(m, j.facs), 0),
+    facs,
+    lycees: Math.max(schools - facs, 0),
+    mobilised: all
+      ? (data.resume.mobilises ?? 0)
+      : days.reduce((m, j) => Math.max(m, j.mobilises ?? 0), 0),
+    nowMobilised: data.resume.mobilises ?? 0,
+    yesterday: yesterdayRow
+      ? {
+          jour: yesterdayRow.jour,
+          schools: yesterdayRow.etablissements,
+          before: beforeRow?.etablissements ?? null,
+        }
+      : null,
     lastDay: last?.jour ?? null,
     firstDay: days[0]?.jour ?? null,
     nowBlocked: data.resume.en_ce_moment.bloques,
@@ -111,6 +137,28 @@ export function topDepartments(
     .sort((a, b) => b.etablissements - a.etablissements)
     .slice(0, n)
     .map((z) => ({ code: z.zone, name: departmentName(z.zone), schools: z.etablissements }))
+}
+
+/** The departments with the most schools blocked or filtering right now. */
+export function topNow(
+  zones: ReadonlyArray<Zone>,
+  n: number,
+): Array<{ code: string; name: string; blocked: number; filtering: number }> {
+  return zones
+    .filter((z) => z.bloques_maintenant + z.filtrants_maintenant > 0)
+    .sort(
+      (a, b) =>
+        b.bloques_maintenant +
+        b.filtrants_maintenant -
+        (a.bloques_maintenant + a.filtrants_maintenant),
+    )
+    .slice(0, n)
+    .map((z) => ({
+      code: z.zone,
+      name: departmentName(z.zone),
+      blocked: z.bloques_maintenant,
+      filtering: z.filtrants_maintenant,
+    }))
 }
 
 /** Today's date in Paris, AAAA-MM-JJ. */

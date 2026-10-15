@@ -1,10 +1,10 @@
 // What a picture shows, as plain data. The canvas renderer (card.ts) only draws this, so the
 // choice of numbers, labels and dates is testable without a browser.
-import { topDepartments, type Figures, type TweetData } from './figures'
+import { topDepartments, topNow, type Figures, type TweetData } from './figures'
 import { cardTitle, headline, type Template } from './templates'
 import { dayLabel, num } from './text'
 
-export type Tone = 'bloque' | 'filtrant' | 'neutral'
+export type Tone = 'bloque' | 'filtrant' | 'mobilisation' | 'neutral'
 
 export interface Stat {
   value: string
@@ -65,6 +65,19 @@ export function cardSpec(template: Template, data: TweetData, f: Figures): CardS
         },
       }
     case 'departments': {
+      if (template.id === 'departements-direct') {
+        const rows = topNow(data.departements, 8).map((d) => ({
+          label: d.name,
+          value: d.blocked + d.filtering,
+          display: num(d.blocked + d.filtering),
+        }))
+        return {
+          title,
+          subtitle: 'Établissements bloqués ou filtrants à cet instant, par département',
+          footerRight,
+          body: { kind: 'rows', rows },
+        }
+      }
       const rows = topDepartments(data.departements, 8).map((d) => ({
         label: d.name,
         value: d.schools,
@@ -103,39 +116,84 @@ export function cardSpec(template: Template, data: TweetData, f: Figures): CardS
       }
     case 'numbers':
     default: {
-      if (!template.usesRange) {
-        return {
-          title,
-          subtitle: 'À cet instant',
-          footerRight,
-          body: {
-            kind: 'numbers',
-            stats: [
-              { value: num(f.nowBlocked), label: 'bloqués', tone: 'bloque' },
-              { value: num(f.nowFiltering), label: 'en filtrage', tone: 'filtrant' },
-            ],
-          },
-        }
-      }
+      const stats = numbersFor(template, data, f)
       return {
         title,
-        subtitle: headline(f),
+        subtitle: template.usesRange ? headline(f) : (SUBTITLE[template.id] ?? 'À cet instant'),
         footerRight,
-        body: {
-          kind: 'numbers',
-          stats: [
-            {
-              value: num(f.schools),
-              label: f.schoolsIsPeak
-                ? 'établissements (pic sur un jour)'
-                : 'établissements signalés',
-              tone: 'bloque',
-            },
-            { value: num(f.departments), label: 'départements', tone: 'neutral' },
-            { value: num(f.reports), label: 'signalements sourcés', tone: 'neutral' },
-          ],
-        },
+        body: { kind: 'numbers', stats },
       }
     }
+  }
+}
+
+const SUBTITLE: Record<string, string> = {
+  maintenant: 'À cet instant',
+  hier: 'La dernière journée complète',
+  record: 'Le plus fort jour depuis le début',
+}
+
+/** The big figures of a "numbers" picture, one set per template. */
+function numbersFor(template: Template, data: TweetData, f: Figures): Stat[] {
+  const mobilisation = (value: number, label: string): Stat[] =>
+    value > 0 ? [{ value: num(value), label, tone: 'mobilisation' }] : []
+  switch (template.id) {
+    case 'maintenant':
+      return [
+        { value: num(f.nowBlocked), label: 'bloqués', tone: 'bloque' },
+        { value: num(f.nowFiltering), label: 'en filtrage', tone: 'filtrant' },
+        ...mobilisation(f.nowMobilised, 'mobilisations signalées'),
+      ]
+    case 'hier': {
+      const y = f.yesterday
+      if (!y) return [{ value: '–', label: 'pas encore de chiffre pour hier', tone: 'neutral' }]
+      const stats: Stat[] = [
+        { value: num(y.schools), label: 'établissements signalés hier', tone: 'bloque' },
+      ]
+      if (y.before != null) {
+        const d = y.schools - y.before
+        stats.push(
+          { value: num(y.before), label: 'la veille', tone: 'neutral' },
+          {
+            value: `${d > 0 ? '+' : d < 0 ? '−' : ''}${num(Math.abs(d))}`,
+            label: 'écart',
+            tone: 'neutral',
+          },
+        )
+      }
+      return stats
+    }
+    case 'lycees-facs':
+      return [
+        { value: num(f.lycees), label: 'lycées', tone: 'bloque' },
+        { value: num(f.facs), label: 'facs et écoles', tone: 'neutral' },
+      ]
+    case 'record': {
+      const pic = data.resume.pic
+      return [
+        {
+          value: pic ? num(pic.etablissements) : '–',
+          label: 'établissements en un jour',
+          tone: 'bloque',
+        },
+        {
+          value: pic ? num(pic.departements) : '–',
+          label: 'départements ce jour-là',
+          tone: 'neutral',
+        },
+        { value: num(f.schools), label: 'au total depuis le début', tone: 'neutral' },
+      ]
+    }
+    default:
+      return [
+        {
+          value: num(f.schools),
+          label: f.schoolsIsPeak ? 'établissements (pic sur un jour)' : 'établissements signalés',
+          tone: 'bloque',
+        },
+        { value: num(f.departments), label: 'départements', tone: 'neutral' },
+        { value: num(f.reports), label: 'signalements sourcés', tone: 'neutral' },
+        ...mobilisation(f.mobilised, 'mobilisations signalées'),
+      ]
   }
 }
