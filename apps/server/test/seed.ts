@@ -15,6 +15,7 @@ export interface SchoolSeed {
   level?: SchoolLevel
   lat?: number
   lng?: number
+  aliases?: string[]
 }
 
 export async function addSchool(db: Database, s: SchoolSeed = {}) {
@@ -28,6 +29,7 @@ export async function addSchool(db: Database, s: SchoolSeed = {}) {
     department: s.department ?? '75',
     academy: s.academy ?? 'Paris',
     level: s.level ?? 'secondary',
+    aliases: s.aliases ?? [],
     location: sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography`,
   })
   return uai

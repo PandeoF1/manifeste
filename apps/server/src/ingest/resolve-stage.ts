@@ -243,19 +243,23 @@ export async function loadFacts(
 /** The school a fact is about: the position of a map point first, then the city for a generic name, then the name. */
 export async function findSchool(
   matching: IngestDeps['matching'],
-  fact: Pick<Fact, 'schoolName' | 'city' | 'geoLat' | 'geoLng'>,
+  fact: Pick<Fact, 'schoolName' | 'city' | 'geoLat' | 'geoLng'> &
+    Partial<Pick<Fact, 'title' | 'text' | 'url'>>,
 ): Promise<string | null> {
   if (fact.geoLat !== null && fact.geoLng !== null) {
     const near = await matching.nearbyForGeo(fact.geoLat, fact.geoLng, 1500)
     const byPosition = pickByGeo(near, fact.schoolName)?.uai
     if (byPosition) return byPosition
   }
-  if (fact.city && isGenericSchoolName(fact.schoolName, fact.city)) {
+  const hint = [fact.title, fact.text?.slice(0, 600), fact.url].filter(Boolean).join(' ')
+  const level = levelOfName(fact.schoolName) as SchoolLevel
+  if (fact.city && isGenericSchoolName(fact.schoolName, fact.city) && level === 'secondary') {
     // "Lycée de Hanches": matched only when the city has a single school of that level.
-    const inCity = await matching.inCity(fact.city, 2, levelOfName(fact.schoolName) as SchoolLevel)
+    const inCity = await matching.inCity(fact.city, 2, level)
     return inCity.length === 1 ? (inCity[0]?.uai ?? null) : null
   }
-  return (await matching.match(fact.schoolName, fact.city))?.uai ?? null
+  // "IUT", "la fac", "Université de Lille": resolve tries the exact name, then the city's university.
+  return (await matching.resolve(fact.schoolName, fact.city, hint))?.uai ?? null
 }
 
 export interface DecideOptions {
