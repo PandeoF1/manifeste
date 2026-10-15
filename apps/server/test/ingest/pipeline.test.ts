@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { createAi, createMeter, type AiConfig } from '@manifeste/ai'
+import { readSettings } from '@manifeste/core'
 import { schema } from '@manifeste/db'
 import { eq } from 'drizzle-orm'
 import { IngestService } from '../../src/ingest/service.ts'
@@ -629,5 +630,19 @@ describe('media analysis', () => {
     ingest.deps.ai = mediaAi()
     ingest.deps.config.mediaAnalysis = false
     expect(await ingest.media()).toMatchObject({ analysed: 0, calls: 0 })
+  })
+
+  test('the admin switch stops the AI calls at once and keeps what was analysed', async () => {
+    await s.ctx.db.delete(schema.mediaAnalyses)
+    await ingest.discover(sourceId, 'manual')
+    await ingest.read()
+    ingest.deps.ai = mediaAi()
+    ingest.deps.settings = {
+      all: async () => readSettings([{ key: 'media_analysis', value: false }]),
+    }
+    expect(await ingest.media()).toMatchObject({ analysed: 0, calls: 0 })
+    expect(await s.ctx.db.select().from(schema.mediaAnalyses)).toHaveLength(0)
+    ingest.deps.settings = { all: async () => readSettings([]) }
+    expect(await ingest.media()).toMatchObject({ analysed: 1, calls: 1 })
   })
 })

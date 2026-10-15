@@ -26,6 +26,8 @@ export async function mediaSweep(deps: IngestDeps): Promise<MediaSweepResult> {
   const { db, config, ai } = deps
   const result: MediaSweepResult = { analysed: 0, calls: 0, more: false }
   if (!config.mediaAnalysis || !ai.config.enabled) return result
+  // The admin switch (Réglages): off stops the AI calls at once, what was analysed stays.
+  if (!(await deps.settings.all()).media_analysis) return result
 
   const since = new Date(deps.now().getTime() - config.contentRetentionDays * 86_400_000)
   const limit = config.mediaBatchSize * config.maxMediaCalls

@@ -58,7 +58,7 @@ export const DEFAULT_INGEST_CONFIG: IngestConfig = {
   // and an answer is never cut by its length. 15 x 12 handles as many items per run as 50 x 4 did.
   extractBatchSize: 15,
   maxExtractCalls: 12,
-  extractMaxWaitMinutes: 10,
+  extractMaxWaitMinutes: 0,
   resolveBatch: 200,
   minCertainty: 'medium',
   maxJudgeCalls: 60,

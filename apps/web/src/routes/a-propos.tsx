@@ -136,9 +136,8 @@ function AboutPage() {
             <li>
               Cloudflare (réseau et anti-robot Turnstile du formulaire) et OpenFreeMap (fond de
               carte) reçoivent, comme tout service en ligne, tes données techniques de connexion. Le
-              site tourne sur mon propre serveur : tes données n'y sont pas confiées à un hébergeur
-              de bases de données tiers. Les mesures techniques du serveur (erreurs, temps de
-              réponse) sont suivies avec Grafana Cloud.
+              site tourne sur mon propr serveur : tes données n'y sont pas confiées à un hébergeur
+              de bases de données tiers..
             </li>
             <li>
               Les textes d'articles publics sont envoyés à Google (Gemini) et à Jev pour être
