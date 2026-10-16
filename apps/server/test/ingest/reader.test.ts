@@ -5,6 +5,7 @@ import {
   readItems,
   type ReadInput,
 } from '../../src/ingest/reader.ts'
+import { isGoogleNewsUrl } from '../../src/ingest/googlenews.ts'
 import { batchResponse, gnPage } from './gn-fixtures.ts'
 
 const feedItem = (over: Partial<ReadInput> = {}): ReadInput => ({
@@ -78,7 +79,7 @@ describe('reading a press item', () => {
     })
     expect(out?.url).toBe(gn)
     expect(out?.strategy).toBe('feed')
-    expect(asked.every((u) => u.includes('news.google.com'))).toBe(true)
+    expect(asked.every(isGoogleNewsUrl)).toBe(true)
   })
 
   test('takes the page date when the feed gives the re-indexing date; a live blog keeps the feed date', async () => {
