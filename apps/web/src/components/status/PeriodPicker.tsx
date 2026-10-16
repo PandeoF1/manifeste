@@ -16,12 +16,12 @@ export function PeriodPicker({
   onChange: (period: Period) => void
   history?: { active: boolean; onSelect: () => void }
   className?: string
-  /** On the map: red bar, white selected button, so it stands out from the dark basemap. */
+  /** On the map: glass bar like the other map panels; only the Live dot stays red. */
   onMap?: boolean
 }) {
-  const bar = onMap ? 'border-white/80 bg-bloque text-white shadow-lg' : 'border-border bg-bg/70'
-  const on = onMap ? 'bg-white text-black' : 'bg-fg text-bg'
-  const off = onMap ? 'text-white hover:bg-white/20' : 'text-muted hover:text-fg'
+  const bar = onMap ? 'glass border-border shadow-lg' : 'border-border bg-bg/70'
+  const on = 'bg-fg text-bg'
+  const off = 'text-muted hover:text-fg'
   return (
     <div
       role="group"
@@ -43,7 +43,7 @@ export function PeriodPicker({
             {p === 'direct' && (
               <span
                 aria-hidden="true"
-                className={`mr-1.5 inline-block size-1.5 rounded-full align-middle ${active ? 'bg-bloque' : onMap ? 'bg-white' : 'bg-muted'}`}
+                className={`mr-1.5 inline-block size-1.5 rounded-full align-middle ${active || onMap ? 'bg-bloque' : 'bg-muted'}`}
               />
             )}
             {PERIOD_SHORT_LABELS[p]}
