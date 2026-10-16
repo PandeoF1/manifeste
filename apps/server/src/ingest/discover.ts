@@ -18,6 +18,7 @@ import { ADAPTERS } from './adapters/index.ts'
 import { errorMessage, type IngestDeps } from './deps.ts'
 import { inSpan } from './events.ts'
 import { chunk } from './http.ts'
+import { isGoogleNewsUrl } from './googlenews.ts'
 
 export interface DiscoverResult {
   runId: string
@@ -98,7 +99,7 @@ export async function discoverSource(
                 return {
                   sourceId,
                   externalId: i.externalId,
-                  url: i.url.includes('news.google.com') ? i.url : canonicalUrl(i.url),
+                  url: isGoogleNewsUrl(i.url) ? i.url : canonicalUrl(i.url),
                   publishedAt: i.publishedAt,
                   publisherDomain: i.publisherDomain ?? null,
                   geoLat: i.geo?.lat ?? null,

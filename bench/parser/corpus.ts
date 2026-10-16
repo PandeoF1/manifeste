@@ -44,7 +44,13 @@ export async function listCorpus(
   const pages = []
   for (const [file, url] of byFile) {
     if (!files.has(file)) continue
-    if (!options.includeGoogleNews && url.includes('news.google.com')) continue
+    let isGoogleNews = false
+    try {
+      isGoogleNews = new URL(url).hostname === 'news.google.com'
+    } catch {
+      // Invalid corpus URLs are still returned unless the caller filters them elsewhere.
+    }
+    if (!options.includeGoogleNews && isGoogleNews) continue
     const hash = file.slice(0, 10)
     if (options.only && !options.only.has(hash)) continue
     pages.push({ hash, url, domain: domainOf(url), file: join(dir, 'cache', file) })

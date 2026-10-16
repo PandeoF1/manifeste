@@ -47,8 +47,55 @@ function splitList(selector: string): string[] {
   return parts.map((p) => p.trim()).filter(Boolean)
 }
 
-const ATTR = /^\[\s*([\w:-]+)\s*(?:(\^=|\*=|=)\s*(?:"([^"]*)"|'([^']*)'|([^\s\]]+))\s*(i)?\s*)?\]/
 const NAME = /^[\w-]+/
+
+function parseAttribute(source: string): { test: AttrTest; length: number } | null {
+  if (!source.startsWith('[')) return null
+  let i = 1
+  const skipSpaces = () => {
+    while (i < source.length && /\s/.test(source[i] ?? '')) i++
+  }
+  const start = i
+  while (i < source.length && /[\w:-]/.test(source[i] ?? '')) i++
+  if (i === start) return null
+  const name = source.slice(start, i).toLowerCase()
+  skipSpaces()
+
+  let op: AttrTest['op'] = ''
+  for (const candidate of ['^=', '*=', '='] as const) {
+    if (source.startsWith(candidate, i)) {
+      op = candidate
+      i += candidate.length
+      break
+    }
+  }
+
+  let value = ''
+  if (op) {
+    skipSpaces()
+    const quote = source[i] === '"' || source[i] === "'" ? source[i] : ''
+    if (quote) {
+      i++
+      const valueStart = i
+      while (i < source.length && source[i] !== quote) i++
+      if (source[i] !== quote) return null
+      value = source.slice(valueStart, i)
+      i++
+    } else {
+      const valueStart = i
+      while (i < source.length && !/[\s\]]/.test(source[i] ?? '')) i++
+      if (i === valueStart) return null
+      value = source.slice(valueStart, i)
+    }
+  }
+
+  skipSpaces()
+  const insensitive = source[i] === 'i'
+  if (insensitive) i++
+  skipSpaces()
+  if (source[i] !== ']') return null
+  return { test: { name, op, value, insensitive }, length: i + 1 }
+}
 
 function parseCompound(source: string): Compound {
   const compound: Compound = { tag: null, id: null, classes: [], attrs: [] }
@@ -66,15 +113,10 @@ function parseCompound(source: string): Compound {
       else compound.classes.push(name[0])
       rest = rest.slice(1 + name[0].length)
     } else if (rest[0] === '[') {
-      const m = ATTR.exec(rest)
-      if (!m) throw new Error(`bad selector: ${source}`)
-      compound.attrs.push({
-        name: (m[1] ?? '').toLowerCase(),
-        op: (m[2] ?? '') as AttrTest['op'],
-        value: m[3] ?? m[4] ?? m[5] ?? '',
-        insensitive: m[6] === 'i',
-      })
-      rest = rest.slice(m[0].length)
+      const parsed = parseAttribute(rest)
+      if (!parsed) throw new Error(`bad selector: ${source}`)
+      compound.attrs.push(parsed.test)
+      rest = rest.slice(parsed.length)
     } else throw new Error(`unsupported selector (no combinators): ${source}`)
   }
   return compound

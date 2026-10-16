@@ -72,6 +72,9 @@ create database preview_template owner preview;   -- fill with a sanitized datas
   Coolify does not pull the whole site for a photo problem. Alert on it from the uptime monitor
   (a keyword check on `"degraded":[]`). The probe asks the bucket for one key, is cached for
   30 s and gives up after 3 s. `/api/health/live` never looks at any dependency.
+- In production, only `api` has an HTTP healthcheck. The `worker` service runs with `ROLE=worker`
+  and has no HTTP listener, so its inherited image healthcheck is disabled in
+  `deploy/compose.prod.yml`.
 
 ### Staging: `manifeste-staging`
 
@@ -98,12 +101,27 @@ Same as production with `deploy/compose.staging.yml`, branch `rework/elysia-back
 ## 5. GitHub
 
 - Packages: the deploy workflow pushes `ghcr.io/<owner>/manifeste:<sha>` and moves `:staging`
-  (push to `develop`) or `:production` (push to `main`, or a manual run) to it. The `:production`
-  tag does not exist until the first run on `main` has finished: deploy it from Coolify after that. If the package is
-  private, add a GHCR pull token to Coolify (Settings > Docker registries).
+  (push to `develop`) or `:production` (push to `main`, or a manual run) to it. The workflow then
+  calls the Coolify deploy webhook and waits for the deployment to reach `finished`; it fails if
+  Coolify reports an error or the wait times out. The `:production` tag does not exist until the
+  first run on `main` has finished: deploy it from Coolify after that. If the package is private,
+  add a GHCR pull token to Coolify (Settings > Docker registries).
 - Environments `Staging` and `Production` (required reviewers on Production), each with
   `COOLIFY_WEBHOOK` (the resource's deploy webhook) and `COOLIFY_TOKEN` (Coolify > Keys & Tokens).
 - Variable `VITE_TURNSTILE_SITE_KEY` (build argument of the image).
+
+### Deployment trigger ordering
+
+Disable automatic deployment on Git pushes for the production and staging resources. In
+particular, do not let Coolify's GitHub App webhook call "Deploy" when a branch is updated:
+that deploy starts while GitHub Actions is still building and pushing the image. Keep the
+Coolify deploy webhook configured only as `COOLIFY_WEBHOOK` in the matching GitHub environment.
+The intended sequence is:
+
+1. GitHub Actions runs checks and builds the image.
+2. GitHub Actions pushes the immutable SHA tag and the moving environment tag to GHCR.
+3. GitHub Actions calls the Coolify deploy webhook.
+4. GitHub Actions waits for Coolify to finish.
 
 ## 6. First staff account
 

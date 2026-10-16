@@ -1,6 +1,8 @@
 name: Deploy v2
 
 # The tested image goes to ghcr.io, then Coolify is asked to redeploy with it.
+# Coolify must not auto-deploy on the GitHub push: the deploy job triggers it only after the image
+# has finished building and both GHCR tags have been pushed.
 #   push to develop or rework/elysia-backend -> Staging (automatic)
 #   push to main, or a manual run             -> Production (GitHub environment with required reviewers)
 # Secrets per GitHub environment: COOLIFY_WEBHOOK (the resource's deploy webhook URL) and
@@ -31,6 +33,9 @@ jobs:
   image:
     needs: checks
     runs-on: ubuntu-latest
+    # The SPA bakes in public values at build time (the Turnstile site key): read the variables of
+    # the target environment, not only the repository's.
+    environment: ${{ github.event.inputs.environment || (github.ref_name == 'main' && 'Production') || 'Staging' }}
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
@@ -42,7 +47,19 @@ jobs:
         run: |
           repo="ghcr.io/${GITHUB_REPOSITORY,,}"
           echo "tag=$repo:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "target=${TARGET,,}" >> "$GITHUB_OUTPUT"
           echo "moving=$repo:${TARGET,,}" >> "$GITHUB_OUTPUT"
+      # Without the site key the report form ships without its anti-bot widget while the server
+      # (which has the secret) refuses every report: fail the build instead of shipping that.
+      - name: Check the Turnstile site key (production)
+        if: ${{ steps.meta.outputs.target == 'production' }}
+        env:
+          SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+        run: |
+          if [ -z "$SITE_KEY" ]; then
+            echo "::error::VITE_TURNSTILE_SITE_KEY is empty: the report form would be rejected by the server. Set it as a variable of the Production environment (or of the repository)."
+            exit 1
+          fi
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -59,8 +76,8 @@ jobs:
           build-args: |
             APP_VERSION=${{ github.sha }}
             VITE_TURNSTILE_SITE_KEY=${{ vars.VITE_TURNSTILE_SITE_KEY }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=manifeste-image-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=manifeste-image-${{ github.ref_name }}
 
   deploy:
     needs: image
@@ -77,4 +94,41 @@ jobs:
         if: ${{ env.COOLIFY_WEBHOOK != '' }}
         run: |
           echo "Deploying ${{ needs.image.outputs.tag }}"
-          curl --fail-with-body -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_WEBHOOK"
+          response="$(
+            curl --fail-with-body -sS -X POST \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              "$COOLIFY_WEBHOOK"
+          )"
+          deployment_uuid="$(
+            jq -r '.deployment_uuid // .uuid // .deployments[0].deployment_uuid // empty' <<< "$response"
+          )"
+          if [ -z "$deployment_uuid" ]; then
+            echo "::error::Coolify did not return a deployment UUID; cannot wait for the deployment."
+            echo "$response"
+            exit 1
+          fi
+
+          # Reuse the Coolify host from the webhook URL for the authenticated status endpoint.
+          coolify_api="${COOLIFY_WEBHOOK%%/api/*}/api/v1"
+          for attempt in $(seq 1 180); do
+            status="$(
+              curl --fail-with-body -sS \
+                -H "Authorization: Bearer $COOLIFY_TOKEN" \
+                "$coolify_api/deployments/$deployment_uuid" |
+                jq -r '.status // empty'
+            )"
+            echo "Coolify deployment $deployment_uuid: ${status:-unknown}"
+            case "$status" in
+              finished)
+                exit 0
+                ;;
+              failed|error|cancelled|canceled)
+                echo "::error::Coolify deployment $deployment_uuid ended with status '$status'."
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+
+          echo "::error::Timed out waiting for Coolify deployment $deployment_uuid."
+          exit 1

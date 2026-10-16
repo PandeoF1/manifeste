@@ -18,6 +18,13 @@ describe('"Tes droits" window', () => {
     expect(text).not.toMatch(/jamais plus de 24/i)
   })
 
+  it('explains the face-covering rule instead of advising to cover the face', () => {
+    const text = RIGHTS_SECTIONS.flatMap((s) => s.points).join(' ')
+    expect(text).toMatch(/431-9-1/)
+    expect(text).toMatch(/sans motif légitime/)
+    expect(text).not.toMatch(/FFP2/)
+  })
+
   it('links: https or tel, no tracker', () => {
     for (const l of RIGHTS_LINKS) {
       expect(l.href).toMatch(/^(https:\/\/|tel:)/)

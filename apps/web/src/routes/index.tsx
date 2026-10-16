@@ -1,4 +1,14 @@
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import { createPortal } from 'react-dom'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
@@ -242,6 +252,13 @@ function MapPage() {
     [navigate],
   )
 
+  // The top bar owns the slot; it exists once the page is mounted.
+  const shareSlot = useSyncExternalStore(
+    () => () => {},
+    () => document.getElementById('topbar-share'),
+    () => null,
+  )
+
   return (
     <main className="flex min-h-0 flex-1">
       <h1 className="sr-only">
@@ -261,15 +278,8 @@ function MapPage() {
             isError={isError}
             history={history}
             mobilises={mobilisation.length}
-            picker={<PeriodPicker value={period} onChange={setPeriod} history={historyPicker} />}
           />
           <Legend mobilisation={mobilisation.length > 0} />
-          <ShareButton
-            url={shareUrl}
-            title="Manifeste - les lycées et les facs mobilisés, en direct"
-            text={shareText}
-            label="Partager la carte"
-          />
         </div>
         <h2 className="px-4 pt-4 pb-2 text-xs font-semibold tracking-wider text-muted uppercase">
           Derniers signaux
@@ -316,6 +326,30 @@ function MapPage() {
             datasetKey={historyMode ? 'historique' : period}
           />
         </Suspense>
+
+        {/* Desktop: period and history controls on the map, where they are expected. */}
+        <div className="absolute top-4 left-8 z-10 hidden md:block">
+          <PeriodPicker
+            value={period}
+            onChange={setPeriod}
+            history={historyPicker}
+            onMap
+            className="text-sm"
+          />
+        </div>
+        {/* Desktop: share button in the top bar, next to "Signaler". */}
+        {shareSlot &&
+          createPortal(
+            <ShareButton
+              url={shareUrl}
+              title="Manifeste - les lycées et les facs mobilisés, en direct"
+              text={shareText}
+              label="Partager la carte"
+              labelClassName="max-xl:sr-only"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold whitespace-nowrap hover:bg-surface"
+            />,
+            shareSlot,
+          )}
 
         {/* Phone: figures overlaid, collapsible with a tab. */}
         <div className="absolute top-2 left-2 z-10 max-w-[calc(100%-4rem)] md:hidden">
@@ -394,7 +428,7 @@ function MapPage() {
 
         {!loading && !(historyMode && timeline.isError) && shown.length === 0 && (
           <p
-            className={`glass pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm whitespace-nowrap shadow md:top-4 md:bottom-auto ${historyMode ? 'max-md:hidden' : 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]'}`}
+            className={`glass pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-full border border-border px-4 py-2 text-sm whitespace-nowrap shadow md:top-20 md:bottom-auto ${historyMode ? 'max-md:hidden' : 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]'}`}
           >
             {history ? `Aucun blocus signalé ${history}` : 'Aucun blocus signalé pour le moment'}
           </p>

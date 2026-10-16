@@ -44,6 +44,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
+          cache: true
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
@@ -75,6 +76,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
+          cache: true
       - run: bun install --frozen-lockfile
       - run: bun run --filter '@manifeste/web' build
       - name: Playwright browser
@@ -98,6 +100,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
+          cache: true
       - run: bun install --frozen-lockfile
       - name: Migrations are consistent
         working-directory: packages/db
@@ -123,5 +126,5 @@ jobs:
           context: .
           push: false
           build-args: APP_VERSION=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=manifeste-image-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=manifeste-image-${{ github.ref_name }}

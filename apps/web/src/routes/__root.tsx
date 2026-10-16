@@ -1,5 +1,10 @@
 import { useEffect } from 'react'
-import { Outlet, createRootRouteWithContext, useRouterState } from '@tanstack/react-router'
+import {
+  Outlet,
+  createRootRouteWithContext,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { TopBar } from '@/components/layout/TopBar'
 import { applyThemeClass, useTheme, type Theme } from '@/lib/theme'
@@ -15,10 +20,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   ),
 })
 
+/** Text pages narrower than the screen: their side margins act as "back to the map". */
+const READING_PAGES = ['/liste', '/donnees', '/a-propos']
+
 function RootLayout() {
   // Public side: chosen theme (dark by default); the admin follows the system theme.
   // The theme is set on <html>: the whole page background follows, never a light band.
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const navigate = useNavigate()
   const theme = useTheme()
   // Embedded pages (iframe): dark by default, light with ?theme=clair; no menus.
   const embed = pathname.startsWith('/embed')
@@ -44,7 +53,15 @@ function RootLayout() {
       </a>
       <TopBar />
       <OfflineBanner />
-      <div id="contenu" className="flex min-h-0 flex-1 flex-col">
+      {/* Reading pages (desktop): a click on the empty margins goes back to the map. */}
+      <div
+        id="contenu"
+        className="flex min-h-0 flex-1 flex-col"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && READING_PAGES.includes(pathname))
+            void navigate({ to: '/', search: {} })
+        }}
+      >
         <Outlet />
       </div>
       <ReportFab />
