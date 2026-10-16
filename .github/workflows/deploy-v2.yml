@@ -1,6 +1,8 @@
 name: Deploy v2
 
 # The tested image goes to ghcr.io, then Coolify is asked to redeploy with it.
+# Coolify must not auto-deploy on the GitHub push: the deploy job triggers it only after the image
+# has finished building and both GHCR tags have been pushed.
 #   push to develop or rework/elysia-backend -> Staging (automatic)
 #   push to main, or a manual run             -> Production (GitHub environment with required reviewers)
 # Secrets per GitHub environment: COOLIFY_WEBHOOK (the resource's deploy webhook URL) and
@@ -92,4 +94,35 @@ jobs:
         if: ${{ env.COOLIFY_WEBHOOK != '' }}
         run: |
           echo "Deploying ${{ needs.image.outputs.tag }}"
-          curl --fail-with-body -sS -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_WEBHOOK"
+          response="$(curl --fail-with-body -sS "$COOLIFY_WEBHOOK")"
+          deployment_uuid="$(jq -r '.deployment_uuid // .uuid // empty' <<< "$response")"
+          if [ -z "$deployment_uuid" ]; then
+            echo "::error::Coolify did not return a deployment UUID; cannot wait for the deployment."
+            echo "$response"
+            exit 1
+          fi
+
+          # Reuse the Coolify host from the webhook URL for the authenticated status endpoint.
+          coolify_api="${COOLIFY_WEBHOOK%%/api/*}/api/v1"
+          for attempt in $(seq 1 180); do
+            status="$(
+              curl --fail-with-body -sS \
+                -H "Authorization: Bearer $COOLIFY_TOKEN" \
+                "$coolify_api/deployments/$deployment_uuid" |
+                jq -r '.status // empty'
+            )"
+            echo "Coolify deployment $deployment_uuid: ${status:-unknown}"
+            case "$status" in
+              finished)
+                exit 0
+                ;;
+              failed|error|cancelled|canceled)
+                echo "::error::Coolify deployment $deployment_uuid ended with status '$status'."
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+
+          echo "::error::Timed out waiting for Coolify deployment $deployment_uuid."
+          exit 1

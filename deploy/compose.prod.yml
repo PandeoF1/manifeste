@@ -67,6 +67,9 @@ services:
       <<: *env
       ROLE: worker
       DATABASE_POOL_MAX: '5'
+    # The worker has no HTTP server; the image healthcheck targets the API only.
+    healthcheck:
+      disable: true
     depends_on:
       migrate:
         condition: service_completed_successfully
