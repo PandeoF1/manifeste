@@ -95,7 +95,7 @@ jobs:
         run: |
           echo "Deploying ${{ needs.image.outputs.tag }}"
           response="$(
-            curl --fail-with-body -sS \
+            curl --fail-with-body -sS -X POST \
               -H "Authorization: Bearer $COOLIFY_TOKEN" \
               "$COOLIFY_WEBHOOK"
           )"
