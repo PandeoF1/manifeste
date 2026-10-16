@@ -76,8 +76,8 @@ jobs:
           build-args: |
             APP_VERSION=${{ github.sha }}
             VITE_TURNSTILE_SITE_KEY=${{ vars.VITE_TURNSTILE_SITE_KEY }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=manifeste-image-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=manifeste-image-${{ github.ref_name }}
 
   deploy:
     needs: image
@@ -94,7 +94,11 @@ jobs:
         if: ${{ env.COOLIFY_WEBHOOK != '' }}
         run: |
           echo "Deploying ${{ needs.image.outputs.tag }}"
-          response="$(curl --fail-with-body -sS "$COOLIFY_WEBHOOK")"
+          response="$(
+            curl --fail-with-body -sS \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              "$COOLIFY_WEBHOOK"
+          )"
           deployment_uuid="$(jq -r '.deployment_uuid // .uuid // empty' <<< "$response")"
           if [ -z "$deployment_uuid" ]; then
             echo "::error::Coolify did not return a deployment UUID; cannot wait for the deployment."
