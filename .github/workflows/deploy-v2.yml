@@ -99,7 +99,9 @@ jobs:
               -H "Authorization: Bearer $COOLIFY_TOKEN" \
               "$COOLIFY_WEBHOOK"
           )"
-          deployment_uuid="$(jq -r '.deployment_uuid // .uuid // empty' <<< "$response")"
+          deployment_uuid="$(
+            jq -r '.deployment_uuid // .uuid // .deployments[0].deployment_uuid // empty' <<< "$response"
+          )"
           if [ -z "$deployment_uuid" ]; then
             echo "::error::Coolify did not return a deployment UUID; cannot wait for the deployment."
             echo "$response"
