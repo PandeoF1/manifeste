@@ -62,30 +62,38 @@ export function TopBar() {
         <img src="/favicon.svg" alt="" width={28} height={28} className="rounded-md" />
         Manifeste
       </Link>
-      {/* Desktop: navigation in the centre. */}
-      <nav aria-label="Navigation principale" className="hidden items-center gap-1 text-sm md:flex">
-        {NAV.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            search={{}}
-            className="rounded-md px-3 py-3 hover:bg-surface"
-            activeProps={{
-              className: 'font-semibold text-fg underline underline-offset-8',
-              'aria-current': 'page',
-            }}
-            activeOptions={{ includeSearch: false }}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
       <div className="flex items-center gap-1 md:gap-3">
+        {/* Desktop: navigation, with "Tes droits" grouped in it. */}
+        <nav
+          aria-label="Navigation principale"
+          className="hidden items-center gap-1 text-sm md:flex"
+        >
+          {NAV.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              search={{}}
+              className="rounded-md px-2.5 py-3 whitespace-nowrap hover:bg-surface lg:px-3"
+              activeProps={{
+                className: 'font-semibold text-fg underline underline-offset-8',
+                'aria-current': 'page',
+              }}
+              activeOptions={{ includeSearch: false }}
+            >
+              {item.label}
+            </Link>
+          ))}
+          {!pathname.startsWith('/admin') && (
+            <RightsButton className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 hover:bg-surface lg:px-3" />
+          )}
+        </nav>
         <MiniCounter />
-        {!pathname.startsWith('/admin') && <ThemeToggle />}
+        {/* On the map page the theme switch lives on the map, with the zoom buttons. */}
         {!pathname.startsWith('/admin') && (
-          <RightsButton className="hidden min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm hover:bg-surface md:inline-flex" />
+          <ThemeToggle className={pathname === '/' ? 'md:hidden' : ''} />
         )}
+        {/* Filled by the map page with its share button, next to "Signaler". */}
+        <div id="topbar-share" className="hidden md:contents" />
         <Link
           to="/signaler"
           search={{}}

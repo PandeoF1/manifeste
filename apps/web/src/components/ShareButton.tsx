@@ -8,6 +8,7 @@ export function ShareButton({
   text,
   className = 'btn-secondary',
   label = 'Partager',
+  labelClassName,
   style,
 }: {
   url: string
@@ -15,6 +16,7 @@ export function ShareButton({
   text?: string
   className?: string
   label?: string
+  labelClassName?: string
   style?: CSSProperties
 }) {
   const [copied, setCopied] = useState(false)
@@ -40,7 +42,9 @@ export function ShareButton({
   return (
     <button type="button" onClick={() => void share()} className={className} style={style}>
       {copied ? <Check size={18} aria-hidden="true" /> : <Share2 size={18} aria-hidden="true" />}
-      <span aria-live="polite">{copied ? 'Lien copié' : label}</span>
+      <span aria-live="polite" className={labelClassName}>
+        {copied ? 'Lien copié' : label}
+      </span>
     </button>
   )
 }

@@ -30,7 +30,7 @@ export function RightsButton({ className = '' }: { className?: string }) {
         className={className}
       >
         <Scale size={20} aria-hidden="true" />
-        <span className="sr-only md:not-sr-only">Tes droits</span>
+        <span className="sr-only lg:not-sr-only">Tes droits</span>
       </button>
       <dialog
         ref={ref}

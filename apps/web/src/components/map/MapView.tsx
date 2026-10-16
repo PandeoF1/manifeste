@@ -4,6 +4,7 @@ import {
   Map as MapLibreMap,
   NavigationControl,
   type ExpressionSpecification,
+  type IControl,
   type GeoJSONSource,
   type MapLayerMouseEvent,
   setWorkerUrl,
@@ -17,10 +18,49 @@ import { addMarkerImages } from './markerImages'
 import { styleBase } from './baseStyle'
 import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
 import { NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
-import type { Theme } from '@/lib/theme'
+import { setTheme, type Theme } from '@/lib/theme'
 import { OverseasInsets } from './OverseasInsets'
 
 setWorkerUrl(workerUrl)
+
+const SUN =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>'
+const MOON =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>'
+
+/** Light / dark switch as a map control: map controls are expected on the map. */
+class ThemeControl implements IControl {
+  private container = document.createElement('div')
+  private button = document.createElement('button')
+
+  constructor(theme: Theme) {
+    this.container.className = 'maplibregl-ctrl maplibregl-ctrl-group'
+    this.button.type = 'button'
+    this.button.addEventListener('click', () =>
+      setTheme(this.button.dataset.theme === 'dark' ? 'light' : 'dark'),
+    )
+    this.container.append(this.button)
+    this.update(theme)
+  }
+
+  update(theme: Theme) {
+    const next = theme === 'dark' ? 'clair' : 'sombre'
+    this.button.dataset.theme = theme
+    this.button.title = `Thème ${next}`
+    this.button.setAttribute('aria-label', `Passer en thème ${next}`)
+    this.button.style.display = 'grid'
+    this.button.style.placeItems = 'center'
+    this.button.innerHTML = theme === 'dark' ? SUN : MOON
+  }
+
+  onAdd() {
+    return this.container
+  }
+
+  onRemove() {
+    this.container.remove()
+  }
+}
 
 const STYLE_URL =
   import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/positron'
@@ -196,6 +236,7 @@ export default function MapView({
     raf: 0,
     first: true,
   })
+  const themeControlRef = useRef<ThemeControl | null>(null)
   const latest = useRef({ statuses, mobilisation, onViewChange, onSelect, theme })
   useEffect(() => {
     latest.current = { statuses, mobilisation, onViewChange, onSelect, theme }
@@ -216,17 +257,25 @@ export default function MapView({
     })
     mapRef.current = map
     map.touchZoomRotate.disableRotation()
-    // Phone: pinch to zoom, no +/- buttons cluttering the screen.
-    if (window.matchMedia('(min-width: 768px)').matches)
-      map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
-    // Geolocation: computed in the browser, never sent to the server.
+    // Bottom right, away from the Report button and the menu. Bottom controls stack upwards:
+    // the last one added is the top one (theme, zoom, then geolocation at the bottom).
+    // Geolocation: computed in the browser, never sent to the server. On the phone it stays at the
+    // top: the bottom right belongs to the Report button.
+    const desktop = window.matchMedia('(min-width: 768px)').matches
     map.addControl(
       new GeolocateControl({
         positionOptions: { enableHighAccuracy: false },
         trackUserLocation: false,
       }),
-      'top-right',
+      desktop ? 'bottom-right' : 'top-right',
     )
+    // Phone: pinch to zoom, no +/- buttons cluttering the screen; the theme switch stays in the top bar.
+    if (desktop) {
+      map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
+      const themeControl = new ThemeControl(latest.current.theme)
+      themeControlRef.current = themeControl
+      map.addControl(themeControl, 'bottom-right')
+    }
 
     const anim = pops.current
     let frame = 0
@@ -491,6 +540,7 @@ export default function MapView({
 
   // Live theme switch (without reloading the style).
   useEffect(() => {
+    themeControlRef.current?.update(theme)
     const map = mapRef.current
     if (map && readyRef.current) applyTheme(map, theme)
   }, [theme])
