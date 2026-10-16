@@ -38,7 +38,7 @@ export const RIGHTS_SECTIONS: ReadonlyArray<RightsSection> = [
       'Rince les yeux au sérum physiologique, sinon à l’eau. Rince la peau à l’eau froide, sans la toucher avec les doigts.',
       'Change de vêtements dès que possible et lave-toi les mains.',
       'Les gaz irritent surtout les yeux et les voies respiratoires. Évite les lentilles : elles retiennent le produit.',
-      "Attention : dissimuler volontairement son visage dans ou aux abords d'une manifestation, sans motif légitime, est un délit (art. 431-9-1 du code pénal : 1 an de prison et 15 000 € d'amende) quand des troubles à l'ordre public sont commis ou risquent de l'être. Un motif de santé (asthme, fragilité respiratoire) peut être retenu comme légitime, mais c'est apprécié au cas par cas : renseigne-toi avant auprès de la LDH ou d'un avocat.",
+      "Attention : se couvrir le visage en manif sans motif légitime est un délit (art. 431-9-1 du code pénal) quand des troubles à l'ordre public sont commis ou risquent de l'être. Un motif de santé peut compter, au cas par cas.",
       'Difficulté à respirer (asthme, malaise) : appelle les secours, 15, 18 ou 112.',
     ],
   },
