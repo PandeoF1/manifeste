@@ -31,6 +31,9 @@ jobs:
   image:
     needs: checks
     runs-on: ubuntu-latest
+    # The SPA bakes in public values at build time (the Turnstile site key): read the variables of
+    # the target environment, not only the repository's.
+    environment: ${{ github.event.inputs.environment || (github.ref_name == 'main' && 'Production') || 'Staging' }}
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
@@ -42,7 +45,19 @@ jobs:
         run: |
           repo="ghcr.io/${GITHUB_REPOSITORY,,}"
           echo "tag=$repo:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "target=${TARGET,,}" >> "$GITHUB_OUTPUT"
           echo "moving=$repo:${TARGET,,}" >> "$GITHUB_OUTPUT"
+      # Without the site key the report form ships without its anti-bot widget while the server
+      # (which has the secret) refuses every report: fail the build instead of shipping that.
+      - name: Check the Turnstile site key (production)
+        if: ${{ steps.meta.outputs.target == 'production' }}
+        env:
+          SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+        run: |
+          if [ -z "$SITE_KEY" ]; then
+            echo "::error::VITE_TURNSTILE_SITE_KEY is empty: the report form would be rejected by the server. Set it as a variable of the Production environment (or of the repository)."
+            exit 1
+          fi
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
