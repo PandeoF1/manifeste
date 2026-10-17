@@ -25,6 +25,7 @@ export interface JobPayloads {
   'ingest.extract': Record<string, never>
   'ingest.resolve': Record<string, never>
   'ingest.media': Record<string, never>
+  'ingest.routes': Record<string, never>
   /** Nightly: delete article text, excerpts and old events. */
   'ingest.housekeeping': Record<string, never>
   /** An admin-started operation on collected data (backfill, reextract, rejudge, rematch). */

@@ -5,6 +5,7 @@ import { AiError } from './errors.ts'
 import type { Judge } from './ports.ts'
 import { EXTRACT_PROMPTS } from './prompts/extract.ts'
 import { MEDIA_PROMPT_VERSION } from './prompts/media.ts'
+import { ROUTES_PROMPT_VERSION } from './prompts/routes.ts'
 import { REANALYSE_PROMPT_VERSION } from './prompts/reanalyse.ts'
 import { anthropicModel } from './providers/anthropic.ts'
 import { geminiModel } from './providers/gemini.ts'
@@ -89,6 +90,8 @@ export function createAi(rawConfig: AiConfig, runtime: AiRuntime = {}) {
     reanalyseChain: () =>
       chainFor('reanalyse', config.tasks.reanalyse.models, REANALYSE_PROMPT_VERSION),
     mediaChain: () => chainFor('media', config.tasks.media.models, MEDIA_PROMPT_VERSION),
+    /** Route detection shares the media models: same kind of reading task. */
+    routesChain: () => chainFor('routes', config.tasks.media.models, ROUTES_PROMPT_VERSION),
     /** null when the judge is switched off. */
     judge(): Judge | null {
       const judge = config.tasks.judge

@@ -28,6 +28,11 @@ export const SETTINGS = {
    * every article read and nothing else uses the answers: switch off to stop the spending.
    */
   media_analysis: { schema: t.Boolean(), default: true, public: false },
+  /**
+   * Look for marches and their routes in the press articles read (admin "Parcours" tab). It
+   * spends AI calls; what it finds are proposals that a person approves. Off until wanted.
+   */
+  route_detection: { schema: t.Boolean(), default: false, public: false },
   /** Two independent sources within this many hours approve each other. */
   concordance_window_hours: {
     schema: t.Integer({ minimum: 1, maximum: 24 }),

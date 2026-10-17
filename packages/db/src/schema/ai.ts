@@ -9,7 +9,7 @@ export const aiUsage = pgTable(
   'ai_usage',
   {
     hour: timestamp({ withTimezone: true }).notNull(),
-    /** extract | judge | reanalyse | media (see @manifeste/ai AI_TASKS). */
+    /** extract | judge | reanalyse | media | routes (see @manifeste/ai AI_TASKS). */
     task: text().notNull(),
     provider: text().notNull(),
     model: text().notNull(),

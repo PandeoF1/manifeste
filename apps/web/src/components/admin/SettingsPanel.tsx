@@ -45,6 +45,12 @@ const FIELDS = [
     type: 'boolean',
   },
   {
+    key: 'route_detection',
+    label: 'Détection des parcours (IA)',
+    help: 'Désactivé (par défaut) : aucun appel. Activé : les articles de presse lus sont cherchés pour des cortèges avec leur parcours. Rien n’est publié : chaque trouvaille arrive dans l’onglet « Parcours » où une personne la vérifie sur la carte avant de l’approuver.',
+    type: 'boolean',
+  },
+  {
     key: 'judge_keep',
     label: 'Seuil « confirmé » du juge',
     help: 'Probabilité à partir de laquelle un signalement est confirmé (0,05 à 1). Recommandé : 0,5.',

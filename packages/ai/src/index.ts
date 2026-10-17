@@ -13,6 +13,7 @@ export {
   type ExtractPromptVersion,
 } from './prompts/extract.ts'
 export { MEDIA_PROMPT_VERSION } from './prompts/media.ts'
+export { ROUTES_PROMPT_VERSION } from './prompts/routes.ts'
 export { REANALYSE_PROMPT_VERSION } from './prompts/reanalyse.ts'
 export { JUDGE_QUESTIONS_VERSION } from './prompts/judge.ts'
 export { anthropicModel, type AnthropicOptions } from './providers/anthropic.ts'
@@ -49,3 +50,4 @@ export * from './tasks/extract.ts'
 export { llmJudge } from './tasks/llm-judge.ts'
 export * from './tasks/media.ts'
 export * from './tasks/reanalyse.ts'
+export * from './tasks/routes.ts'

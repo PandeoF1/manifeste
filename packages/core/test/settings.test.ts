@@ -11,6 +11,7 @@ describe('settings', () => {
       judge_keep: 0.5,
       judge_low: 0.3,
       media_analysis: true,
+      route_detection: false,
       concordance_window_hours: 2,
     })
   })
