@@ -92,6 +92,9 @@ export function createApp(ctx: AppContext) {
         await audit(db, actor, action, target, null, after)
       }),
     )
+    .get('/api/staff/2fa-policy', () => ({
+      required: config.STAFF_2FA !== 'none',
+    }))
     .use(healthModule(new HealthService(db, queue, config.ROLE, version, ctx.blobs)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))

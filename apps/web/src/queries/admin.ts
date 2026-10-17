@@ -20,6 +20,19 @@ export function useSession() {
   return useQuery(sessionQuery)
 }
 
+export const twoFactorPolicyQuery = queryOptions({
+  queryKey: queryKeys.admin.twoFactorPolicy(),
+  queryFn: async (): Promise<{ required: boolean }> => {
+    const response = await fetch(`${window.location.origin}/api/staff/2fa-policy`, {
+      credentials: 'include',
+    })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    return response.json()
+  },
+  staleTime: 5 * 60_000,
+  retry: false,
+})
+
 export function useSignOut() {
   const queryClient = useQueryClient()
   return async () => {

@@ -24,7 +24,8 @@ export function checkStaff(
   if (!session) return { ok: false, status: 401, message: 'Unauthorized' }
   const { role, twoFactorEnabled, banned } = session.user
   if (banned) return { ok: false, status: 403, message: 'Forbidden' }
-  const mustEnrol = role === 'admin' || (twoFactor === 'all' && isStaffRole(role))
+  const mustEnrol =
+    twoFactor !== 'none' && (role === 'admin' || (twoFactor === 'all' && isStaffRole(role)))
   if (mustEnrol && !twoFactorEnabled)
     return { ok: false, status: 403, message: TWO_FACTOR_REQUIRED }
   const allowed = required === true ? isStaffRole(role) : can(role, required)
