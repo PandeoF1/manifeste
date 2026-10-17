@@ -132,3 +132,30 @@ describe('STAFF_2FA=all', () => {
     expect(res.status).toBe(200)
   })
 })
+
+describe('STAFF_2FA=none', () => {
+  let s: TestServer
+  beforeAll(async () => {
+    s = await startTestServer({ STAFF_2FA: 'none' })
+  })
+  afterAll(async () => {
+    await s.close()
+  })
+
+  test('reports that two-factor is not required', async () => {
+    const res = await s.request('/api/staff/2fa-policy')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ required: false })
+  })
+
+  test('does not bypass authentication when two-factor is disabled', async () => {
+    const res = await s.request('/api/auth/admin/list-users?limit=5')
+    expect(res.status).toBe(401)
+  })
+
+  test('an admin without two-factor can access staff routes', async () => {
+    const cookie = await signInStaff(s, 'no-totp-none@example.org', 'admin', { twoFactor: false })
+    const res = await s.request('/api/staff/reports/pending', { headers: { cookie } })
+    expect(res.status).toBe(200)
+  })
+})

@@ -2,13 +2,17 @@ import { pgEnum } from 'drizzle-orm/pg-core'
 import {
   CERTAINTIES,
   DATE_BASES,
+  EVENT_KINDS,
+  EVENT_STATUSES,
   EXTRACTION_OUTCOMES,
   ITEM_STATES,
   JUDGE_LEVELS,
   JUDGE_NATURES,
   MODERATION_STATES,
+  MOVEMENT_STATUSES,
   REPORT_ORIGINS,
   REPORT_STATUSES,
+  ROUTE_BASES,
   SCHOOL_LEVELS,
   TIERS,
 } from '@manifeste/core'
@@ -22,6 +26,10 @@ export const dateBasis = pgEnum('date_basis', DATE_BASES)
 export const tier = pgEnum('tier', TIERS)
 export const judgeNature = pgEnum('judge_nature', JUDGE_NATURES)
 export const judgeLevel = pgEnum('judge_level', JUDGE_LEVELS)
+export const movementStatus = pgEnum('movement_status', MOVEMENT_STATUSES)
+export const eventKind = pgEnum('event_kind', EVENT_KINDS)
+export const eventStatus = pgEnum('event_status', EVENT_STATUSES)
+export const routeBasis = pgEnum('route_basis', ROUTE_BASES)
 
 /** Kinds of collected sources. Adding one = an ingestion adapter + a value here. */
 export const SOURCE_KINDS = ['telegram', 'rss', 'bluesky', 'mymaps'] as const

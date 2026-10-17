@@ -296,6 +296,7 @@ export async function readSweep(deps: IngestDeps): Promise<ReadSweepResult> {
   if (result.read > 0) {
     await deps.trigger('extract')
     await deps.trigger('media')
+    await deps.trigger('routes')
   }
   return result
 }

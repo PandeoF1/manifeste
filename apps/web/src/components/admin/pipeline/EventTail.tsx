@@ -13,6 +13,7 @@ const STAGES = [
   'date',
   'store',
   'media',
+  'routes',
   'run',
   'job',
 ] as const

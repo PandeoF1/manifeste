@@ -21,7 +21,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 /** Text pages narrower than the screen: their side margins act as "back to the map". */
-const READING_PAGES = ['/liste', '/donnees', '/a-propos']
+const READING_PAGES = ['/liste', '/donnees', '/a-propos', '/mouvements']
 
 function RootLayout() {
   // Public side: chosen theme (dark by default); the admin follows the system theme.

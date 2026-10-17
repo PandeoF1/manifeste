@@ -6,7 +6,12 @@ import {
   periodSince,
 } from '../src/lib/periods'
 
-const settings = { statusTtlHours: 5, movementStart: '2026-09-14', judgeTiers: false }
+const settings = {
+  statusTtlHours: 5,
+  movementStart: '2026-09-14',
+  judgeTiers: false,
+  movementsPublic: false,
+}
 const now = Date.parse('2026-10-05T12:00:00Z')
 
 describe('periodSince', () => {
@@ -40,11 +45,17 @@ describe('periodDescription', () => {
 describe('fromApiSettings', () => {
   it('renames what the API serves', () => {
     expect(
-      fromApiSettings({ status_ttl_hours: 8, movement_start: '2026-09-20', judge_tiers: true }),
+      fromApiSettings({
+        status_ttl_hours: 8,
+        movement_start: '2026-09-20',
+        judge_tiers: true,
+        movements_public: true,
+      }),
     ).toEqual({
       statusTtlHours: 8,
       movementStart: '2026-09-20',
       judgeTiers: true,
+      movementsPublic: true,
     })
   })
   it('the defaults are the production ones', () => {
@@ -52,6 +63,7 @@ describe('fromApiSettings', () => {
       statusTtlHours: 5,
       movementStart: '2026-09-14',
       judgeTiers: false,
+      movementsPublic: false,
     })
   })
 })

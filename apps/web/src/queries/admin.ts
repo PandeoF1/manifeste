@@ -20,6 +20,19 @@ export function useSession() {
   return useQuery(sessionQuery)
 }
 
+export const twoFactorPolicyQuery = queryOptions({
+  queryKey: queryKeys.admin.twoFactorPolicy(),
+  queryFn: async (): Promise<{ required: boolean }> => {
+    const response = await fetch(`${window.location.origin}/api/staff/2fa-policy`, {
+      credentials: 'include',
+    })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    return response.json()
+  },
+  staleTime: 5 * 60_000,
+  retry: false,
+})
+
 export function useSignOut() {
   const queryClient = useQueryClient()
   return async () => {
@@ -148,6 +161,55 @@ export const addTrustedDomain = (body: {
 }) => unwrap(staff['trusted-domains'].post(body))
 export const removeTrustedDomain = async (domain: string) =>
   void (await staff['trusted-domains']({ domain }).delete())
+
+// --- Movements ------------------------------------------------------------------------------------
+
+/** Every movement, whether or not the public pages are switched on. */
+export const adminMovementsQuery = queryOptions({
+  queryKey: queryKeys.admin.movements(),
+  queryFn: () => unwrap(staff.movements.get()),
+})
+
+/** Every event of a movement, hidden ones included (the public page only lists published ones). */
+export const movementEventsStaffQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.admin.movementEvents(id),
+    queryFn: () => unwrap(staff.movements({ id }).events.get()),
+  })
+export type NewMovement = Parameters<typeof staff.movements.post>[0]
+export const createMovement = (body: NewMovement) => unwrap(staff.movements.post(body))
+export const patchMovement = (
+  id: string,
+  body: Parameters<ReturnType<typeof staff.movements>['patch']>[0],
+) => unwrap(staff.movements({ id }).patch(body))
+export type NewMovementEvent = Parameters<ReturnType<typeof staff.movements>['events']['post']>[0]
+export const addMovementEvent = (id: string, body: NewMovementEvent) =>
+  unwrap(staff.movements({ id }).events.post(body))
+export const patchMovementEvent = (
+  id: string,
+  body: Parameters<ReturnType<(typeof staff)['movement-events']>['patch']>[0],
+) => unwrap(staff['movement-events']({ id }).patch(body))
+
+// --- Route proposals found in the press ---------------------------------------------------------
+
+export const routeProposalsQuery = (status: 'pending' | 'decided') =>
+  queryOptions({
+    queryKey: queryKeys.admin.routeProposals(status),
+    queryFn: () => unwrap(staff['route-proposals'].get({ query: { status } })),
+  })
+export type RouteProposal = Awaited<
+  ReturnType<NonNullable<ReturnType<typeof routeProposalsQuery>['queryFn']>>
+>[number]
+export const patchRouteProposal = (
+  id: string,
+  body: Parameters<ReturnType<(typeof staff)['route-proposals']>['patch']>[0],
+) => unwrap(staff['route-proposals']({ id }).patch(body))
+export const approveRouteProposal = (
+  id: string,
+  body: Parameters<ReturnType<(typeof staff)['route-proposals']>['approve']['post']>[0],
+) => unwrap(staff['route-proposals']({ id }).approve.post(body))
+export const rejectRouteProposal = (id: string) =>
+  unwrap(staff['route-proposals']({ id }).reject.post())
 
 // --- Settings, audit, team ----------------------------------------------------------------------
 

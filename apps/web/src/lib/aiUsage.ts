@@ -1,12 +1,13 @@
 // "AI" tab: the API's usage rows, aggregated for the charts.
 
-export type AiTask = 'extract' | 'media' | 'reanalyse' | 'judge'
+export type AiTask = 'extract' | 'media' | 'reanalyse' | 'judge' | 'routes'
 
 export const TASK_LABEL: Record<AiTask, string> = {
   extract: 'Extraction (collecte)',
   media: 'Analyse des médias',
   reanalyse: 'Réanalyse des non rattachés',
   judge: 'Juge (second avis)',
+  routes: 'Détection de parcours',
 }
 
 export interface UsageRow {

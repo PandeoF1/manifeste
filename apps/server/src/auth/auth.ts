@@ -34,7 +34,7 @@ export function requestOrigin(request: Request): string[] {
   return [`${proto}://${host}`]
 }
 
-export type TwoFactorPolicy = 'admin' | 'all'
+export type TwoFactorPolicy = 'admin' | 'all' | 'none'
 
 /** Which roles must have TOTP enabled, per auth instance (read by the `staff` rule and the admin gate). */
 const policies = new WeakMap<object, TwoFactorPolicy>()

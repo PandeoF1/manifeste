@@ -11,6 +11,7 @@ import { PipelineEvents } from './events.ts'
 import { extractSweep } from './extract-stage.ts'
 import { purgeOld, retryLane, type RetryFilter } from './housekeeping.ts'
 import { mediaSweep } from './media-stage.ts'
+import { routesSweep } from './routes-stage.ts'
 import { readSweep } from './read-stage.ts'
 import { ReportStore } from './report-store.ts'
 import { safeFetch } from './safe-fetch.ts'
@@ -64,6 +65,7 @@ export class IngestService {
   extract = () => extractSweep(this.deps)
   resolve = () => resolveSweep(this.deps)
   media = () => mediaSweep(this.deps)
+  routes = () => routesSweep(this.deps)
   purge = () => purgeOld(this.deps)
   retry = (filter?: RetryFilter) => retryLane(this.deps, filter)
 
