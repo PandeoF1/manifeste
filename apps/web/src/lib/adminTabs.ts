@@ -4,6 +4,7 @@ export const TABS = [
   'pipeline',
   'moderation',
   'mouvements',
+  'parcours',
   'lycees',
   'non-rattaches',
   'signaux',
@@ -24,6 +25,7 @@ export const TAB_LABELS: Record<Tab, string> = {
   pipeline: 'Pipeline',
   moderation: 'À valider',
   mouvements: 'Mouvements',
+  parcours: 'Parcours détectés',
   lycees: 'Établissements proposés',
   'non-rattaches': 'Non rattachés',
   signaux: 'Tous les signalements',
@@ -50,6 +52,8 @@ export const TAB_HINTS: Record<Tab, string> = {
   domaines: 'Les médias dont les articles sont publiés sans modération.',
   mouvements:
     'Les campagnes, leurs cortèges et leurs parcours. Archiver garde la page, la carte et les données.',
+  parcours:
+    'Les cortèges trouvés dans la presse, à vérifier sur la carte avant de les publier. Rien n’est public sans toi.',
   stats: 'La fréquentation du site, sans suivi individuel.',
   medias: 'Comment les médias traitent le mouvement.',
   tweets: 'Générer les visuels et textes à publier.',
@@ -74,7 +78,7 @@ export const TAB_GROUPS: readonly TabGroup[] = [
     tabs: ['moderation', 'lycees', 'non-rattaches', 'signaux'],
   },
   { id: 'collecte', label: 'Collecte', tabs: ['pipeline', 'sources', 'domaines'] },
-  { id: 'contenu', label: 'Contenu', tabs: ['mouvements'] },
+  { id: 'contenu', label: 'Contenu', tabs: ['mouvements', 'parcours'] },
   { id: 'analyse', label: 'Analyse', tabs: ['stats', 'medias', 'tweets'] },
   { id: 'ia', label: 'IA', tabs: ['ia', 'juge'] },
   { id: 'systeme', label: 'Système', tabs: ['reglages', 'journal', 'equipe'] },

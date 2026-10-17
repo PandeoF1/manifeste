@@ -22,6 +22,7 @@ import {
   LogOut,
   Megaphone,
   type LucideIcon,
+  MapPinned,
 } from 'lucide-react'
 import { groupsFor, TAB_HINTS, TAB_LABELS, type Tab } from '@/lib/adminTabs'
 import type { StaffSessionUser } from '@/lib/auth'
@@ -36,6 +37,7 @@ const ICONS: Record<Tab, LucideIcon> = {
   sources: Rss,
   domaines: BadgeCheck,
   mouvements: RouteIcon,
+  parcours: MapPinned,
   stats: ChartColumn,
   medias: Newspaper,
   tweets: Megaphone,

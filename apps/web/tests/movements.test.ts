@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   boundsOf,
   groupByDay,
+  parseLatLng,
   parseRouteText,
   pointsGeoJSON,
   routeLengthLabel,
@@ -159,5 +160,19 @@ describe('parseRouteText', () => {
       '148.8675, 2.3637\n148.8483, 2.3959',
     ])
       expect(parseRouteText(bad).ok).toBe(false)
+  })
+})
+
+describe('parseLatLng', () => {
+  it('reads what a map copies, in latitude, longitude order, and returns [lng, lat]', () => {
+    expect(parseLatLng('50.6296, 3.0706')).toEqual([3.0706, 50.6296])
+    expect(parseLatLng(' 50,6296 ; 3,0706 ')).toEqual([3.0706, 50.6296])
+    expect(parseLatLng('-21.1, 55.5')).toEqual([55.5, -21.1])
+  })
+  it('refuses text, a single number and impossible values', () => {
+    expect(parseLatLng('Lille')).toBeNull()
+    expect(parseLatLng('50.6')).toBeNull()
+    expect(parseLatLng('95, 3')).toBeNull()
+    expect(parseLatLng('50, 200')).toBeNull()
   })
 })

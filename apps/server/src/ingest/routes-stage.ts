@@ -167,16 +167,9 @@ async function buildProposal(
     places.push({ ...fix, name: p.name, quote: p.quote })
   }
   if (!commune) warnings.push(`Commune « ${m.city} » introuvable`)
-  for (const p of places) {
-    if (p.status === 'none') warnings.push(`Lieu introuvable : ${p.name}`)
-    if (p.status === 'weak') warnings.push(`Lieu incertain : ${p.name} (à vérifier sur la carte)`)
-  }
-  const points = places.flatMap((p) =>
-    p.status === 'ok' && p.lng != null && p.lat != null ? [[p.lng, p.lat] as [number, number]] : [],
-  )
-  const allFound = points.length === places.length
-  const route = allFound ? await walkingRoute(deps.fetchFn, points) : null
-  warnings.push(...routeWarnings(route, allFound))
+  const walk = await walkPlaces(deps.fetchFn, places)
+  warnings.push(...walk.warnings)
+  const route = walk.route
   const day = m.day ?? (m.timing === 'ongoing' ? parisDay(publishedAt) : null)
   if (!day) warnings.push('Date du cortège absente de l’article')
   return {
@@ -186,9 +179,34 @@ async function buildProposal(
     timing: m.timing,
     title: m.title || `Cortège à ${m.city}`,
     places,
-    line: route && warnings.every((w) => !/très (long|tortueux)/.test(w)) ? route.line : null,
+    line: walk.line,
     lineKm: route?.km ?? null,
     warnings,
     groupKey: groupKeyOf(commune?.code ?? null, m.city, day),
+  }
+}
+
+/**
+ * The walking route through the places that were found, and what a person should look at. The
+ * line is kept only when it looks right: a route that is far too long or twisted usually means a
+ * misplaced point, and drawing it would make the error look official.
+ */
+export async function walkPlaces(fetchFn: IngestDeps['fetchFn'], places: ProposalPlace[]) {
+  const warnings: string[] = []
+  for (const p of places) {
+    if (p.status === 'none') warnings.push(`Lieu introuvable : ${p.name}`)
+    if (p.status === 'weak') warnings.push(`Lieu incertain : ${p.name} (à vérifier sur la carte)`)
+  }
+  const points = places.flatMap((p) =>
+    p.status === 'ok' && p.lng != null && p.lat != null ? [[p.lng, p.lat] as [number, number]] : [],
+  )
+  const allFound = points.length === places.length
+  const route = allFound ? await walkingRoute(fetchFn, points) : null
+  const routeProblems = routeWarnings(route, allFound)
+  warnings.push(...routeProblems)
+  return {
+    route,
+    warnings,
+    line: route && routeProblems.length === 0 ? route.line : null,
   }
 }

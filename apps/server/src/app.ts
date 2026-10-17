@@ -24,6 +24,8 @@ import { settingsModule } from './modules/settings/index.ts'
 import { SettingsService } from './modules/settings/service.ts'
 import { movementsModule, movementsStaffModule } from './modules/movements/index.ts'
 import { MovementsService } from './modules/movements/service.ts'
+import { RouteProposalsService, routeProposalsStaffModule } from './modules/movements/proposals.ts'
+import { safeFetch } from './ingest/safe-fetch.ts'
 import { statusesModule } from './modules/statuses/index.ts'
 import { StatusesService } from './modules/statuses/service.ts'
 import { timelineModule } from './modules/timeline/index.ts'
@@ -58,6 +60,11 @@ export function createApp(ctx: AppContext) {
   const ingest = new IngestService(ctx)
   const statuses = new StatusesService(db, settings)
   const movements = new MovementsService(db)
+  const routeProposals = new RouteProposalsService(
+    db,
+    movements,
+    safeFetch((url, init) => fetch(url, init)),
+  )
   const analytics = new AnalyticsService(db)
   const schools = new SchoolsService(db)
   const openData = new OpenDataService(db, settings, statuses)
@@ -132,6 +139,7 @@ export function createApp(ctx: AppContext) {
     .use(settingsStaffModule(auth, db, settings, ctx.bus))
     .use(trustedDomainsModule(auth, db))
     .use(movementsStaffModule(auth, db, movements))
+    .use(routeProposalsStaffModule(auth, db, routeProposals))
     .use(unmatchedModule(auth, db, ingest, new MatchingService(db)))
     .use(proposalsModule(auth, db, ctx.blobs, new MatchingService(db), ctx.bus))
     .use(moderationModule(auth, new ModerationService(db, ctx.blobs, ctx.bus, settings)))

@@ -9,6 +9,7 @@ import { JudgePanel } from '@/components/admin/JudgePanel'
 import { LoginForm } from '@/components/admin/LoginForm'
 import { MediaPanel } from '@/components/admin/MediaPanel'
 import { MovementsPanel } from '@/components/admin/MovementsPanel'
+import { RouteProposalsPanel } from '@/components/admin/RouteProposalsPanel'
 import { PendingPanel } from '@/components/admin/PendingPanel'
 import { PipelineTab } from '@/components/admin/pipeline/PipelineTab'
 import { ProposalsPanel } from '@/components/admin/ProposalsPanel'
@@ -56,6 +57,7 @@ function AdminPage() {
       {tab === 'sources' && <SourcesPanel />}
       {tab === 'domaines' && <TrustedDomainsPanel />}
       {tab === 'mouvements' && <MovementsPanel />}
+      {tab === 'parcours' && <RouteProposalsPanel />}
       {tab === 'stats' && <StatsPanel />}
       {tab === 'ia' && <AiUsagePanel />}
       {tab === 'medias' && <MediaPanel />}

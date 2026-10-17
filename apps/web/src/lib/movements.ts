@@ -197,3 +197,12 @@ export function parseRouteText(text: string): RouteText {
     }
   return { ok: true, route: route.map(([lng, lat]) => [lng, lat] as [number, number]) }
 }
+
+/** "50.6296, 3.0706" (as copied from a map) to [lng, lat], or null. */
+export function parseLatLng(text: string): [number, number] | null {
+  const m = /^\s*(-?\d+(?:[.,]\d+)?)\s*[,; ]\s*(-?\d+(?:[.,]\d+)?)\s*$/.exec(text)
+  if (!m) return null
+  const lat = Number(m[1]?.replace(',', '.'))
+  const lng = Number(m[2]?.replace(',', '.'))
+  return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? [lng, lat] : null
+}

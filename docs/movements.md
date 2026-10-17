@@ -62,3 +62,7 @@ resets the field.
 - Open-data views per movement and the "watch".
 - Other themes. Each one needs a precise definition, identified sources, a verification rule and
   an owner before it goes in.
+
+## Detected routes
+
+Marches found in the press arrive as proposals to check by hand: see [route-detection.md](route-detection.md).

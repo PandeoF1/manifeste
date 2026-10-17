@@ -190,6 +190,27 @@ export const patchMovementEvent = (
   body: Parameters<ReturnType<(typeof staff)['movement-events']>['patch']>[0],
 ) => unwrap(staff['movement-events']({ id }).patch(body))
 
+// --- Route proposals found in the press ---------------------------------------------------------
+
+export const routeProposalsQuery = (status: 'pending' | 'decided') =>
+  queryOptions({
+    queryKey: queryKeys.admin.routeProposals(status),
+    queryFn: () => unwrap(staff['route-proposals'].get({ query: { status } })),
+  })
+export type RouteProposal = Awaited<
+  ReturnType<NonNullable<ReturnType<typeof routeProposalsQuery>['queryFn']>>
+>[number]
+export const patchRouteProposal = (
+  id: string,
+  body: Parameters<ReturnType<(typeof staff)['route-proposals']>['patch']>[0],
+) => unwrap(staff['route-proposals']({ id }).patch(body))
+export const approveRouteProposal = (
+  id: string,
+  body: Parameters<ReturnType<(typeof staff)['route-proposals']>['approve']['post']>[0],
+) => unwrap(staff['route-proposals']({ id }).approve.post(body))
+export const rejectRouteProposal = (id: string) =>
+  unwrap(staff['route-proposals']({ id }).reject.post())
+
 // --- Settings, audit, team ----------------------------------------------------------------------
 
 export const settingsAdminQuery = queryOptions({
