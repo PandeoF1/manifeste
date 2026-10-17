@@ -22,6 +22,8 @@ import { schoolsModule } from './modules/schools/index.ts'
 import { SchoolsService } from './modules/schools/service.ts'
 import { settingsModule } from './modules/settings/index.ts'
 import { SettingsService } from './modules/settings/service.ts'
+import { movementsModule, movementsStaffModule } from './modules/movements/index.ts'
+import { MovementsService } from './modules/movements/service.ts'
 import { statusesModule } from './modules/statuses/index.ts'
 import { StatusesService } from './modules/statuses/service.ts'
 import { timelineModule } from './modules/timeline/index.ts'
@@ -55,6 +57,7 @@ export function createApp(ctx: AppContext) {
   const settings = new SettingsService(db)
   const ingest = new IngestService(ctx)
   const statuses = new StatusesService(db, settings)
+  const movements = new MovementsService(db)
   const analytics = new AnalyticsService(db)
   const schools = new SchoolsService(db)
   const openData = new OpenDataService(db, settings, statuses)
@@ -92,6 +95,7 @@ export function createApp(ctx: AppContext) {
     .use(healthModule(new HealthService(db, queue, config.ROLE, version, ctx.blobs)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))
+    .use(movementsModule(movements))
     .use(openDataModule(openData))
     .use(schoolsModule(schools))
     .use(analyticsModule(analytics))
@@ -122,6 +126,7 @@ export function createApp(ctx: AppContext) {
     .use(insightsModule(auth, db))
     .use(settingsStaffModule(auth, db, settings, ctx.bus))
     .use(trustedDomainsModule(auth, db))
+    .use(movementsStaffModule(auth, db, movements))
     .use(unmatchedModule(auth, db, ingest, new MatchingService(db)))
     .use(proposalsModule(auth, db, ctx.blobs, new MatchingService(db), ctx.bus))
     .use(moderationModule(auth, new ModerationService(db, ctx.blobs, ctx.bus, settings)))

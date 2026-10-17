@@ -71,6 +71,13 @@
       "when": 1792061739442,
       "tag": "0009_proposal_mobilisation",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792258112306,
+      "tag": "0010_movements",
+      "breakpoints": true
     }
   ]
 }
