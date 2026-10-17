@@ -17,7 +17,7 @@ test('the admin asks for a sign-in, refuses a wrong password, accepts the right 
   await expect(page.getByRole('alert')).toContainText('Identifiants invalides')
   await page.getByLabel('Mot de passe').fill(PASSWORD)
   await page.getByRole('button', { name: 'Se connecter' }).click()
-  await expect(page.getByRole('heading', { name: 'Modération' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'À valider' })).toBeVisible()
 })
 
 test('a moderator sees the queue and only the tabs of their role', async ({ page }) => {
@@ -26,7 +26,7 @@ test('a moderator sees the queue and only the tabs of their role', async ({ page
   await page.getByLabel('Mot de passe').fill(PASSWORD)
   await page.getByRole('button', { name: 'Se connecter' }).click()
   const nav = page.getByRole('navigation', { name: 'Sections' })
-  await expect(nav.getByRole('link', { name: /Modération/ })).toBeVisible()
+  await expect(nav.getByRole('link', { name: /À valider/ })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Stats' })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Sources' })).toHaveCount(0)
   await expect(nav.getByRole('link', { name: 'Réglages' })).toHaveCount(0)
@@ -41,9 +41,9 @@ test('an admin tab asked for by a moderator falls back to their first tab', asyn
   await page.getByLabel('Email').fill('moderator@example.org')
   await page.getByLabel('Mot de passe').fill(PASSWORD)
   await page.getByRole('button', { name: 'Se connecter' }).click()
-  await expect(page.getByRole('heading', { name: 'Modération' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'À valider' })).toBeVisible()
   await page.goto('/admin?tab=reglages')
-  await expect(page.getByRole('heading', { name: 'Modération' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'À valider' })).toBeVisible()
   await expect(page.getByText('Durée du direct')).toHaveCount(0)
 })
 
@@ -56,11 +56,11 @@ test.describe('an admin', () => {
     await context.addCookies(cookies)
   })
 
-  test('opens on the pipeline: circuit, funnel, lanes, source health and the live log', async ({
+  test('the pipeline page: circuit, funnel, lanes, source health and the live log', async ({
     page,
   }, info) => {
-    await page.goto('/admin')
-    await expect(page.getByRole('heading', { name: 'Administration' })).toBeVisible()
+    await page.goto('/admin?tab=pipeline')
+    await expect(page.getByRole('heading', { name: 'Pipeline' })).toBeVisible()
     await expect(page.getByRole('img', { name: /Circuit du pipeline/ })).toBeVisible()
     await expect(page.getByRole('list', { name: /Entonnoir/ })).toBeVisible()
     await expect(page.getByRole('list', { name: 'Santé des sources' })).toBeVisible()

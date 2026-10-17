@@ -74,11 +74,6 @@ export function MovementsPanel() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted">
-        Un mouvement regroupe des événements (cortèges, rassemblements, blocages). Archiver un
-        mouvement garde sa page, sa carte et ses données ; l'adresse ne change pas.
-      </p>
-
       <form onSubmit={onCreate} className="card grid gap-3 md:grid-cols-[2fr_3fr_auto_auto]">
         <input
           name="name"

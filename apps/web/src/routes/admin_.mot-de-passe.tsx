@@ -45,7 +45,7 @@ function PasswordPage() {
     return (
       <main className="mx-auto mt-12 max-w-sm space-y-3 p-4">
         <p>Mot de passe enregistré.</p>
-        <Link to="/admin" search={{ tab: 'pipeline' }} className="btn-primary inline-block">
+        <Link to="/admin" search={{ tab: 'moderation' }} className="btn-primary inline-block">
           Se connecter
         </Link>
       </main>
