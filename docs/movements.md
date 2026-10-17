@@ -53,8 +53,10 @@ resets the field.
 
 ## Not done yet
 
-- Reading routes from articles (extraction, geocoding, routing). Measure first how many articles
-  name a usable route.
+- Reading routes from articles (extraction, geocoding, routing). Measured on 150 articles: 43 % of
+  the articles about a march carry a start and an arrival, and about a quarter of events would get a
+  plausible line with a naive pipeline. Go, as proposals a person validates:
+  see `docs/measurements/route-measurement.md`.
 - Attaching school blockades and the history replay to a movement; the home page showing the
   active movement.
 - Open-data views per movement and the "watch".
