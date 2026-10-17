@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { AiUsagePanel } from '@/components/admin/AiUsagePanel'
@@ -20,7 +21,11 @@ import { TweetsPanel } from '@/components/admin/TweetsPanel'
 import { TrustedDomainsPanel } from '@/components/admin/TrustedDomainsPanel'
 import { UnmatchedPanel } from '@/components/admin/UnmatchedPanel'
 import { TABS, visibleTab, type Tab } from '@/lib/adminTabs'
-import { useSession, useSignOut } from '@/queries/admin'
+import {
+  twoFactorPolicyQuery,
+  useSession,
+  useSignOut,
+} from '@/queries/admin'
 
 export const Route = createFileRoute('/admin')({
   validateSearch: z.object({ tab: z.enum(TABS).catch('moderation') }),
@@ -30,14 +35,17 @@ export const Route = createFileRoute('/admin')({
 
 function AdminPage() {
   const session = useSession()
+  const twoFactorPolicy = useQuery(twoFactorPolicyQuery)
   const signOut = useSignOut()
   const search = Route.useSearch()
 
-  if (session.isPending) return <div className="flex-1 animate-pulse bg-surface" />
+  if (session.isPending || twoFactorPolicy.isPending)
+    return <div className="flex-1 animate-pulse bg-surface" />
   const user = session.data
   if (!user) return <LoginForm />
-  // The server refuses an admin without a second factor on every call: ask for it first.
-  if (user.role === 'admin' && !user.twoFactorEnabled) return <EnrollTotp />
+  // The server refuses an admin without a second factor when the policy requires it.
+  if (twoFactorPolicy.data?.required && user.role === 'admin' && !user.twoFactorEnabled)
+    return <EnrollTotp />
 
   const moderator = user.role === 'moderator'
   const tab: Tab = visibleTab(user.role, search.tab)

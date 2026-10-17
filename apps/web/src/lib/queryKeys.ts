@@ -22,6 +22,7 @@ export const queryKeys = {
   schoolHistory: (uai: string) => ['school', uai, 'history'] as const,
   admin: {
     all: ['admin'] as const,
+    twoFactorPolicy: () => [...queryKeys.admin.all, 'two-factor-policy'] as const,
     sources: () => [...queryKeys.admin.all, 'sources'] as const,
     pending: () => [...queryKeys.admin.all, 'pending'] as const,
     moderatorPending: () => [...queryKeys.admin.all, 'pending-moderator'] as const,

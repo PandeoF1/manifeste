@@ -45,6 +45,10 @@ describe('checkStaff', () => {
     expect(checkStaff(session({ role: 'admin', twoFactorEnabled: true }), true).ok).toBe(true)
   })
 
+  test('none disables the two-factor requirement for admins', () => {
+    expect(checkStaff(session({ role: 'admin' }), true, 'none').ok).toBe(true)
+  })
+
   test('moderators do not need two-factor authentication', () => {
     expect(checkStaff(session({}), { report: ['moderate'] }).ok).toBe(true)
   })
