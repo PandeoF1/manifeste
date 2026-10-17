@@ -78,6 +78,30 @@ Places to a line (37 events with A or B):
   "after").
 - A blind check sheet of 20 articles is in `route-check-sheet.csv` for a human to classify.
 
+## Independent check (20-article blind sheet)
+
+Done by a third annotator with plain `curl` (no reading gateway), 18 of 20 articles readable.
+
+- Same class: 12/18 (67 %), Cohen's kappa 0.55 on four classes, 0.65 on two. On the split that
+  decides (A or B against C or D): **15/18 (83 %)**, above the 75 % bar. The grid holds.
+- Topic 94 %, timing 89 %, date stated 100 %.
+- Disagreements on the split: ids 36 and 100 were **truncated reads** in the first pass (279 and
+  595 characters; the route is further down the page), id 28 is a real disagreement (a live blog).
+  Fixed in the reader: a page that gives under 1 200 characters is completed by the gateway when it
+  has more.
+- Two France 3 live blogs (ids 8 and 16) load their body by script: unreadable with `curl`, readable
+  through the gateway.
+- Geocoding with BAN, by kind of place: schools and campuses 29 % found, stations 33 %, prefectures
+  and town halls 45 %, districts 58 %. The problem is places of interest, not addresses.
+- False positives exist at the 0.6 score threshold (for example "gare, Montpellier" gives an
+  avenue; "Esplanade, Montpellier" gives another place). A distance check cannot catch them
+  (one route came out at 7.7 km instead of 4.3 km).
+- Id 121 (33.7 km) in the first sample is an outlier of the same kind.
+
+Consequences for the detection: read the full text first, require the commune to match, never
+trust a place of interest from the address base alone, and put every proposal on a map for a
+person to check. 18 articles give a wide interval around the 83 %.
+
 ## Limits
 
 - Most of the sample belongs to one cycle of mobilisation (the strike of 29 September, the high-school days from 6 to 17 October); about ten articles concern other marches (climate, Pride, a parade, a charity walk, a march against a law). The queries mention routes
