@@ -8,6 +8,11 @@ export const queryKeys = {
       [...queryKeys.statuses.all, 'period', period, start] as const,
   },
   settings: ['settings'] as const,
+  movements: {
+    all: ['movements'] as const,
+    list: () => [...queryKeys.movements.all, 'list'] as const,
+    one: (slug: string) => [...queryKeys.movements.all, slug] as const,
+  },
   // Outside `statuses`: history is heavy, it does not reload on every report.
   timeline: (start: string) => ['timeline', start] as const,
   donnees: (vue: string) => ['donnees', vue] as const,
