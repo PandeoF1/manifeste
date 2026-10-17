@@ -19,6 +19,8 @@ import { Route as AdminMotDePasseRouteImport } from './routes/admin_.mot-de-pass
 import { Route as EmbedCarteRouteImport } from './routes/embed.carte'
 import { Route as EmbedChiffresRouteImport } from './routes/embed.chiffres'
 import { Route as LyceeUaiRouteImport } from './routes/lycee.$uai'
+import { Route as MouvementsIndexRouteImport } from './routes/mouvements.index'
+import { Route as MouvementsSlugRouteImport } from './routes/mouvements.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +72,16 @@ const LyceeUaiRoute = LyceeUaiRouteImport.update({
   path: '/lycee/$uai',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MouvementsIndexRoute = MouvementsIndexRouteImport.update({
+  id: '/mouvements/',
+  path: '/mouvements/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MouvementsSlugRoute = MouvementsSlugRouteImport.update({
+  id: '/mouvements/$slug',
+  path: '/mouvements/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +94,8 @@ export interface FileRoutesByFullPath {
   '/embed/carte': typeof EmbedCarteRoute
   '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
+  '/mouvements/$slug': typeof MouvementsSlugRoute
+  '/mouvements/': typeof MouvementsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +108,8 @@ export interface FileRoutesByTo {
   '/embed/carte': typeof EmbedCarteRoute
   '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
+  '/mouvements/$slug': typeof MouvementsSlugRoute
+  '/mouvements': typeof MouvementsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +123,8 @@ export interface FileRoutesById {
   '/embed/carte': typeof EmbedCarteRoute
   '/embed/chiffres': typeof EmbedChiffresRoute
   '/lycee/$uai': typeof LyceeUaiRoute
+  '/mouvements/$slug': typeof MouvementsSlugRoute
+  '/mouvements/': typeof MouvementsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +139,8 @@ export interface FileRouteTypes {
     | '/embed/carte'
     | '/embed/chiffres'
     | '/lycee/$uai'
+    | '/mouvements/$slug'
+    | '/mouvements/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +153,8 @@ export interface FileRouteTypes {
     | '/embed/carte'
     | '/embed/chiffres'
     | '/lycee/$uai'
+    | '/mouvements/$slug'
+    | '/mouvements'
   id:
     | '__root__'
     | '/'
@@ -145,6 +167,8 @@ export interface FileRouteTypes {
     | '/embed/carte'
     | '/embed/chiffres'
     | '/lycee/$uai'
+    | '/mouvements/$slug'
+    | '/mouvements/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,6 +182,8 @@ export interface RootRouteChildren {
   EmbedCarteRoute: typeof EmbedCarteRoute
   EmbedChiffresRoute: typeof EmbedChiffresRoute
   LyceeUaiRoute: typeof LyceeUaiRoute
+  MouvementsSlugRoute: typeof MouvementsSlugRoute
+  MouvementsIndexRoute: typeof MouvementsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -232,6 +258,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LyceeUaiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mouvements/': {
+      id: '/mouvements/'
+      path: '/mouvements'
+      fullPath: '/mouvements/'
+      preLoaderRoute: typeof MouvementsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mouvements/$slug': {
+      id: '/mouvements/$slug'
+      path: '/mouvements/$slug'
+      fullPath: '/mouvements/$slug'
+      preLoaderRoute: typeof MouvementsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -246,6 +286,8 @@ const rootRouteChildren: RootRouteChildren = {
   EmbedCarteRoute: EmbedCarteRoute,
   EmbedChiffresRoute: EmbedChiffresRoute,
   LyceeUaiRoute: LyceeUaiRoute,
+  MouvementsSlugRoute: MouvementsSlugRoute,
+  MouvementsIndexRoute: MouvementsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

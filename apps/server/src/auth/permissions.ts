@@ -15,6 +15,7 @@ export const statements = {
   ai: ['view', 'manage'],
   stats: ['view'],
   pipeline: ['view', 'operate'],
+  movement: ['manage'],
 } as const
 
 export const ac = createAccessControl(statements)
@@ -29,6 +30,7 @@ export const roles = {
     ai: ['view', 'manage'],
     stats: ['view'],
     pipeline: ['view', 'operate'],
+    movement: ['manage'],
   }),
   moderator: ac.newRole({
     report: ['moderate'],

@@ -33,9 +33,21 @@ const FIELDS = [
     type: 'boolean',
   },
   {
+    key: 'movements_public',
+    label: 'Page Mouvements publique',
+    help: 'Désactivé (par défaut) : la page Mouvements et son entrée de menu n’existent pas pour les visiteurs, mais l’équipe peut préparer des mouvements dans l’onglet « Mouvements » de l’admin. Activé : la page, les archives et leurs cartes sont publiques.',
+    type: 'boolean',
+  },
+  {
     key: 'media_analysis',
     label: 'Analyse des médias (IA)',
     help: 'Activé : chaque article de presse lu est aussi analysé par l’IA (revendications citées, qui s’exprime, angle, ton) pour l’onglet « Médias ». C’est ~40 % des appels Gemini. Désactivé : plus aucun appel pour ça, les analyses déjà faites restent.',
+    type: 'boolean',
+  },
+  {
+    key: 'route_detection',
+    label: 'Détection des parcours (IA)',
+    help: 'Désactivé (par défaut) : aucun appel. Activé : les articles de presse lus sont cherchés pour des cortèges avec leur parcours. Rien n’est publié : chaque trouvaille arrive dans l’onglet « Parcours » où une personne la vérifie sur la carte avant de l’approuver.',
     type: 'boolean',
   },
   {

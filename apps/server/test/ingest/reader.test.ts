@@ -156,6 +156,36 @@ describe('helpers', () => {
     ).toBe(feed)
   })
 
+  test('cleanReadable removes soft hyphens', () => {
+    const para =
+      'Le cortège part de la place de la Répu\u00adblique à 14 heures, direc\u00adtion Nation.'
+    expect(cleanReadable(para)).toBe(para.replace(/\u00ad/g, ''))
+  })
+
+  test('a teaser page is completed by the gateway when it has more, and kept otherwise', async () => {
+    const gatewayText = Array.from(
+      { length: 30 },
+      (_, i) =>
+        `Le cortège passe par la rue numéro ${i + 1} de la ville, puis continue vers la gare.`,
+    ).join('\n')
+    const fetchFn = async (url: string) =>
+      url.startsWith('https://r.jina.ai/') ? new Response(gatewayText) : new Response(article())
+    const [on] = await read([feedItem({ text: 'Titre court' })], fetchFn, true)
+    expect(on?.strategy).toBe('gateway')
+    expect(on?.text).toContain('rue numéro 30')
+    const [off] = await read([feedItem({ text: 'Titre court' })], fetchFn, false)
+    expect(off?.strategy).not.toBe('gateway')
+    // A gateway that has less than the page does not replace it.
+    const [less] = await read(
+      [feedItem({ text: 'Titre court' })],
+      async (url) =>
+        url.startsWith('https://r.jina.ai/') ? new Response('court') : new Response(article()),
+      true,
+    )
+    expect(less?.strategy).not.toBe('gateway')
+    expect(less?.text).toContain('paragraphe 5')
+  })
+
   test('cleanReadable keeps paragraphs and drops banners', () => {
     const para = 'Les élèves du lycée ont bloqué l’entrée de l’établissement ce matin à Lille.'
     expect(

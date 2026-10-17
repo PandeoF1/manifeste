@@ -4,7 +4,7 @@
  */
 import { opentelemetry } from '@elysiajs/opentelemetry'
 import { join } from 'node:path'
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import type { AppContext } from './context.ts'
 import { authRoutes } from './auth/plugin.ts'
 import { audit } from './lib/audit.ts'
@@ -22,6 +22,10 @@ import { schoolsModule } from './modules/schools/index.ts'
 import { SchoolsService } from './modules/schools/service.ts'
 import { settingsModule } from './modules/settings/index.ts'
 import { SettingsService } from './modules/settings/service.ts'
+import { movementsModule, movementsStaffModule } from './modules/movements/index.ts'
+import { MovementsService } from './modules/movements/service.ts'
+import { RouteProposalsService, routeProposalsStaffModule } from './modules/movements/proposals.ts'
+import { safeFetch } from './ingest/safe-fetch.ts'
 import { statusesModule } from './modules/statuses/index.ts'
 import { StatusesService } from './modules/statuses/service.ts'
 import { timelineModule } from './modules/timeline/index.ts'
@@ -55,6 +59,12 @@ export function createApp(ctx: AppContext) {
   const settings = new SettingsService(db)
   const ingest = new IngestService(ctx)
   const statuses = new StatusesService(db, settings)
+  const movements = new MovementsService(db)
+  const routeProposals = new RouteProposalsService(
+    db,
+    movements,
+    safeFetch((url, init) => fetch(url, init)),
+  )
   const analytics = new AnalyticsService(db)
   const schools = new SchoolsService(db)
   const openData = new OpenDataService(db, settings, statuses)
@@ -89,9 +99,15 @@ export function createApp(ctx: AppContext) {
         await audit(db, actor, action, target, null, after)
       }),
     )
+    .get('/api/staff/2fa-policy', () => ({ required: config.STAFF_2FA !== 'none' }), {
+      response: t.Object({ required: t.Boolean() }),
+      // Every route needs its detail: the OpenAPI plugin reads detail.tags to leave staff routes out.
+      detail: { tags: ['staff'], summary: 'Whether staff must enrol a second factor' },
+    })
     .use(healthModule(new HealthService(db, queue, config.ROLE, version, ctx.blobs)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))
+    .use(movementsModule(movements, settings))
     .use(openDataModule(openData))
     .use(schoolsModule(schools))
     .use(analyticsModule(analytics))
@@ -122,6 +138,8 @@ export function createApp(ctx: AppContext) {
     .use(insightsModule(auth, db))
     .use(settingsStaffModule(auth, db, settings, ctx.bus))
     .use(trustedDomainsModule(auth, db))
+    .use(movementsStaffModule(auth, db, movements))
+    .use(routeProposalsStaffModule(auth, db, routeProposals))
     .use(unmatchedModule(auth, db, ingest, new MatchingService(db)))
     .use(proposalsModule(auth, db, ctx.blobs, new MatchingService(db), ctx.bus))
     .use(moderationModule(auth, new ModerationService(db, ctx.blobs, ctx.bus, settings)))

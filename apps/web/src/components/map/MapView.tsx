@@ -16,6 +16,7 @@ import type { FeatureCollection, Point } from 'geojson'
 import type { SchoolStatus } from '@/queries/statuses'
 import { addMarkerImages } from './markerImages'
 import { styleBase } from './baseStyle'
+import { STYLE_URL } from './styleUrl'
 import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
 import { NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
 import { setTheme, type Theme } from '@/lib/theme'
@@ -62,8 +63,6 @@ class ThemeControl implements IControl {
   }
 }
 
-const STYLE_URL =
-  import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/positron'
 const SOURCE_ID = 'schools'
 /** A signal under 30 min old "pulses" on the map. */
 const RECENT_MS = 30 * 60_000

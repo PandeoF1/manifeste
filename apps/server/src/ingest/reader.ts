@@ -50,6 +50,8 @@ export interface ReaderOptions {
 const PAGE_MAX_BYTES = 600_000
 /** Below this much text from the feed, the page is worth reading (a bare title). */
 const SHORT_FEED_TEXT = 400
+/** A page that gives less than this is probably a teaser (paywall, live blog loaded by script). */
+const SHORT_PAGE_TEXT = 1_200
 const HOUR_MS = 3_600_000
 const MAX_CHARS = 8_000
 
@@ -77,6 +79,7 @@ export function reconcilePublished(
 /** Keeps the paragraphs: the gateway also renders menus and cookie banners, which help nobody. */
 export function cleanReadable(text: string): string {
   return text
+    .replace(/\u00ad/g, '')
     .split('\n')
     .map((l) => l.trim())
     .filter(
@@ -198,6 +201,15 @@ export async function readItems(
       // The feed's own lines first (the title is what the reader sees), then what the page adds.
       const extra = newLines(item.text, [parsed.title, article].filter(Boolean).join('\n'))
       next.text = [item.text, ...extra].join('\n').slice(0, maxChars)
+      if (options.gateway && parsed.text.length < SHORT_PAGE_TEXT) {
+        // The page gave a teaser: the gateway often has the whole text. Keep whichever is longer.
+        const full = await fetchReadable(fetchFn, url)
+        if (full.length > parsed.text.length) {
+          next.text = [item.text, ...newLines(item.text, full)].join('\n').slice(0, maxChars)
+          next.strategy = 'gateway'
+          next.pageChars = full.length
+        }
+      }
       return next
     } catch (e) {
       return {

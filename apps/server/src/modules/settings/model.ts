@@ -5,5 +5,6 @@ export const SettingsModel = {
     status_ttl_hours: t.Integer(),
     movement_start: t.String(),
     judge_tiers: t.Boolean(),
+    movements_public: t.Boolean(),
   }),
 } as const
