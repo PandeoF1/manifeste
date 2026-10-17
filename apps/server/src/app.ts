@@ -4,7 +4,7 @@
  */
 import { opentelemetry } from '@elysiajs/opentelemetry'
 import { join } from 'node:path'
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import type { AppContext } from './context.ts'
 import { authRoutes } from './auth/plugin.ts'
 import { audit } from './lib/audit.ts'
@@ -92,9 +92,11 @@ export function createApp(ctx: AppContext) {
         await audit(db, actor, action, target, null, after)
       }),
     )
-    .get('/api/staff/2fa-policy', () => ({
-      required: config.STAFF_2FA !== 'none',
-    }))
+    .get('/api/staff/2fa-policy', () => ({ required: config.STAFF_2FA !== 'none' }), {
+      response: t.Object({ required: t.Boolean() }),
+      // Every route needs its detail: the OpenAPI plugin reads detail.tags to leave staff routes out.
+      detail: { tags: ['staff'], summary: 'Whether staff must enrol a second factor' },
+    })
     .use(healthModule(new HealthService(db, queue, config.ROLE, version, ctx.blobs)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))

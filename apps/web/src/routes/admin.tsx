@@ -21,11 +21,7 @@ import { TweetsPanel } from '@/components/admin/TweetsPanel'
 import { TrustedDomainsPanel } from '@/components/admin/TrustedDomainsPanel'
 import { UnmatchedPanel } from '@/components/admin/UnmatchedPanel'
 import { TABS, visibleTab, type Tab } from '@/lib/adminTabs'
-import {
-  twoFactorPolicyQuery,
-  useSession,
-  useSignOut,
-} from '@/queries/admin'
+import { twoFactorPolicyQuery, useSession, useSignOut } from '@/queries/admin'
 
 export const Route = createFileRoute('/admin')({
   validateSearch: z.object({ tab: z.enum(TABS).catch('moderation') }),

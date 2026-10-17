@@ -34,7 +34,9 @@ const Env = t.Object({
    * Moderators see the original photos of reports (minors included), so `all` is advised once
    * every moderator has enrolled.
    */
-  STAFF_2FA: t.Union([t.Literal('admin'), t.Literal('all'), t.Literal('none')], { default: 'admin' }),
+  STAFF_2FA: t.Union([t.Literal('admin'), t.Literal('all'), t.Literal('none')], {
+    default: 'admin',
+  }),
   /** Run migrations at boot. On for dev, staging and previews; production runs a one-shot migrate step. */
   MIGRATE_ON_BOOT: t.Boolean({ default: false }),
   /** Public origin, used for auth callbacks and absolute links (no trailing slash). */
