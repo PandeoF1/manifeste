@@ -28,6 +28,7 @@ export const queryKeys = {
     reports: () => [...queryKeys.admin.all, 'reports'] as const,
     unmatched: () => [...queryKeys.admin.all, 'unmatched'] as const,
     trustedDomains: () => [...queryKeys.admin.all, 'trusted-domains'] as const,
+    movements: () => [...queryKeys.admin.all, 'movements'] as const,
     movementEvents: (id: string) => [...queryKeys.admin.all, 'movement-events', id] as const,
   },
   session: ['session'] as const,

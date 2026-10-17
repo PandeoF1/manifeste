@@ -7,6 +7,7 @@ describe('settings', () => {
       status_ttl_hours: 5,
       movement_start: '2026-09-14',
       judge_tiers: false,
+      movements_public: false,
       judge_keep: 0.5,
       judge_low: 0.3,
       media_analysis: true,
@@ -28,6 +29,15 @@ describe('settings', () => {
     expect(s.movement_start).toBe('2026-09-14')
   })
 
+  test('the Mouvements pages are hidden until the setting is switched on', () => {
+    expect(readSettings([]).movements_public).toBe(false)
+    expect(publicSettings(readSettings([{ key: 'movements_public', value: true }]))).toMatchObject({
+      movements_public: true,
+    })
+    // A stored value of the wrong type falls back to hidden.
+    expect(readSettings([{ key: 'movements_public', value: 'yes' }]).movements_public).toBe(false)
+  })
+
   test('validation and the public subset', () => {
     expect(isValidSetting('status_ttl_hours', 0)).toBe(false)
     expect(isValidSetting('movement_start', '2026-09-14')).toBe(true)
@@ -35,6 +45,7 @@ describe('settings', () => {
       'status_ttl_hours',
       'movement_start',
       'judge_tiers',
+      'movements_public',
     ])
   })
 })

@@ -73,6 +73,11 @@ export class MovementsService {
     return this.listCache.get(undefined as never)
   }
 
+  /** The same list, for staff: never cached, and available whatever the public setting says. */
+  listForStaff(): Promise<MovementView[]> {
+    return this.loadList()
+  }
+
   /** A movement and its published events, oldest first (the order of a day). */
   one(slug: string): Promise<{ movement: MovementView; events: EventView[] } | null> {
     return this.oneCache.get(slug)

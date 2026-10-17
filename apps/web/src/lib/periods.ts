@@ -20,12 +20,15 @@ export interface PublicSettings {
   movementStart: string
   /** Judge tiers on: the map shows reported mobilisations apart. */
   judgeTiers: boolean
+  /** The public Mouvements pages are shown (off until they are wanted). */
+  movementsPublic: boolean
 }
 
 export const DEFAULT_SETTINGS: PublicSettings = {
   statusTtlHours: 5,
   movementStart: '2026-09-14',
   judgeTiers: false,
+  movementsPublic: false,
 }
 
 export const PERIOD_SHORT_LABELS: Record<Period, string> = {
@@ -79,10 +82,12 @@ export function fromApiSettings(s: {
   status_ttl_hours: number
   movement_start: string
   judge_tiers: boolean
+  movements_public: boolean
 }): PublicSettings {
   return {
     statusTtlHours: s.status_ttl_hours,
     movementStart: s.movement_start,
     judgeTiers: s.judge_tiers,
+    movementsPublic: s.movements_public,
   }
 }

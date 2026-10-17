@@ -2,6 +2,7 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Info, List, Map as MapIcon, Megaphone } from 'lucide-react'
 import { blockedPhrase } from '@/lib/labels'
+import { settingsQuery } from '@/queries/settings'
 import { statusesQuery } from '@/queries/statuses'
 import { StatusIcon } from '@/components/status/StatusIcon'
 import { RightsButton } from './RightsDialog'
@@ -10,7 +11,7 @@ import { ThemeToggle } from './ThemeToggle'
 const NAV = [
   { to: '/', label: 'Carte' },
   { to: '/liste', label: 'Liste' },
-  { to: '/mouvements', label: 'Mouvements' },
+  { to: '/mouvements', label: 'Mouvements', setting: 'movementsPublic' },
   { to: '/donnees', label: 'Données' },
   { to: '/a-propos', label: 'À propos' },
 ] as const
@@ -33,6 +34,9 @@ function MiniCounter() {
 
 export function TopBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const { data: settings } = useQuery(settingsQuery)
+  // A page behind a setting is left out of the menu until the setting is on.
+  const nav = NAV.filter((item) => !('setting' in item) || settings?.[item.setting])
   const onList = pathname === '/liste'
   return (
     <header
@@ -69,7 +73,7 @@ export function TopBar() {
           aria-label="Navigation principale"
           className="hidden items-center gap-1 text-sm md:flex"
         >
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.to}
               to={item.to}

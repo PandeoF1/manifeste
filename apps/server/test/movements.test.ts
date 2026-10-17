@@ -30,6 +30,28 @@ const REPUBLIQUE_NATION = [
   [2.3959, 48.8483],
 ]
 
+describe('movements: hidden until the setting is on', () => {
+  test('by default the public pages do not exist, but staff can already prepare content', async () => {
+    expect((await s.request('/api/movements')).status).toBe(404)
+    expect((await s.request('/api/movements/anything')).status).toBe(404)
+    expect((await as(admin, '/api/staff/movements')).status).toBe(200)
+    expect((await as(moderator, '/api/staff/movements')).status).toBe(403)
+    // The public settings tell the web app to leave the menu entry out.
+    const settings = (await (await s.request('/api/settings')).json()) as Loose
+    expect(settings.movements_public).toBe(false)
+  })
+
+  test('staff can switch them on, and the settings follow', async () => {
+    const res = await as(admin, '/api/staff/settings/movements_public', {
+      method: 'PUT',
+      json: { value: true },
+    })
+    expect(res.status).toBe(200)
+    const settings = (await (await s.request('/api/settings')).json()) as Loose
+    expect(settings.movements_public).toBe(true)
+  })
+})
+
 describe('movements: public reads', () => {
   test('nothing yet: an empty list, and an unknown address is a 404', async () => {
     const res = await s.request('/api/movements')

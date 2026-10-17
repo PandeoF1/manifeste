@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EVENT_KINDS, EVENT_STATUSES, ROUTE_BASES } from '@manifeste/core'
 import {
@@ -13,12 +14,13 @@ import {
 import { queryKeys } from '@/lib/queryKeys'
 import {
   addMovementEvent,
+  adminMovementsQuery,
   createMovement,
   movementEventsStaffQuery,
   patchMovement,
   patchMovementEvent,
 } from '@/queries/admin'
-import { movementsQuery } from '@/queries/movements'
+import { settingsQuery } from '@/queries/settings'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' })
 const dateTimeFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
@@ -43,10 +45,14 @@ const numberOf = (value: FormDataEntryValue | null): number | undefined => {
 /** Movements and their events: create, archive, add marches with a route, hide or cancel events. */
 export function MovementsPanel() {
   const queryClient = useQueryClient()
-  const movements = useQuery(movementsQuery)
+  const movements = useQuery(adminMovementsQuery)
+  const publicOn = useQuery(settingsQuery).data?.movementsPublic ?? false
   const [openId, setOpenId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.movements.all })
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.admin.movements() })
+    return queryClient.invalidateQueries({ queryKey: queryKeys.movements.all })
+  }
 
   const create = useMutation({ mutationFn: createMovement, onSuccess: refresh })
   const patch = useMutation({
@@ -74,6 +80,18 @@ export function MovementsPanel() {
 
   return (
     <div className="space-y-4">
+      {!publicOn && (
+        <p className="rounded-lg border border-border bg-surface p-3 text-sm">
+          La page Mouvements est <strong>masquée au public</strong> : tu peux préparer ici des
+          mouvements et des événements, les visiteurs ne les voient pas. Pour l'afficher, active le
+          réglage « Page Mouvements publique » dans{' '}
+          <Link to="/admin" search={{ tab: 'reglages' }} className="underline">
+            Réglages
+          </Link>
+          .
+        </p>
+      )}
+
       <form onSubmit={onCreate} className="card grid gap-3 md:grid-cols-[2fr_3fr_auto_auto]">
         <input
           name="name"
@@ -116,9 +134,13 @@ export function MovementsPanel() {
                   {dateFmt.format(m.startsAt)}
                   {m.endsAt ? ` - ${dateFmt.format(m.endsAt)}` : ''} · {m.eventCount} publié
                   {m.eventCount > 1 ? 's' : ''} ·{' '}
-                  <a href={`/mouvements/${m.slug}`} className="underline">
-                    /mouvements/{m.slug}
-                  </a>
+                  {publicOn ? (
+                    <a href={`/mouvements/${m.slug}`} className="underline">
+                      /mouvements/{m.slug}
+                    </a>
+                  ) : (
+                    <span>/mouvements/{m.slug}</span>
+                  )}
                 </p>
               </div>
               <button
@@ -161,6 +183,7 @@ function EventsEditor({ movementId }: { movementId: string }) {
   const now = new Date()
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.admin.movementEvents(movementId) })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.admin.movements() })
     void queryClient.invalidateQueries({ queryKey: queryKeys.movements.all })
   }
   const add = useMutation({

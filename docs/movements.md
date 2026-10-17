@@ -15,6 +15,14 @@ the school blockades; movements live next to them, at `/mouvements`.
   basis is refused by the database.
 - The school reports (`reports`, `schools`) are a separate, older model and are not touched.
 
+## Visibility
+
+The public pages are **hidden by default**: the setting `movements_public` (admin, Réglages, « Page
+Mouvements publique ») is off. While it is off, the menu entry, `/mouvements`, `/mouvements/<slug>`
+and `GET /api/movements*` answer as if they did not exist (404), but staff keep the admin tab and
+`GET /api/staff/movements` to prepare content. Switching it on is a runtime change, no deploy
+(visitors get it within about a minute: the public settings are cached for 60 s).
+
 ## Data
 
 Migration `0010_movements`: `movements` and `movement_events` (a route is a GeoJSON coordinate

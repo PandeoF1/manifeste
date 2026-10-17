@@ -3,6 +3,7 @@ import type { Auth } from '../../auth/auth.ts'
 import { authPlugin } from '../../auth/plugin.ts'
 import { audit } from '../../lib/audit.ts'
 import { MovementsModel } from './model.ts'
+import type { SettingsService } from '../settings/service.ts'
 import { MovementError, type MovementsService } from './service.ts'
 
 /** Public pages change rarely: a short browser cache, a longer one at the edge. */
@@ -26,23 +27,28 @@ const oneMovement = t.Object({
   events: t.Array(MovementsModel.event),
 })
 
-/** Public: the movements (active, then archives) and one movement with its events and routes. */
-export const movementsModule = (service: MovementsService) =>
+/**
+ * Public: the movements (active, then archives) and one movement with its events and routes.
+ * Hidden (404, as if the pages did not exist) until the `movements_public` setting is on.
+ */
+export const movementsModule = (service: MovementsService, settings: SettingsService) =>
   new Elysia({ name: 'module.movements', prefix: '/api/movements' })
     .get(
       '/',
-      ({ set }) => {
+      async ({ set }) => {
+        if (!(await settings.all()).movements_public) return status(404, 'Not found')
         set.headers['cache-control'] = CACHE
         return service.list()
       },
       {
-        response: t.Array(MovementsModel.movement),
+        response: { 200: t.Array(MovementsModel.movement), 404: t.String() },
         detail: { tags: ['movements'], summary: 'Movements: the active ones, then the archives' },
       },
     )
     .get(
       '/:slug',
       async ({ params, set }) => {
+        if (!(await settings.all()).movements_public) return status(404, 'Not found')
         const found = await service.one(params.slug)
         if (!found) return status(404, 'Unknown movement')
         set.headers['cache-control'] = CACHE
@@ -66,6 +72,14 @@ export const movementsStaffModule = (
 ) =>
   new Elysia({ name: 'module.movements.staff', prefix: '/api/staff' })
     .use(authPlugin(auth))
+    .get('/movements', () => service.listForStaff(), {
+      staff: { movement: ['manage'] },
+      response: { 200: t.Array(MovementsModel.movement) },
+      detail: {
+        tags: ['staff'],
+        summary: 'All movements (also while the public pages are hidden)',
+      },
+    })
     .post(
       '/movements',
       ({ body, staff }) =>

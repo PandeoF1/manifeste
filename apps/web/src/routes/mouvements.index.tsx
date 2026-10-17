@@ -1,8 +1,19 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { movementsQuery } from '@/queries/movements'
+import { settingsQuery } from '@/queries/settings'
 
 export const Route = createFileRoute('/mouvements/')({
+  // Hidden until the setting is on: the page then does not exist.
+  loader: async ({ context }) => {
+    const settings = await context.queryClient.ensureQueryData(settingsQuery)
+    if (!settings.movementsPublic) throw notFound()
+  },
+  notFoundComponent: () => (
+    <main className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-black">Page introuvable</h1>
+    </main>
+  ),
   head: () => ({ meta: [{ title: 'Mouvements - Manifeste' }] }),
   component: MovementsPage,
 })

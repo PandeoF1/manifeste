@@ -95,7 +95,7 @@ export function createApp(ctx: AppContext) {
     .use(healthModule(new HealthService(db, queue, config.ROLE, version, ctx.blobs)))
     .use(settingsModule(settings))
     .use(statusesModule(statuses))
-    .use(movementsModule(movements))
+    .use(movementsModule(movements, settings))
     .use(openDataModule(openData))
     .use(schoolsModule(schools))
     .use(analyticsModule(analytics))

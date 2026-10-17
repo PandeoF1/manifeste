@@ -16,6 +16,7 @@ import {
 import { useNow } from '@/lib/useNow'
 import { useTheme } from '@/lib/theme'
 import { movementQuery } from '@/queries/movements'
+import { settingsQuery } from '@/queries/settings'
 
 const MovementMap = lazy(() => import('@/components/movement/MovementMap'))
 
@@ -27,6 +28,9 @@ export const Route = createFileRoute('/mouvements/$slug')({
     },
   },
   loader: async ({ context, params }) => {
+    // Hidden until the setting is on: the page then does not exist.
+    const settings = await context.queryClient.ensureQueryData(settingsQuery)
+    if (!settings.movementsPublic) throw notFound()
     const found = await context.queryClient.ensureQueryData(movementQuery(params.slug))
     if (!found) throw notFound()
   },
@@ -38,10 +42,7 @@ export const Route = createFileRoute('/mouvements/$slug')({
   ),
   notFoundComponent: () => (
     <main className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-black">Mouvement introuvable</h1>
-      <Link to="/mouvements" className="btn-secondary mt-4">
-        Voir les mouvements
-      </Link>
+      <h1 className="text-2xl font-black">Page introuvable</h1>
     </main>
   ),
   errorComponent: ({ reset }) => (

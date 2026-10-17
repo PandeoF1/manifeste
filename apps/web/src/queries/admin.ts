@@ -151,6 +151,12 @@ export const removeTrustedDomain = async (domain: string) =>
 
 // --- Movements ------------------------------------------------------------------------------------
 
+/** Every movement, whether or not the public pages are switched on. */
+export const adminMovementsQuery = queryOptions({
+  queryKey: queryKeys.admin.movements(),
+  queryFn: () => unwrap(staff.movements.get()),
+})
+
 /** Every event of a movement, hidden ones included (the public page only lists published ones). */
 export const movementEventsStaffQuery = (id: string) =>
   queryOptions({

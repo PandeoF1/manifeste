@@ -33,6 +33,12 @@ const FIELDS = [
     type: 'boolean',
   },
   {
+    key: 'movements_public',
+    label: 'Page Mouvements publique',
+    help: 'Désactivé (par défaut) : la page Mouvements et son entrée de menu n’existent pas pour les visiteurs, mais l’équipe peut préparer des mouvements dans l’onglet « Mouvements » de l’admin. Activé : la page, les archives et leurs cartes sont publiques.',
+    type: 'boolean',
+  },
+  {
     key: 'media_analysis',
     label: 'Analyse des médias (IA)',
     help: 'Activé : chaque article de presse lu est aussi analysé par l’IA (revendications citées, qui s’exprime, angle, ton) pour l’onglet « Médias ». C’est ~40 % des appels Gemini. Désactivé : plus aucun appel pour ça, les analyses déjà faites restent.',
