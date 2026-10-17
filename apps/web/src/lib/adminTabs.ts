@@ -3,6 +3,7 @@ import type { StaffRole } from './auth'
 export const TABS = [
   'pipeline',
   'moderation',
+  'mouvements',
   'lycees',
   'non-rattaches',
   'signaux',
@@ -22,6 +23,7 @@ export type Tab = (typeof TABS)[number]
 export const TAB_LABELS: Record<Tab, string> = {
   pipeline: 'Pipeline',
   moderation: 'Modération',
+  mouvements: 'Mouvements',
   lycees: 'Établissements proposés',
   'non-rattaches': 'Non rattachés',
   signaux: 'Signalements',

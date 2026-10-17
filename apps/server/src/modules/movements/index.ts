@@ -107,6 +107,17 @@ export const movementsStaffModule = (
         detail: { tags: ['staff'], summary: 'Edit, archive or reopen a movement' },
       },
     )
+    .get('/movements/:id/events', ({ params }) => guard(() => service.eventsForStaff(params.id)), {
+      staff: { movement: ['manage'] },
+      params: MovementsModel.idParams,
+      response: {
+        200: t.Array(MovementsModel.staffEvent),
+        404: t.String(),
+        409: t.String(),
+        422: t.String(),
+      },
+      detail: { tags: ['staff'], summary: 'All events of a movement, hidden ones included' },
+    })
     .post(
       '/movements/:id/events',
       ({ params, body, staff }) =>

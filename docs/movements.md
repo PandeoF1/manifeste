@@ -26,8 +26,18 @@ list in a `jsonb` column, `[lng, lat]` pairs). Pure rules live in `packages/core
 - Public: `GET /api/movements` (active first, then archives), `GET /api/movements/:slug`
   (the movement and its published events).
 - Staff, permission `movement:manage` (admins), every action audited: `POST /api/staff/movements`,
-  `PATCH /api/staff/movements/:id` (edit, archive, reopen),
-  `POST /api/staff/movements/:id/events`, `PATCH /api/staff/movement-events/:id`.
+  `PATCH /api/staff/movements/:id` (edit, archive, reopen), `GET /api/staff/movements/:id/events`
+  (all events, hidden ones included), `POST /api/staff/movements/:id/events`,
+  `PATCH /api/staff/movement-events/:id`.
+
+## Admin
+
+The **Mouvements** tab (admins only) creates, archives and reopens movements, and lists their
+events with a status selector and a hide / show button. Adding an event takes a type, title, place,
+dates, a start position and a route: one `latitude, longitude` pair per line (the order Google Maps
+copies), or a GeoJSON `[[lng, lat], ...]` list. The form shows the length it read, as a sanity
+check (a swapped latitude and longitude usually gives an absurd length), and refuses a route whose
+reliability (announced or probable) is not chosen.
 
 Gotcha: in Elysia, `t.UnionEnum` makes its first value the default. For optional enum fields use a
 union of literals (see `oneOf` in `modules/movements/model.ts`), otherwise a partial edit silently
@@ -39,6 +49,6 @@ resets the field.
   name a usable route.
 - Attaching school blockades and the history replay to a movement; the home page showing the
   active movement.
-- An admin panel (staff use the API for now), open-data views per movement, the "watch".
+- Open-data views per movement and the "watch".
 - Other themes. Each one needs a precise definition, identified sources, a verification rule and
   an owner before it goes in.

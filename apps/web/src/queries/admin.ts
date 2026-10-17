@@ -149,6 +149,28 @@ export const addTrustedDomain = (body: {
 export const removeTrustedDomain = async (domain: string) =>
   void (await staff['trusted-domains']({ domain }).delete())
 
+// --- Movements ------------------------------------------------------------------------------------
+
+/** Every event of a movement, hidden ones included (the public page only lists published ones). */
+export const movementEventsStaffQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.admin.movementEvents(id),
+    queryFn: () => unwrap(staff.movements({ id }).events.get()),
+  })
+export type NewMovement = Parameters<typeof staff.movements.post>[0]
+export const createMovement = (body: NewMovement) => unwrap(staff.movements.post(body))
+export const patchMovement = (
+  id: string,
+  body: Parameters<ReturnType<typeof staff.movements>['patch']>[0],
+) => unwrap(staff.movements({ id }).patch(body))
+export type NewMovementEvent = Parameters<ReturnType<typeof staff.movements>['events']['post']>[0]
+export const addMovementEvent = (id: string, body: NewMovementEvent) =>
+  unwrap(staff.movements({ id }).events.post(body))
+export const patchMovementEvent = (
+  id: string,
+  body: Parameters<ReturnType<(typeof staff)['movement-events']>['patch']>[0],
+) => unwrap(staff['movement-events']({ id }).patch(body))
+
 // --- Settings, audit, team ----------------------------------------------------------------------
 
 export const settingsAdminQuery = queryOptions({

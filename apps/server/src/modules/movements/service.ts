@@ -2,7 +2,7 @@ import { extractDomain, parseRoute, slugify } from '@manifeste/core'
 import { schema, type Database } from '@manifeste/db'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { memoWithTtl } from '../../lib/memo.ts'
-import type { EventView, MovementView } from './model.ts'
+import type { EventView, MovementView, StaffEventView } from './model.ts'
 
 type Movement = typeof schema.movements.$inferSelect
 type EventRow = typeof schema.movementEvents.$inferSelect
@@ -109,6 +109,21 @@ export class MovementsService {
       .where(and(eq(schema.movementEvents.movementId, movement.id), PUBLIC))
       .orderBy(asc(schema.movementEvents.startsAt))
     return { movement: viewOf(movement, events.length), events: events.map(eventView) }
+  }
+
+  /** Every event of a movement, hidden ones included, oldest first. Not cached: staff edit them. */
+  async eventsForStaff(movementId: string): Promise<StaffEventView[]> {
+    const [movement] = await this.db
+      .select({ id: schema.movements.id })
+      .from(schema.movements)
+      .where(eq(schema.movements.id, movementId))
+    if (!movement) throw new MovementError('not_found', 'Unknown movement')
+    const rows = await this.db
+      .select()
+      .from(schema.movementEvents)
+      .where(eq(schema.movementEvents.movementId, movementId))
+      .orderBy(asc(schema.movementEvents.startsAt))
+    return rows.map((e) => ({ ...eventView(e), hidden: e.hidden }))
   }
 
   async create(input: {

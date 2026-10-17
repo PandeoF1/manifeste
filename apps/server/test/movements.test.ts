@@ -165,6 +165,25 @@ describe('events and routes', () => {
     expect(hidden.movement.eventCount).toBe(0)
   })
 
+  test('staff see the hidden events too; the public does not; moderators are turned away', async () => {
+    const asStaff = (cookie: string) => as(cookie, `/api/staff/movements/${movementId}/events`)
+    expect((await asStaff('')).status).toBe(401)
+    expect((await asStaff(moderator)).status).toBe(403)
+    const all = (await (await asStaff(admin)).json()) as Loose[]
+    const publicPage = (await (
+      await s.request('/api/movements/lyceens-automne-2026')
+    ).json()) as Loose
+    // The event hidden above is in the staff list, flagged, and not on the public page.
+    expect(all.some((e) => e.hidden === true)).toBe(true)
+    expect(publicPage.events.every((e: Loose) => e.hidden === undefined)).toBe(true)
+    expect(all.length).toBeGreaterThan(publicPage.events.length)
+    const unknown = await as(
+      admin,
+      '/api/staff/movements/6b4f0e4a-0000-4000-8000-000000000000/events',
+    )
+    expect(unknown.status).toBe(404)
+  })
+
   test('removing a route clears its basis too', async () => {
     const made = (await (
       await event({

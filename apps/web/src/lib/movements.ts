@@ -1,5 +1,6 @@
 import {
   eventStatusAt,
+  parseRoute,
   routeLengthMeters,
   type EventKind,
   type EventStatus,
@@ -154,4 +155,45 @@ export function groupByDay<T extends { startsAt: Date }>(
     else groups.push({ day, events: [e] })
   }
   return groups
+}
+
+export type RouteText =
+  { ok: true; route: Array<[number, number]> | null } | { ok: false; error: string }
+
+/**
+ * A route typed or pasted by staff. Two forms: one "latitude, longitude" pair per line (the order
+ * Google Maps shows when you copy a point), or a GeoJSON list [[longitude, latitude], ...].
+ * Empty means no route. Anything doubtful is refused rather than guessed.
+ */
+export function parseRouteText(text: string): RouteText {
+  const trimmed = text.trim()
+  if (!trimmed) return { ok: true, route: null }
+  let points: unknown
+  if (trimmed.startsWith('[')) {
+    try {
+      points = JSON.parse(trimmed)
+    } catch {
+      return { ok: false, error: 'Liste JSON illisible.' }
+    }
+  } else {
+    const pairs: Array<[number, number]> = []
+    for (const [i, line] of trimmed.split(/\r?\n/).entries()) {
+      if (!line.trim()) continue
+      const parts = line.trim().split(/[\s,;]+/)
+      const [lat, lng] = parts.map(Number)
+      if (parts.length !== 2 || lat === undefined || lng === undefined)
+        return { ok: false, error: `Ligne ${i + 1} : écris « latitude, longitude ».` }
+      // Stored in GeoJSON order, [longitude, latitude].
+      pairs.push([lng, lat])
+    }
+    points = pairs
+  }
+  const route = parseRoute(points)
+  if (!route)
+    return {
+      ok: false,
+      error:
+        'Parcours invalide : au moins 2 points, latitude entre -90 et 90, longitude entre -180 et 180.',
+    }
+  return { ok: true, route: route.map(([lng, lat]) => [lng, lat] as [number, number]) }
 }

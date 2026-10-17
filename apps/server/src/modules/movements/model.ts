@@ -54,6 +54,23 @@ export const MovementsModel = {
     sourceUrl: t.Nullable(t.String()),
     sourceDomain: t.Nullable(t.String()),
   }),
+  /** What staff see: also the hidden ones. */
+  staffEvent: t.Object({
+    id: t.String(),
+    kind,
+    title: t.String(),
+    place: t.Nullable(t.String()),
+    status: eventStatus,
+    startsAt: t.Date(),
+    endsAt: t.Nullable(t.Date()),
+    lat: t.Nullable(t.Number()),
+    lng: t.Nullable(t.Number()),
+    route: t.Nullable(route),
+    routeBasis: t.Nullable(routeBasis),
+    sourceUrl: t.Nullable(t.String()),
+    sourceDomain: t.Nullable(t.String()),
+    hidden: t.Boolean(),
+  }),
   slugParams: t.Object({ slug: t.String({ pattern: SLUG_PATTERN.source, maxLength: 80 }) }),
   idParams: t.Object({ id: t.String({ format: 'uuid' }) }),
   createMovement: t.Object({
@@ -97,3 +114,4 @@ export const MovementsModel = {
 
 export type MovementView = typeof MovementsModel.movement.static
 export type EventView = typeof MovementsModel.event.static
+export type StaffEventView = typeof MovementsModel.staffEvent.static

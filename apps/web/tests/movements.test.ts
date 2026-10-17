@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   boundsOf,
   groupByDay,
+  parseRouteText,
   pointsGeoJSON,
   routeLengthLabel,
   routesGeoJSON,
@@ -120,5 +121,43 @@ describe('labels and groups', () => {
       ['2026-10-17', ['a', 'b']],
       ['2026-10-18', ['c']],
     ])
+  })
+})
+
+describe('parseRouteText', () => {
+  it('nothing typed is no route', () => {
+    expect(parseRouteText('  \n ')).toEqual({ ok: true, route: null })
+  })
+
+  it('reads "latitude, longitude" lines (Google Maps order) and stores [longitude, latitude]', () => {
+    const r = parseRouteText('48.8675, 2.3637\n48.8483 2.3959\n')
+    expect(r).toEqual({
+      ok: true,
+      route: [
+        [2.3637, 48.8675],
+        [2.3959, 48.8483],
+      ],
+    })
+  })
+
+  it('reads a GeoJSON list as it is', () => {
+    expect(parseRouteText('[[2.3637,48.8675],[2.3959,48.8483]]')).toEqual({
+      ok: true,
+      route: ROUTE,
+    })
+  })
+
+  it('refuses what it cannot be sure about', () => {
+    for (const bad of [
+      '48.8675',
+      '48.8675, 2.3637, 12',
+      'a, b\nc, d',
+      '48.8675, 2.3637',
+      '[[2,48]',
+      '[[2,48]]',
+      // 148 cannot be a latitude
+      '148.8675, 2.3637\n148.8483, 2.3959',
+    ])
+      expect(parseRouteText(bad).ok).toBe(false)
   })
 })
