@@ -81,6 +81,26 @@ test.describe('an admin', () => {
     await expect(page.getByRole('button', { name: 'Lancer', exact: true })).toBeVisible()
   })
 
+  test('detected routes: a page of cards, one map at a time', async ({ page }) => {
+    await page.goto('/admin?tab=parcours')
+    await expect(page.getByRole('heading', { name: 'Parcours détectés' })).toBeVisible()
+    const cards = page.locator('article')
+    await expect(cards.first()).toBeVisible()
+    // 15 marches at a time (a march can have several articles), not all 40 proposals.
+    const firstPage = await cards.count()
+    expect(firstPage).toBeLessThan(40)
+    // Nothing heavy until a card is opened.
+    await expect(page.locator('canvas')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Vérifier' }).first().click()
+    await expect(page.getByRole('button', { name: 'Approuver et publier' })).toBeVisible()
+    await expect(page.locator('canvas')).toHaveCount(1)
+    // Opening another closes the first: still one map.
+    await page.getByRole('button', { name: 'Vérifier' }).first().click()
+    await expect(page.locator('canvas')).toHaveCount(1)
+    await page.getByRole('button', { name: /Afficher plus/ }).click()
+    expect(await cards.count()).toBeGreaterThan(firstPage)
+  })
+
   test('settings show their defaults and the audit trail records a change', async ({ page }) => {
     await page.goto('/admin?tab=reglages')
     await expect(page.getByLabel(/Durée du direct/)).toHaveValue('5')
