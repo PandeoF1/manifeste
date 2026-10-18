@@ -130,9 +130,9 @@ export function ExportSection() {
         <p className="text-sm">
           Les mêmes fichiers sont disponibles à une adresse stable, sans clé ni inscription. Les
           paramètres : <code>view</code> (summary, days, departments, academies, schools, reports,
-          dictionary), <code>format</code> (json, csv, geojson pour les
-          établissements ; txt pour le dictionnaire). La réponse est mise en cache cinq minutes ;
-          merci de ne pas interroger plus souvent.
+          dictionary), <code>format</code> (json, csv, geojson pour les établissements ; txt pour le
+          dictionnaire). La réponse est mise en cache cinq minutes ; merci de ne pas interroger plus
+          souvent.
         </p>
         <CopyBox
           label="Copier la commande"

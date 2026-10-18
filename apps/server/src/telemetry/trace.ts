@@ -21,7 +21,10 @@ export function inSpan<T>(
       return await fn()
     } catch (e) {
       span.recordException(e instanceof Error ? e : new Error(String(e)))
-      span.setStatus({ code: SpanStatusCode.ERROR, message: e instanceof Error ? e.message : String(e) })
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: e instanceof Error ? e.message : String(e),
+      })
       throw e
     } finally {
       span.end()
@@ -65,7 +68,8 @@ export function tracedFetch<F extends FetchFn>(inner: F): F {
           const size = res.headers.get('content-length')
           if (size) span.setAttribute('http.response.body.size', Number(size))
           const type = res.headers.get('content-type')
-          if (type) span.setAttribute('http.response.header.content-type', type.split(';')[0] ?? type)
+          if (type)
+            span.setAttribute('http.response.header.content-type', type.split(';')[0] ?? type)
           const location = res.headers.get('location')
           if (location && res.status >= 300 && res.status < 400)
             span.setAttribute('http.response.header.location', location.split('?')[0] ?? location)
@@ -74,7 +78,10 @@ export function tracedFetch<F extends FetchFn>(inner: F): F {
           return res
         } catch (e) {
           span.recordException(e instanceof Error ? e : new Error(String(e)))
-          span.setStatus({ code: SpanStatusCode.ERROR, message: e instanceof Error ? e.message : String(e) })
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: e instanceof Error ? e.message : String(e),
+          })
           throw e
         } finally {
           span.end()
@@ -94,8 +101,10 @@ export class TracedBlobStore implements BlobStore {
   }
 
   put(key: string, bytes: Uint8Array) {
-    return this.run('put', { 'blob.area': key.split('/')[0] ?? '', 'blob.size': bytes.length }, () =>
-      this.inner.put(key, bytes),
+    return this.run(
+      'put',
+      { 'blob.area': key.split('/')[0] ?? '', 'blob.size': bytes.length },
+      () => this.inner.put(key, bytes),
     )
   }
 
@@ -120,7 +129,9 @@ export class TracedBlobStore implements BlobStore {
   }
 
   delete(key: string) {
-    return this.run('delete', { 'blob.area': key.split('/')[0] ?? '' }, () => this.inner.delete(key))
+    return this.run('delete', { 'blob.area': key.split('/')[0] ?? '' }, () =>
+      this.inner.delete(key),
+    )
   }
 
   list(area: Area): Promise<BlobInfo[]> {

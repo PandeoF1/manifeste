@@ -49,11 +49,11 @@ export const EN_VIEWS: Record<string, string> = {
 }
 
 const MESSAGES = {
-    dictFormat: 'unknown format for the dictionary (json, csv, txt)',
-    view: 'unknown view (summary, days, departments, academies, schools, reports, dictionary)',
-    format: 'unknown format (json, csv, geojson)',
-    geojson: 'geojson: only for the "schools" view',
-    db: 'database unavailable, try again in a moment',
+  dictFormat: 'unknown format for the dictionary (json, csv, txt)',
+  view: 'unknown view (summary, days, departments, academies, schools, reports, dictionary)',
+  format: 'unknown format (json, csv, geojson)',
+  geojson: 'geojson: only for the "schools" view',
+  db: 'database unavailable, try again in a moment',
 } as const
 
 interface Request {
@@ -114,12 +114,12 @@ async function serve(service: OpenDataService, req: Request): Promise<Response> 
   }
   const generated = new Date().toISOString()
   const envelope = {
-      license: LICENCE,
-      attribution: ATTRIBUTION,
-      documentation: DOCUMENTATION,
-      view: req.view,
-      generated_at: generated,
-      data,
+    license: LICENCE,
+    attribution: ATTRIBUTION,
+    documentation: DOCUMENTATION,
+    view: req.view,
+    generated_at: generated,
+    data,
   }
   return new Response(JSON.stringify(envelope), {
     headers: { ...COMMON, ...download, 'content-type': 'application/json; charset=utf-8' },
