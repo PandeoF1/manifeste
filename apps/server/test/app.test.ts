@@ -133,6 +133,8 @@ describe('real socket', () => {
 describe('SPA', () => {
   const dist = mkdtempSync(join(tmpdir(), 'manifeste-dist-'))
   mkdirSync(join(dist, 'assets'))
+  mkdirSync(join(dist, 'fonts'))
+  writeFileSync(join(dist, 'fonts', 'inter-400.woff'), 'font')
   writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Manifeste</title>')
   writeFileSync(join(dist, 'assets', 'app-abc123.js'), 'console.log(1)')
   writeFileSync(join(dist, 'sw.js'), 'self')
@@ -149,6 +151,13 @@ describe('SPA', () => {
   test('hashed assets are immutable', async () => {
     const res = await get('/assets/app-abc123.js')
     expect(res.headers.get('cache-control')).toContain('immutable')
+  })
+
+  test('fonts are cached for a week, service worker files are revalidated', async () => {
+    expect((await get('/fonts/inter-400.woff')).headers.get('cache-control')).toBe(
+      'public, max-age=604800',
+    )
+    expect((await get('/sw.js')).headers.get('cache-control')).toContain('must-revalidate')
   })
 
   test('missing files and unknown API routes are 404', async () => {

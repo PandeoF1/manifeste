@@ -110,6 +110,8 @@ export default function MovementMap({
       pitchWithRotate: false,
     })
     mapRef.current = map
+    // Recolour as soon as the style's layers exist, before the first tiles: no light flash.
+    map.once('style.load', () => styleBase(map, MAP_BASES[latest.current.theme]))
     map.touchZoomRotate.disableRotation()
     if (window.matchMedia('(min-width: 768px)').matches)
       map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')

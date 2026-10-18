@@ -1,6 +1,7 @@
 /**
  * Serves the built SPA from the same origin as the API (no CORS, simple CSP, same-site cookies).
- * Hashed assets are cached for a year; everything else, including index.html, is revalidated.
+ * Hashed assets are cached for a year, fonts and icons for a week; everything else, including
+ * index.html, is revalidated.
  * Unknown paths that are not API calls get index.html (client-side routing).
  */
 import { resolve, sep } from 'node:path'
@@ -8,6 +9,9 @@ import { Elysia } from 'elysia'
 
 const IMMUTABLE = 'public, max-age=31536000, immutable'
 const REVALIDATE = 'public, max-age=0, must-revalidate'
+// Fonts and icons keep their names but almost never change: a week saves a request per file on
+// every visit, which matters on a slow phone connection.
+const WEEK = 'public, max-age=604800'
 
 /** Lets a caller answer some navigations itself (robots get a rendered page): null = not handled. */
 export type Intercept = (request: Request) => Promise<Response | null>
@@ -36,7 +40,11 @@ export function spa(distDir: string, intercept?: Intercept) {
 
       const file = Bun.file(path)
       if (pathname !== '/' && (await file.exists())) {
-        set.headers['cache-control'] = pathname.startsWith('/assets/') ? IMMUTABLE : REVALIDATE
+        set.headers['cache-control'] = pathname.startsWith('/assets/')
+          ? IMMUTABLE
+          : pathname.startsWith('/fonts/') || pathname.startsWith('/icons/')
+            ? WEEK
+            : REVALIDATE
         return file
       }
       // A missing file with an extension is a real 404, not a client route.
