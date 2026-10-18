@@ -44,6 +44,43 @@ await addSchool(db, {
   lat: 48.9,
   lng: 2.21,
 })
+// Many route proposals: the admin tab must stay usable (one map at a time, a page at a time).
+await db.insert(schema.routeProposals).values(
+  Array.from({ length: 40 }, (_, i) => ({
+    url: `https://press.example/cortege-${i}`,
+    domain: 'press.example',
+    city: 'Lille',
+    citycode: '59350',
+    day: '2026-10-13',
+    timing: 'announced',
+    title: `Cortège numéro ${i}`,
+    places: [
+      {
+        name: 'Place A',
+        quote: '… Place A …',
+        lng: 3.07,
+        lat: 50.63,
+        status: 'ok' as const,
+        label: null,
+      },
+      {
+        name: 'Rue B',
+        quote: '… Rue B …',
+        lng: 3.06,
+        lat: 50.636,
+        status: 'ok' as const,
+        label: null,
+      },
+    ],
+    line: [
+      [3.07, 50.63],
+      [3.06, 50.636],
+    ] as Array<[number, number]>,
+    lineKm: 1.2,
+    warnings: i % 3 === 0 ? ['Lieu incertain : Rue B (à vérifier sur la carte)'] : [],
+    groupKey: `59350|2026-10-${String(10 + (i % 20)).padStart(2, '0')}`,
+  })),
+)
 await addReport(db, {
   schoolUai: lille,
   status: 'blocked',
