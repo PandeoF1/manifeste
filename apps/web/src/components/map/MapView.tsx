@@ -325,6 +325,9 @@ export default function MapView({
       pitchWithRotate: false,
     })
     mapRef.current = map
+    // The style is the light positron one: recolour it as soon as its layers exist, before the
+    // first tiles are drawn, so a dark theme never flashes the light map ('load' comes later).
+    map.once('style.load', () => styleBase(map, MAP_BASES[latest.current.theme]))
     map.touchZoomRotate.disableRotation()
     // Bottom right, away from the Report button and the menu. Bottom controls stack upwards:
     // the last one added is the top one (theme, zoom, then geolocation at the bottom).
@@ -797,6 +800,7 @@ export default function MapView({
       <div
         ref={containerRef}
         className="h-full w-full"
+        style={{ backgroundColor: MAP_BASES[theme].background }}
         role="region"
         aria-label="Carte des lycées et des facs concernés. Une liste textuelle est disponible à côté de la carte."
       />

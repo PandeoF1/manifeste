@@ -33,6 +33,8 @@ RUN cd apps/server && bun run build \
 FROM oven/bun:${BUN_VERSION}-slim AS runtime
 WORKDIR /app
 COPY --from=build /src/apps/server/dist ./
+# `pg` stays out of the bundle so the OpenTelemetry preload can instrument it; it is the only runtime package.
+RUN echo '{"dependencies":{"pg":"8.23.1"}}' > package.json && bun install --production && rm -f bun.lock
 COPY --from=build /src/packages/db/migrations ./migrations
 COPY --from=build /src/apps/web/dist ./web
 ARG APP_VERSION=dev
@@ -53,4 +55,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
   CMD ["bun", "-e", "const r = await fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health/live'); process.exit(r.ok ? 0 : 1)"]
 # Other commands: `bun migrate.js` (one-shot migrations), `bun ingest.js <backfill|reextract|rejudge|rematch|tick> [--run]` (pipeline operations), `bun staff.js invite <email> <name> <role>`.
-CMD ["bun", "index.js"]
+CMD ["bun", "--preload", "./preload.js", "index.js"]

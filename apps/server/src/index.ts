@@ -5,7 +5,7 @@ import { ConfigError, loadConfig } from './config.ts'
 import { createContext } from './context.ts'
 import { defineIngestQueues } from './ingest/jobs.ts'
 import { resolvePreviewEnv } from './preview.ts'
-import { startTelemetry, stopTelemetry } from './telemetry/otel.ts'
+import { stopTelemetry } from './telemetry/otel.ts'
 import { startWorker } from './worker.ts'
 
 let config
@@ -19,7 +19,6 @@ try {
   throw error
 }
 
-startTelemetry(config, config.ROLE)
 const ctx = createContext(config)
 const { log } = ctx
 
