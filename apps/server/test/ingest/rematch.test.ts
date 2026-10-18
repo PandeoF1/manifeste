@@ -71,4 +71,33 @@ describe('rematch of rows without an extraction', () => {
       .where(eq(schema.unmatched.id, vague))
     expect(left?.resolvedAt).toBeNull()
   })
+
+  test('a school abroad is closed as foreign, and a curated alias is attached', async () => {
+    await addSchool(s.ctx.db, {
+      uai: '0490811R',
+      name: "Facultés libres de l'Ouest",
+      city: 'Angers',
+      department: '49',
+      academy: 'Nantes',
+      lat: 47.47,
+      lng: -0.55,
+    })
+    const abroad = await orphan('athénée Maurice Destenay', 'Liège')
+    const catho = await orphan('Catho d’Angers', 'Angers')
+
+    const run = await ops.run({ kind: 'rematch' }, { dryRun: false })
+    expect(run.summary).toMatchObject({ foreign: 1, matched: 1 })
+
+    const [closed] = await s.ctx.db
+      .select()
+      .from(schema.unmatched)
+      .where(eq(schema.unmatched.id, abroad))
+    expect(closed).toMatchObject({ resolution: 'foreign', linkedUai: null, resolvedBy: null })
+    expect(closed?.resolvedAt).not.toBeNull()
+    const [linked] = await s.ctx.db
+      .select()
+      .from(schema.unmatched)
+      .where(eq(schema.unmatched.id, catho))
+    expect(linked).toMatchObject({ resolution: 'linked', linkedUai: '0490811R' })
+  })
 })

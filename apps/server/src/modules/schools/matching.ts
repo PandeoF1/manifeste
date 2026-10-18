@@ -6,6 +6,7 @@
  * `resolve` chains the strategies, from the surest to the loosest; each one applies only when the
  * previous found nothing, and each returns a UAI only when it is unambiguous:
  *   1. memory      the same name and city were linked by a staff member before
+ *      alias       a curated citation of an institution under another name ("Catho d'Angers")
  *   2. name        trigram match on the name without its generic words, plus aliases
  *   3. university  "fac de droit", "IUT", "campus X" in a city with one local university
  *   4. nearby      an exact name in a neighbouring town ("Brossolette" cited in Lyon: Villeurbanne)
@@ -15,6 +16,7 @@ import { sql } from 'drizzle-orm'
 import {
   cleanCitation,
   decodeEntities,
+  findAlias,
   institutionKey,
   isGenericSchoolName,
   isPartOfUniversity,
@@ -37,7 +39,7 @@ export interface CityHit {
   department: string | null
 }
 
-export type ResolveVia = 'memory' | 'name' | 'university' | 'nearby' | 'context'
+export type ResolveVia = 'memory' | 'alias' | 'name' | 'university' | 'nearby' | 'context'
 
 export interface Resolved {
   uai: string
@@ -109,6 +111,9 @@ export class MatchingService {
     const cityName = (city && decodeEntities(city).trim()) || null
     const remembered = options.memory === false ? null : await this.memory(name, cityName)
     if (remembered) return { uai: remembered, via: 'memory' }
+    const aliased = findAlias(name, cityName)
+    // The list is curated by hand: a UAI the directory no longer has must not be returned.
+    if (aliased && (await this.exists(aliased))) return { uai: aliased, via: 'alias' }
     const byName = await this.match(name, cityName)
     if (byName) return { uai: byName.uai, via: 'name' }
     if (cityName) {
@@ -126,6 +131,14 @@ export class MatchingService {
       if (ctx) return { uai: ctx.uai, via: 'context' }
     }
     return null
+  }
+
+  private async exists(uai: string): Promise<boolean> {
+    const [found] = await rows<{ uai: string }>(
+      this.db,
+      sql`select uai from schools where uai = ${uai}`,
+    )
+    return Boolean(found)
   }
 
   /**
@@ -212,7 +225,7 @@ export class MatchingService {
                and split_part(t.name, ' – ', 1) = split_part(s.name, ' – ', 1)
                and t.city_norm = s.city_norm)::int as here
           from schools s
-          where s.level = 'higher' and s.name_norm like 'universite%'
+          where s.level = 'higher' and s.name_norm ~ '(^| )universite'
             and (s.city_norm = ${c}
                  or (s.city_norm like ${c} || ' %' and not exists (select 1 from schools x where x.city_norm = ${c})))
           order by length(s.name), s.uai`,

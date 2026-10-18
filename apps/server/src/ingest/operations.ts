@@ -10,6 +10,7 @@
  *   rematch    try again to find the school of the facts waiting in the staff queue
  */
 import { reanalyse, type JudgeVerdict, type ReanalyseItem } from '@manifeste/ai'
+import { isForeignPlace } from '@manifeste/core'
 import { schema } from '@manifeste/db'
 import { and, eq, gte, inArray, isNull, notExists, sql } from 'drizzle-orm'
 import { errorMessage, type IngestDeps } from './deps.ts'
@@ -17,7 +18,7 @@ import { discoverSource } from './discover.ts'
 import { chunk, mapLimit } from './http.ts'
 import { readItems } from './reader.ts'
 import { computeTier } from './report-store.ts'
-import { decide, findSchool, loadFacts, type Decision } from './resolve-stage.ts'
+import { decide, findSchool, loadFacts, OUTSIDE_FRANCE, type Decision } from './resolve-stage.ts'
 import { linkUnmatched } from './staff-actions.ts'
 import type { IngestService } from './service.ts'
 
@@ -330,6 +331,7 @@ export class IngestOperations {
 
     const judge = this.deps.ai.judge()
     let matched = 0
+    let foreign = 0
     let reports = 0
     const still: Array<{ rowId: string; fact: Awaited<ReturnType<typeof loadFacts>>[number] }> = []
 
@@ -350,7 +352,11 @@ export class IngestOperations {
         .where(eq(schema.extractions.id, fact.id))
       await db
         .update(schema.unmatched)
-        .set({ resolvedAt: new Date(), resolution: 'matched', linkedUai: d.uai ?? null })
+        .set({
+          resolvedAt: new Date(),
+          resolution: d.detail === OUTSIDE_FRANCE ? 'foreign' : d.uai ? 'matched' : 'dismissed',
+          linkedUai: d.uai ?? null,
+        })
         .where(eq(schema.unmatched.id, rowId))
       matched++
       if (d.outcome === 'reported') reports++
@@ -417,7 +423,14 @@ export class IngestOperations {
         url: row.sourceUrl,
       })
       if (uai && (await linkUnmatched(this.deps, row.id, uai, null)).ok) matched++
-      else left.push(row)
+      else if (!uai && isForeignPlace(row.city)) {
+        // A school abroad is not in the directory: closed here, not left for staff.
+        await db
+          .update(schema.unmatched)
+          .set({ resolvedAt: new Date(), resolution: 'foreign', context: null })
+          .where(and(eq(schema.unmatched.id, row.id), isNull(schema.unmatched.resolvedAt)))
+        foreign++
+      } else left.push(row)
     }
     if (useAi && left.length > 0) {
       const chain = this.deps.ai.reanalyseChain()
@@ -448,6 +461,6 @@ export class IngestOperations {
       await this.deps.aiUsage.flush()
     }
     const total = open.length + orphans.length
-    return { waiting: total, matched, reports, stillUnmatched: total - matched }
+    return { waiting: total, matched, foreign, reports, stillUnmatched: total - matched - foreign }
   }
 }
