@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:tes
 import { createAi, createMeter } from '@manifeste/ai'
 import { readSettings } from '@manifeste/core'
 import { schema } from '@manifeste/db'
+import { plausibleDay } from '../../src/ingest/routes-stage.ts'
 import { IngestService } from '../../src/ingest/service.ts'
 import { startTestServer, type TestServer } from '../helpers.ts'
 import { NOW, aiConfig, fetchFn, geminiFetch, page, rss, world } from './world.ts'
@@ -18,13 +19,14 @@ const ARTICLE = 'https://press.example/cortege-lille'
 const body = [
   '<p>Les lycéens de Lille défileront mardi 13 octobre : le cortège partira de la place de la République à 14 heures, passera par la rue Nationale, puis rejoindra la Grand-Place.</p>',
   '<p>Le parcours a été communiqué à la préfecture ce lundi par les organisateurs, qui attendent plusieurs milliers de personnes.</p>',
-  '<p>Plusieurs établissements de la métropole lilloise appellent à rejoindre le rassemblement dès la fin de la matinée.</p>',
+  '<p>Plusieurs établissements de la métropole lilloise appellent à rejoindre le rassemblement dès la fin de la matinée, et un groupe ira à pied jusqu’à Roubaix.</p>',
 ].join('')
 const march = {
   city: 'Lille',
   day: '2026-10-13',
   timing: 'annonce',
   title: 'Marche des lycéens',
+  lyceens_etudiants_preuve: 'Les lycéens de Lille défileront mardi 13 octobre',
   places: [
     {
       name: 'place de la République',
@@ -63,9 +65,11 @@ const GEO: Record<string, [number, number]> = {
 const geoFetch = async (url: string): Promise<Response> => {
   const u = new URL(url)
   if (u.hostname === 'geo.api.gouv.fr')
-    return Response.json([
-      { nom: 'Lille', code: '59350', centre: { coordinates: [3.0573, 50.6292] } },
-    ])
+    return Response.json(
+      u.searchParams.get('nom') === 'Roubaix'
+        ? [{ nom: 'Roubaix', code: '59512', centre: { coordinates: [3.17, 50.69] } }]
+        : [{ nom: 'Lille', code: '59350', centre: { coordinates: [3.0573, 50.6292] } }],
+    )
   if (u.hostname === 'api-adresse.data.gouv.fr') {
     const q = u.searchParams.get('q') ?? ''
     const hit = Object.entries(GEO).find(([name]) => q.startsWith(name))
@@ -245,5 +249,67 @@ describe('route detection', () => {
     const r = await ingest.routes()
     expect(r).toMatchObject({ calls: 0, skipped: 1 })
     expect(routeCalls).toBe(0)
+  })
+})
+
+describe('a march that is a trip between towns', () => {
+  test('a place that is another commune is refused, flagged, and no line is drawn', async () => {
+    const trip = {
+      ...march,
+      places: [
+        {
+          name: 'place de la République',
+          quote: 'le cortège partira de la place de la République à 14 heures',
+        },
+        { name: 'Roubaix', quote: 'un groupe ira à pied jusqu’à Roubaix' },
+      ],
+    }
+    ingest.deps.ai = routesAi([trip])
+    ingest.deps.fetchFn = geoFetch
+    await ingest.routes()
+    const [p] = await proposals()
+    expect(p?.places.map((x) => x.status)).toEqual(['ok', 'none'])
+    expect(p?.warnings.some((w) => w.includes('autre commune'))).toBe(true)
+    expect(p?.line).toBeNull()
+  })
+})
+
+describe('the same dispatch printed twice', () => {
+  test('one proposal for the same march told by two outlets; another route stays', async () => {
+    ingest.deps.ai = routesAi()
+    ingest.deps.fetchFn = geoFetch
+    world.feed = rss([
+      {
+        guid: 'c1',
+        title: 'Manifestation des lycéens : le parcours du cortège à Lille',
+        link: ARTICLE,
+      },
+      {
+        guid: 'c3',
+        title: 'Manifestation des lycéens : le parcours à Lille (bis)',
+        link: `${ARTICLE}-bis`,
+      },
+    ])
+    world.pages[`${ARTICLE}-bis`] = world.pages[ARTICLE] ?? ''
+    await ingest.discover(sourceId, 'manual')
+    await ingest.read()
+    const out = await ingest.routes()
+    expect(out.calls).toBe(1)
+    expect(await proposals()).toHaveLength(1)
+    // Both articles are marked as read, so neither is analysed again.
+    expect(await ingest.routes()).toMatchObject({ scanned: 0, calls: 0 })
+  })
+})
+
+describe('the day of a march', () => {
+  const published = new Date('2026-10-15T08:00:00Z')
+  test('a day close to the article is plausible; 1986, 2020 and next year are not', () => {
+    expect(plausibleDay('2026-10-15', published)).toBe(true)
+    expect(plausibleDay('2026-10-17', published)).toBe(true)
+    expect(plausibleDay('2026-10-06', published)).toBe(true)
+    expect(plausibleDay('2020-10-08', published)).toBe(false)
+    expect(plausibleDay('1986-12-04', published)).toBe(false)
+    expect(plausibleDay('2027-10-15', published)).toBe(false)
+    expect(plausibleDay(null, published)).toBe(false)
   })
 })

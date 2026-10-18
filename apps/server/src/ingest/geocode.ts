@@ -16,6 +16,8 @@ export interface Commune {
   code: string
   lng: number
   lat: number
+  /** Departments of the other communes with the very same name (Clermont: Oise, Puy-de-Dôme…). */
+  homonyms: string[]
 }
 
 const BAN = 'https://api-adresse.data.gouv.fr/search/'
@@ -39,6 +41,15 @@ export const fold = (s: string): string =>
     .replace(/\p{M}/gu, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+
+/** Same commune name, whatever the case, accents, hyphens and "St"/"Saint". */
+export const sameName = (a: string, b: string): boolean => {
+  const plain = (s: string) =>
+    fold(s)
+      .replace(/\bste\b/g, 'sainte')
+      .replace(/\bst\b/g, 'saint')
+  return plain(a) === plain(b)
+}
 
 /** The words of a place name that tell it apart from every other of its kind. */
 export const distinctive = (name: string): string[] =>
@@ -103,23 +114,50 @@ export class Geocoder {
     let found = this.communes.get(key)
     if (!found) {
       found = this.json<
-        Array<{ nom: string; code: string; centre?: { coordinates: [number, number] } }>
+        Array<{
+          nom: string
+          code: string
+          codeDepartement?: string
+          centre?: { coordinates: [number, number] }
+        }>
       >(
-        `${GEO}?nom=${encodeURIComponent(name)}&fields=nom,code,centre&boost=population&limit=1`,
+        `${GEO}?nom=${encodeURIComponent(name)}&fields=nom,code,codeDepartement,centre&boost=population&limit=5`,
       ).then((rows) => {
-        const c = Array.isArray(rows) ? rows[0] : undefined
+        // The name must be the commune's own: a search for "Tournai" or "Liège" (Belgian towns)
+        // also returns "Tournai-sur-Dive" and "Le Liège", which are not the place meant.
+        const same = (Array.isArray(rows) ? rows : []).filter((r) => sameName(r.nom, name))
+        const c = same[0]
         return c?.centre
           ? {
               name: c.nom,
               code: c.code,
               lng: c.centre.coordinates[0],
               lat: c.centre.coordinates[1],
+              homonyms: same
+                .slice(1)
+                .flatMap((r) => (r.codeDepartement ? [r.codeDepartement] : [])),
             }
           : null
       })
       this.communes.set(key, found)
     }
     return found
+  }
+
+  /**
+   * "Brest" in a march of Morlaix is the other town, not a place of Morlaix: a trip between
+   * communes is not a march. Only names that say nothing else (no street, square, station…)
+   * are looked up.
+   */
+  async isOtherCommune(name: string, commune: Commune): Promise<boolean> {
+    if (
+      fold(name)
+        .split(' ')
+        .some((w) => GENERIC.has(w) && w.length > 2)
+    )
+      return false
+    const other = await this.commune(name)
+    return other !== null && other.code !== commune.code
   }
 
   place(name: string, commune: Commune): Promise<ProposalPlace> {

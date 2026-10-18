@@ -5,7 +5,7 @@ const items = [
   {
     id: '0',
     publishedOn: '2026-10-16',
-    text: 'Samedi 17 octobre à Montpellier, le cortège partira de la place de la Comédie à 14 h, passera par le boulevard du Jeu-de-Paume et rejoindra la gare Saint-Roch.',
+    text: 'Samedi 17 octobre à Montpellier, avec les lycéens en tête, le cortège partira de la place de la Comédie à 14 h, passera par le boulevard du Jeu-de-Paume et rejoindra la gare Saint-Roch.',
   },
 ]
 const march = (over: Record<string, unknown> = {}) => ({
@@ -13,6 +13,7 @@ const march = (over: Record<string, unknown> = {}) => ({
   day: '2026-10-17',
   timing: 'annonce',
   title: 'Marche',
+  lyceens_etudiants_preuve: 'avec les lycéens en tête',
   places: [
     { name: 'place de la Comédie', quote: 'le cortège partira de la place de la Comédie à 14 h' },
     { name: 'gare Saint-Roch', quote: 'rejoindra la gare Saint-Roch' },
@@ -26,6 +27,16 @@ describe('route detection answers', () => {
     const [m] = parseRoutes(wrap(march()), items)
     expect(m).toMatchObject({ city: 'Montpellier', day: '2026-10-17', timing: 'announced' })
     expect(m?.places.map((p) => p.name)).toEqual(['place de la Comédie', 'gare Saint-Roch'])
+  })
+
+  test('drops a march when nothing says that lycéens or students take part', () => {
+    expect(parseRoutes(wrap(march({ lyceens_etudiants_preuve: null })), items)).toEqual([])
+    expect(
+      parseRoutes(
+        wrap(march({ lyceens_etudiants_preuve: 'les étudiants ouvrent la marche' })),
+        items,
+      ),
+    ).toEqual([])
   })
 
   test('drops a place whose quote is invented, and a march left with one place', () => {

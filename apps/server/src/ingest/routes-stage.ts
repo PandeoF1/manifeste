@@ -39,6 +39,36 @@ export const worthReading = (text: string): boolean =>
 const parisDay = (d: Date): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d)
 
+const DAY_MS = 86_400_000
+
+/** A route is told apart by where it starts and where it ends. */
+const routeSignature = (places: ReadonlyArray<{ name: string }>): string =>
+  `${fold(places[0]?.name ?? '')}>${fold(places.at(-1)?.name ?? '')}`
+
+/** Another proposal (decided or not) for the same commune and day, from the same start to the same end. */
+async function alreadyProposed(
+  db: IngestDeps['db'],
+  groupKey: string,
+  places: ReadonlyArray<{ name: string }>,
+): Promise<boolean> {
+  const rows = await db
+    .select({ places: schema.routeProposals.places })
+    .from(schema.routeProposals)
+    .where(eq(schema.routeProposals.groupKey, groupKey))
+  const signature = routeSignature(places)
+  return rows.some((r) => routeSignature(r.places) === signature)
+}
+
+/**
+ * The day the model read must make sense next to the article's date: a march of 1986 or of 2020
+ * mentioned in passing is not today's march. Outside this window the day is dropped (and said).
+ */
+export const plausibleDay = (day: string | null, publishedAt: Date): boolean => {
+  if (!day) return false
+  const gap = (new Date(`${day}T12:00:00Z`).getTime() - publishedAt.getTime()) / DAY_MS
+  return gap >= -14 && gap <= 21
+}
+
 export const groupKeyOf = (citycode: string | null, city: string, day: string | null): string =>
   `${citycode ?? fold(city).replace(/ /g, '-')}|${day ?? 'sans-date'}`
 
@@ -120,6 +150,11 @@ export async function routesSweep(deps: IngestDeps): Promise<RoutesSweepResult> 
       const domain = article && (article.publisherDomain ?? extractDomain(article.url))
       if (!article || !domain) continue
       const proposal = await buildProposal(deps, geocoder, m, article.publishedAt)
+      // The same dispatch is printed by many outlets: one proposal is enough.
+      if (await alreadyProposed(db, proposal.groupKey, proposal.places)) {
+        found.set(article.url, found.get(article.url) ?? 0)
+        continue
+      }
       const inserted = await db
         .insert(schema.routeProposals)
         .values({
@@ -160,17 +195,31 @@ async function buildProposal(
   const commune = await geocoder.commune(m.city)
   const warnings: string[] = []
   const places: ProposalPlace[] = []
+  const missing = { quote: '', lng: null, lat: null, label: null, status: 'none' as const }
   for (const p of m.places) {
-    const fix = commune
-      ? await geocoder.place(p.name, commune)
-      : { name: p.name, quote: '', lng: null, lat: null, label: null, status: 'none' as const }
+    // A place that is another commune: the march goes between towns, which a map of one cannot show.
+    if (commune && (await geocoder.isOtherCommune(p.name, commune))) {
+      places.push({ ...missing, name: p.name, quote: p.quote })
+      warnings.push(`« ${p.name} » est une autre commune : trajet entre villes, pas un cortège`)
+      continue
+    }
+    const fix = commune ? await geocoder.place(p.name, commune) : { ...missing, name: p.name }
     places.push({ ...fix, name: p.name, quote: p.quote })
   }
   if (!commune) warnings.push(`Commune « ${m.city} » introuvable`)
+  if (commune && commune.homonyms.length > 0)
+    warnings.push(
+      `Plusieurs communes s’appellent « ${commune.name} » (aussi dans : ${commune.homonyms.join(', ')}) : vérifie que c’est la bonne`,
+    )
   const walk = await walkPlaces(deps.fetchFn, places)
   warnings.push(...walk.warnings)
   const route = walk.route
-  const day = m.day ?? (m.timing === 'ongoing' ? parisDay(publishedAt) : null)
+  let day = m.day
+  if (day && !plausibleDay(day, publishedAt)) {
+    warnings.push(`Date écartée (${day}) : trop éloignée de la date de l’article`)
+    day = null
+  }
+  day ??= m.timing === 'ongoing' ? parisDay(publishedAt) : null
   if (!day) warnings.push('Date du cortège absente de l’article')
   return {
     city: commune?.name ?? m.city,

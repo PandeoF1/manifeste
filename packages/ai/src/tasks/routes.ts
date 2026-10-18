@@ -19,6 +19,12 @@ const wireMarch = {
   day: Nullable(t.String({ description: 'AAAA-MM-JJ ou null' })),
   timing: Enum(Object.keys(WIRE_TIMING) as Array<keyof typeof WIRE_TIMING>),
   title: t.String(),
+  lyceens_etudiants_preuve: Nullable(
+    t.String({
+      description:
+        'Extrait exact (≤ 200 caractères) montrant que des lycéens ou des étudiants participent à CE cortège ; null sinon.',
+    }),
+  ),
   places: t.Array(Strict(wirePlace)),
 }
 const answerSchema = Strict({
@@ -101,6 +107,10 @@ export function parseRoutes(raw: unknown, items: readonly RoutesItem[]): Detecte
     if (text == null) continue
     for (const m of a.marches) {
       if (!(m.timing in WIRE_TIMING)) continue
+      // Only marches of the movement: the article must say that lycéens or students take part, and
+      // the sentence that says so must be in the text (a taxi or farmers' march is not ours).
+      const proof = m.lyceens_etudiants_preuve?.replace(/\s+/g, ' ').trim()
+      if (!proof || !text.includes(norm(proof))) continue
       const city = m.city.trim().slice(0, 80)
       if (!city || !text.includes(norm(city))) continue
       const places: DetectedPlace[] = []
