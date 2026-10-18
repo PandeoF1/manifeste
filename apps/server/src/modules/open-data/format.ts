@@ -21,7 +21,7 @@ export type Format = (typeof FORMATS)[number]
 export const LICENCE = 'CC BY 4.0'
 export const ATTRIBUTION = 'Manifeste (manifeste.pandeo.fr)'
 /** The data dictionary: every column and every value, in plain text. */
-export const DOCUMENTATION = 'https://manifeste.pandeo.fr/api/donnees?vue=dictionnaire&format=txt'
+export const DOCUMENTATION = 'https://manifeste.pandeo.fr/api/open-data?view=dictionary&format=txt'
 
 type Cell = string | number | boolean | null | undefined
 export type Row = Record<string, Cell | Record<string, unknown> | unknown[]>

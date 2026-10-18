@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Check, Copy, Download } from 'lucide-react'
+import { API_VIEW } from '../../queries/donnees'
 
 const SITE = 'https://manifeste.pandeo.fr'
 
 interface Dataset {
-  vue: string
+  vue: keyof typeof API_VIEW
   titre: string
   contenu: string
   formats: Array<'csv' | 'json' | 'geojson'>
@@ -93,7 +94,7 @@ export function ExportSection() {
     <div className="space-y-6">
       <p className="rounded-lg border border-border bg-surface p-3 text-sm">
         <strong>Que veulent dire les colonnes ?</strong> Le{' '}
-        <a className="font-semibold underline" href="/api/donnees?vue=dictionnaire&format=txt">
+        <a className="font-semibold underline" href="/api/open-data?view=dictionary&format=txt">
           dictionnaire des données
         </a>{' '}
         définit chaque champ et chaque valeur : <code>categorie</code> (bloque, filtrant,
@@ -111,7 +112,7 @@ export function ExportSection() {
               {d.formats.map((f) => (
                 <a
                   key={f}
-                  href={`/api/donnees?vue=${d.vue}&format=${f}&telecharger=1`}
+                  href={`/api/open-data?view=${API_VIEW[d.vue]}&format=${f}&download=1`}
                   download
                   className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-semibold hover:bg-surface"
                   aria-label={`Télécharger « ${d.titre} » au format ${LABEL[f]}`}
@@ -128,14 +129,14 @@ export function ExportSection() {
         <h3 className="font-semibold">Pour les développeurs</h3>
         <p className="text-sm">
           Les mêmes fichiers sont disponibles à une adresse stable, sans clé ni inscription. Les
-          paramètres : <code>vue</code> (resume, jours, departements, academies, etablissements,
-          signalements, dictionnaire), <code>format</code> (json, csv, geojson pour les
+          paramètres : <code>view</code> (summary, days, departments, academies, schools, reports,
+          dictionary), <code>format</code> (json, csv, geojson pour les
           établissements ; txt pour le dictionnaire). La réponse est mise en cache cinq minutes ;
           merci de ne pas interroger plus souvent.
         </p>
         <CopyBox
           label="Copier la commande"
-          code={`curl "${SITE}/api/donnees?vue=jours"\ncurl "${SITE}/api/donnees?vue=etablissements&format=geojson" -o etablissements.geojson`}
+          code={`curl "${SITE}/api/open-data?view=days"\ncurl "${SITE}/api/open-data?view=schools&format=geojson" -o etablissements.geojson`}
         />
         <p className="text-sm text-muted">
           Les fichiers CSV utilisent le point-virgule et l'encodage UTF-8 : ils s'ouvrent

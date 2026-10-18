@@ -1,15 +1,13 @@
 /**
- * Open data at /api/donnees (CC BY 4.0, open to every origin, 5-minute CDN cache):
- *   vue    : resume, jours, departements, academies, etablissements, signalements,
- *            dictionnaire (what every column and value means; format json, csv or txt)
- *   format : json (default), csv, geojson (etablissements only)
- *   telecharger=1 : force a file download
- * Parameter names, view names and the `erreur` key are the published contract, kept in French.
+ * Open data at /api/open-data (CC BY 4.0, open to every origin, 5-minute CDN cache):
+ *   view     : summary, days, departments, academies, schools, reports,
+ *              dictionary (what every column and value means; format json, csv or txt)
+ *   format   : json (default), csv, geojson (schools only)
+ *   download : 1 forces a file download
+ * Parameters, view names, error messages and the JSON envelope are English; the columns and
+ * values are the published French ones (see the dictionary).
  *
- * English alias, same data: /api/open-data?view=&format=&download=1, with the views summary,
- * days, departments, academies, schools, reports, dictionary. Parameters, view names, error
- * messages and the JSON envelope are English; the columns and values stay the published French
- * ones (a second contract to keep in sync would help nobody).
+ * /api/donnees, the former French path, redirects here with its parameters translated.
  */
 import { Elysia, t } from 'elysia'
 import {
@@ -33,15 +31,13 @@ const COMMON = {
   'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
 }
 
-type Lang = 'fr' | 'en'
-
-const failIn = (lang: Lang) => (status: number, message: string) =>
-  new Response(JSON.stringify({ [lang === 'fr' ? 'erreur' : 'error']: message }), {
+const fail = (status: number, message: string) =>
+  new Response(JSON.stringify({ error: message }), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
   })
 
-/** English view names of the alias, mapped to the published ones. */
+/** English view names, mapped to the published (French) ones. */
 export const EN_VIEWS: Record<string, string> = {
   summary: 'resume',
   days: 'jours',
@@ -53,33 +49,23 @@ export const EN_VIEWS: Record<string, string> = {
 }
 
 const MESSAGES = {
-  fr: {
-    dictFormat: 'format inconnu pour le dictionnaire (json, csv, txt)',
-    view: 'vue inconnue (resume, jours, departements, academies, etablissements, signalements, dictionnaire)',
-    format: 'format inconnu (json, csv, geojson)',
-    geojson: 'geojson : seulement pour la vue « etablissements »',
-    db: 'base indisponible, réessaie dans un instant',
-  },
-  en: {
     dictFormat: 'unknown format for the dictionary (json, csv, txt)',
     view: 'unknown view (summary, days, departments, academies, schools, reports, dictionary)',
     format: 'unknown format (json, csv, geojson)',
     geojson: 'geojson: only for the "schools" view',
     db: 'database unavailable, try again in a moment',
-  },
 } as const
 
 interface Request {
-  /** The view as the caller wrote it (in the caller's language). */
+  /** The view as the caller wrote it. */
   view: string
   format: string
   download: boolean
 }
 
-async function serve(service: OpenDataService, req: Request, lang: Lang): Promise<Response> {
-  const fail = failIn(lang)
-  const text = MESSAGES[lang]
-  const view = lang === 'en' ? (EN_VIEWS[req.view] ?? req.view) : req.view
+async function serve(service: OpenDataService, req: Request): Promise<Response> {
+  const text = MESSAGES
+  const view = EN_VIEWS[req.view] ?? req.view
   const format = req.format
   // The data dictionary: no database, three formats (json, csv, txt).
   if (view === 'dictionnaire') {
@@ -127,71 +113,32 @@ async function serve(service: OpenDataService, req: Request, lang: Lang): Promis
     })
   }
   const generated = new Date().toISOString()
-  const envelope =
-    lang === 'fr'
-      ? {
-          licence: LICENCE,
-          attribution: ATTRIBUTION,
-          documentation: DOCUMENTATION,
-          vue: view,
-          genere_le: generated,
-          donnees: data,
-        }
-      : {
-          license: LICENCE,
-          attribution: ATTRIBUTION,
-          documentation: DOCUMENTATION,
-          view: req.view,
-          generated_at: generated,
-          data,
-        }
+  const envelope = {
+      license: LICENCE,
+      attribution: ATTRIBUTION,
+      documentation: DOCUMENTATION,
+      view: req.view,
+      generated_at: generated,
+      data,
+  }
   return new Response(JSON.stringify(envelope), {
     headers: { ...COMMON, ...download, 'content-type': 'application/json; charset=utf-8' },
   })
 }
 
+/** Former French parameters and view names, translated for the redirect. */
+const FR_TO_EN_VIEWS = Object.fromEntries(Object.entries(EN_VIEWS).map(([en, fr]) => [fr, en]))
+
 export const openDataModule = (service: OpenDataService) =>
   new Elysia({ name: 'module.open-data', prefix: '/api' })
     .get(
-      '/donnees',
-      ({ query }) =>
-        serve(
-          service,
-          {
-            view: query.vue ?? 'resume',
-            format: query.format ?? 'json',
-            download: query.telecharger === '1',
-          },
-          'fr',
-        ),
-      {
-        // Validated by hand so that errors keep the published `{ erreur }` shape.
-        query: t.Object({
-          vue: t.Optional(t.String()),
-          format: t.Optional(t.String()),
-          telecharger: t.Optional(t.String()),
-        }),
-        detail: {
-          tags: ['open-data'],
-          summary: 'Open data (CC BY 4.0): summary, days, zones, schools, reports',
-          description:
-            'Views: resume, jours, departements, academies, etablissements, signalements, dictionnaire (the data dictionary: json, csv or txt). ' +
-            'Formats: json, csv (semicolon, UTF-8 with BOM, for French Excel), geojson (etablissements only).',
-        },
-      },
-    )
-    .get(
       '/open-data',
       ({ query }) =>
-        serve(
-          service,
-          {
-            view: query.view ?? 'summary',
-            format: query.format ?? 'json',
-            download: query.download === '1',
-          },
-          'en',
-        ),
+        serve(service, {
+          view: query.view ?? 'summary',
+          format: query.format ?? 'json',
+          download: query.download === '1',
+        }),
       {
         query: t.Object({
           view: t.Optional(t.String()),
@@ -200,12 +147,34 @@ export const openDataModule = (service: OpenDataService) =>
         }),
         detail: {
           tags: ['open-data'],
-          summary: 'Open data, English alias of /api/donnees',
+          summary: 'Open data (CC BY 4.0): summary, days, zones, schools, reports',
           description:
-            'The same data as /api/donnees with English parameters and view names. ' +
-            'Views: summary, days, departments, academies, schools, reports, dictionary. ' +
-            'Formats: json, csv, geojson (schools only); dictionary: json, csv, txt. ' +
+            'Views: summary, days, departments, academies, schools, reports, dictionary (the data dictionary: json, csv or txt). ' +
+            'Formats: json, csv (semicolon, UTF-8 with BOM, for French Excel), geojson (schools only). ' +
             'Add download=1 to get a file. Columns and values are the published French ones (see the dictionary).',
+        },
+      },
+    )
+    .get(
+      '/donnees',
+      ({ query, redirect }) => {
+        const params = new URLSearchParams()
+        if (query.vue) params.set('view', FR_TO_EN_VIEWS[query.vue] ?? query.vue)
+        if (query.format) params.set('format', query.format)
+        if (query.telecharger) params.set('download', query.telecharger)
+        const qs = params.toString()
+        return redirect(`/api/open-data${qs ? `?${qs}` : ''}`, 301)
+      },
+      {
+        query: t.Object({
+          vue: t.Optional(t.String()),
+          format: t.Optional(t.String()),
+          telecharger: t.Optional(t.String()),
+        }),
+        detail: {
+          tags: ['open-data'],
+          summary: 'Former French path of /api/open-data (redirects, parameters translated)',
+          deprecated: true,
         },
       },
     )

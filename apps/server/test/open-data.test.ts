@@ -67,18 +67,18 @@ afterAll(() => s.close())
 type Loose = any
 
 const donnees = async (query: string): Promise<{ res: Response; body: Loose }> => {
-  const res = await s.request(`/api/donnees${query}`)
+  const res = await s.request(`/api/open-data${query}`)
   return { res, body: await res.json() }
 }
 
-describe('/api/donnees', () => {
-  test('summary: counts, peak, current status and origins, in the published French shape', async () => {
-    const { res, body } = await donnees('?vue=resume')
+describe('/api/open-data', () => {
+  test('summary: counts, peak, current status and origins, with the published French columns', async () => {
+    const { res, body } = await donnees('?view=summary')
     expect(res.status).toBe(200)
     expect(res.headers.get('access-control-allow-origin')).toBe('*')
     expect(res.headers.get('cache-control')).toContain('s-maxage=300')
-    expect(body).toMatchObject({ licence: 'CC BY 4.0', vue: 'resume' })
-    const d = body.donnees
+    expect(body).toMatchObject({ license: 'CC BY 4.0', view: 'summary' })
+    const d = body.data
     expect(d).toMatchObject({
       signalements: 4,
       etablissements: 2,
@@ -97,8 +97,8 @@ describe('/api/donnees', () => {
   })
 
   test('days: one row per calendar day, French column names and values', async () => {
-    const { body } = await donnees('?vue=jours')
-    const rows = body.donnees as Array<Record<string, number | string>>
+    const { body } = await donnees('?view=days')
+    const rows = body.data as Array<Record<string, number | string>>
     expect(rows.length).toBeGreaterThanOrEqual(1)
     expect(Object.keys(rows[0] ?? {}).slice(0, 4)).toEqual([
       'jour',
@@ -112,18 +112,18 @@ describe('/api/donnees', () => {
   })
 
   test('zones: departments and academies, first column named after the zone', async () => {
-    const dep = (await donnees('?vue=departements')).body.donnees as Array<Record<string, unknown>>
+    const dep = (await donnees('?view=departments')).body.data as Array<Record<string, unknown>>
     expect(Object.keys(dep[0] ?? {})[0]).toBe('departement')
     expect(dep.map((r) => r.departement).sort()).toEqual(['13', '59'])
     const lille = dep.find((r) => r.departement === '59')
     expect(lille).toMatchObject({ etablissements: 1, lycees: 1, facs: 0, bloques_maintenant: 1 })
-    const acad = (await donnees('?vue=academies')).body.donnees as Array<Record<string, unknown>>
+    const acad = (await donnees('?view=academies')).body.data as Array<Record<string, unknown>>
     expect(Object.keys(acad[0] ?? {})[0]).toBe('academie')
   })
 
   test('schools: only the ones that were blocked or filtering, with live status', async () => {
-    const { body } = await donnees('?vue=etablissements')
-    const rows = body.donnees as Array<Record<string, unknown>>
+    const { body } = await donnees('?view=schools')
+    const rows = body.data as Array<Record<string, unknown>>
     expect(rows.map((r) => r.uai).sort()).toEqual([uai.lille, uai.marseille].sort())
     const lille = rows.find((r) => r.uai === uai.lille)
     expect(lille).toMatchObject({
@@ -142,8 +142,8 @@ describe('/api/donnees', () => {
   })
 
   test('reports: validated ones only, on-site reports carry no source', async () => {
-    const { body } = await donnees('?vue=signalements')
-    const rows = body.donnees as Array<Record<string, unknown>>
+    const { body } = await donnees('?view=reports')
+    const rows = body.data as Array<Record<string, unknown>>
     expect(rows).toHaveLength(4)
     const onSite = rows.find((r) => r.origine === 'utilisateur')
     expect(onSite).toMatchObject({ site_source: null, lien_source: null, statut: 'bloque' })
@@ -151,7 +151,7 @@ describe('/api/donnees', () => {
   })
 
   test('CSV and GeoJSON exports', async () => {
-    const csv = await s.request('/api/donnees?vue=jours&format=csv&telecharger=1')
+    const csv = await s.request('/api/open-data?view=days&format=csv&download=1')
     expect(csv.headers.get('content-type')).toContain('text/csv')
     expect(csv.headers.get('content-disposition')).toMatch(
       /^attachment; filename="manifeste-jours-\d{4}-\d{2}-\d{2}\.csv"$/,
@@ -165,64 +165,47 @@ describe('/api/donnees', () => {
         .startsWith('\ufeffjour;etablissements;'),
     ).toBe(true)
 
-    const geo = await s.request('/api/donnees?vue=etablissements&format=geojson')
+    const geo = await s.request('/api/open-data?view=schools&format=geojson')
     expect(geo.headers.get('content-type')).toContain('application/geo+json')
     const json = (await geo.json()) as { features: Array<{ geometry: { coordinates: number[] } }> }
     expect(json.features).toHaveLength(2)
   })
 
-  test('errors keep the published { erreur } shape', async () => {
-    for (const query of ['?vue=users', '?format=xml', '?vue=jours&format=geojson']) {
-      const res = await s.request(`/api/donnees${query}`)
+  test('errors answer in English with an { error } key', async () => {
+    for (const query of ['?view=users', '?format=xml', '?view=days&format=geojson']) {
+      const res = await s.request(`/api/open-data${query}`)
       expect(res.status).toBe(400)
-      expect(Object.keys((await res.json()) as object)).toEqual(['erreur'])
+      expect(Object.keys((await res.json()) as object)).toEqual(['error'])
     }
   })
 
   test('the data dictionary is served in json, csv and plain text, without touching the database', async () => {
-    const json = await s.request('/api/donnees?vue=dictionnaire')
+    const json = await s.request('/api/open-data?view=dictionary')
     expect(json.status).toBe(200)
     expect(json.headers.get('access-control-allow-origin')).toBe('*')
     const body = (await json.json()) as { vues: Array<{ vue: string }>; licence: string }
     expect(body.licence).toBe('CC BY 4.0')
     expect(body.vues.map((v) => v.vue)).toContain('etablissements')
 
-    const txt = await s.request('/api/donnees?vue=dictionnaire&format=txt')
+    const txt = await s.request('/api/open-data?view=dictionary&format=txt')
     expect(txt.headers.get('content-type')).toContain('text/plain')
     expect(await txt.text()).toContain('collecteur')
 
-    const csv = await s.request('/api/donnees?vue=dictionnaire&format=csv')
+    const csv = await s.request('/api/open-data?view=dictionary&format=csv')
     expect(csv.headers.get('content-type')).toContain('text/csv')
     expect(await csv.text()).toContain('origines')
 
-    const bad = await s.request('/api/donnees?vue=dictionnaire&format=geojson')
+    const bad = await s.request('/api/open-data?view=dictionary&format=geojson')
     expect(bad.status).toBe(400)
   })
 
-  test('the English alias serves the same data with English parameters and envelope', async () => {
-    const res = await s.request('/api/open-data')
-    expect(res.status).toBe(200)
-    const summary = (await res.json()) as Loose
-    expect(summary).toMatchObject({ license: 'CC BY 4.0', view: 'summary' })
-    expect(summary.data.etablissements).toBe(2)
-
-    const fr = (await donnees('?vue=etablissements')).body.donnees
-    const en = ((await (await s.request('/api/open-data?view=schools')).json()) as Loose).data
-    expect(en).toEqual(fr)
-
-    const geo = await s.request('/api/open-data?view=schools&format=geojson')
-    expect(geo.headers.get('content-type')).toContain('application/geo+json')
-    const csv = await s.request('/api/open-data?view=days&format=csv&download=1')
-    expect(csv.headers.get('content-disposition')).toContain('manifeste-jours-')
-    const dict = await s.request('/api/open-data?view=dictionary&format=txt')
-    expect(await dict.text()).toContain('DICTIONNAIRE')
-  })
-
-  test('the English alias answers errors in English with an { error } key', async () => {
-    for (const query of ['?view=users', '?format=xml', '?view=days&format=geojson']) {
-      const res = await s.request(`/api/open-data${query}`)
-      expect(res.status).toBe(400)
-      expect(Object.keys((await res.json()) as object)).toEqual(['error'])
-    }
+  test('the former French path redirects with its parameters translated', async () => {
+    const res = await s.request('/api/donnees?vue=etablissements&format=csv&telecharger=1', {
+      redirect: 'manual',
+    })
+    expect(res.status).toBe(301)
+    expect(res.headers.get('location')).toBe('/api/open-data?view=schools&format=csv&download=1')
+    const bare = await s.request('/api/donnees', { redirect: 'manual' })
+    expect(bare.headers.get('location')).toBe('/api/open-data')
   })
 })
