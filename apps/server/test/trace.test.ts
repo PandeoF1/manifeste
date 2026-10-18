@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { context, trace } from '@opentelemetry/api'
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
-import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base'
+import {
+  BasicTracerProvider,
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+} from '@opentelemetry/sdk-trace-base'
 import { MemoryBlobStore } from '../src/storage/blob-store.ts'
 import { inSpan, TracedBlobStore, tracedFetch } from '../src/telemetry/trace.ts'
 
@@ -15,7 +19,10 @@ beforeAll(() => {
 afterAll(() => provider.shutdown())
 
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
-const stub = (fn: () => Promise<Response>): Fetch => () => fn()
+const stub =
+  (fn: () => Promise<Response>): Fetch =>
+  () =>
+    fn()
 
 const finished = () => exporter.getFinishedSpans()
 
@@ -23,11 +30,12 @@ describe('tracedFetch', () => {
   test('a client span with host, path without the query, status and size', async () => {
     exporter.reset()
     const fetchFn = tracedFetch(
-      stub(async () =>
-        new Response('ok', {
-          status: 200,
-          headers: { 'content-length': '2', 'content-type': 'text/html; charset=utf-8' },
-        }),
+      stub(
+        async () =>
+          new Response('ok', {
+            status: 200,
+            headers: { 'content-length': '2', 'content-type': 'text/html; charset=utf-8' },
+          }),
       ),
     )
     await fetchFn('https://example.org/feed.xml?token=secret')
@@ -42,9 +50,12 @@ describe('tracedFetch', () => {
 
   test('a 4xx or 5xx marks the span as an error and still returns the response', async () => {
     exporter.reset()
-    const res = await tracedFetch(stub(async () => new Response('', { status: 503 })))('https://example.org/', {
-      method: 'post',
-    })
+    const res = await tracedFetch(stub(async () => new Response('', { status: 503 })))(
+      'https://example.org/',
+      {
+        method: 'post',
+      },
+    )
     expect(res.status).toBe(503)
     const [span] = finished()
     expect(span?.name).toBe('POST example.org')
@@ -65,7 +76,9 @@ describe('tracedFetch', () => {
 
   test('the span is a child of the active one', async () => {
     exporter.reset()
-    await inSpan('parent', {}, () => tracedFetch(stub(async () => new Response('x')))('https://example.org/'))
+    await inSpan('parent', {}, () =>
+      tracedFetch(stub(async () => new Response('x')))('https://example.org/'),
+    )
     const spans = finished()
     const parent = spans.find((s) => s.name === 'parent')
     const child = spans.find((s) => s.name === 'GET example.org')
