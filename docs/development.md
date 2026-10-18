@@ -77,7 +77,6 @@ so the image carries no `node_modules`.
 ## Operations CLIs
 
 - `bun apps/server/src/cli/ingest.ts <backfill|reextract|rejudge|rematch|tick> [--run]`: pipeline operations (dry run by default).
-- `bun run migrate:supabase [--dry-run]` and `bun run shadow:compare`: see `docs/ops/cutover.md`.
 - `bun apps/server/src/cli/staff.ts invite <email> <name> <role>`: invite staff.
 
 ## Running the app

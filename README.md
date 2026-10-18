@@ -1,6 +1,6 @@
 # Manifeste
 
-![Manifeste](brand/logo-horizontal.png)
+![Manifeste](apps/web/brand/logo-horizontal.png)
 
 A live map of the high schools and universities blocked in France, with a public source behind
 every point. The interface is in French; the code, issues and pull requests can be in French or
@@ -39,8 +39,7 @@ The project is informative, not partisan: no call to demonstrate, only sourced f
 
 ## Stack
 
-The backend moved from Supabase to Bun and Elysia (see [ADR 0001](docs/adr/0001-v2-architecture.md)
-and the [roadmap](docs/v2-roadmap.md)).
+The architecture and the reasons behind it are in [ADR 0001](docs/adr/0001-v2-architecture.md).
 
 - **Front end** (`apps/web`): Vite, React 18, TypeScript (strict), TanStack Router and Query,
   Tailwind CSS v4, MapLibre GL.
@@ -73,10 +72,9 @@ Useful scripts:
 ## Documentation
 
 - [docs/development.md](docs/development.md): layout, local setup, checks, database changes.
-- [docs/adr/0001-v2-architecture.md](docs/adr/0001-v2-architecture.md) and
-  [docs/v2-roadmap.md](docs/v2-roadmap.md): the v2 architecture decisions and the phased plan.
+- [docs/adr/0001-v2-architecture.md](docs/adr/0001-v2-architecture.md): the architecture decisions.
+- [docs/ingestion.md](docs/ingestion.md), [docs/ai.md](docs/ai.md), [docs/movements.md](docs/movements.md), [docs/route-detection.md](docs/route-detection.md): how the pipeline, the AI layer and the movements work.
 - [docs/ops/coolify.md](docs/ops/coolify.md): running production, staging and PR previews.
-- [docs/ops/cutover.md](docs/ops/cutover.md): moving the data and the traffic from Supabase.
 
 ## Contributing and security
 

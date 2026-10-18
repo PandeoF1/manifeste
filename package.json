@@ -39,6 +39,9 @@
     "@types/bun": "^1.4.3"
   },
   "overrides": {
-    "@sinclair/typebox": "0.34.52"
+    "@opentelemetry/sdk-node": "0.223.0",
+    "@opentelemetry/exporter-prometheus": "0.223.0",
+    "@opentelemetry/propagator-jaeger": "2.12.0",
+    "fflate": "0.7.5"
   }
 }

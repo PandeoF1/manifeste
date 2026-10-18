@@ -6,8 +6,6 @@ reviewed SQL migration in `packages/db/migrations/`. Business rules (tiers, date
 live in `packages/core` as pure functions, not in triggers; SQL is used for set-based work
 (search, matching, aggregates).
 
-Tables marked _planned_ arrive with the phase that needs them (see the [roadmap](v2-roadmap.md)).
-
 ## Directory
 
 | Table             | What it holds                                                                                                                                                                                                                                                                                                                                         |
