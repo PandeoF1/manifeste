@@ -8,12 +8,12 @@
     ".": "./src/app.ts"
   },
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "dev": "bun --preload ./src/telemetry/preload.ts --watch src/index.ts",
+    "start": "bun --preload ./src/telemetry/preload.ts src/index.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "bun test",
     "staff": "bun src/cli/staff.ts",
-    "build": "bun build src/index.ts src/cli/staff.ts src/cli/ingest.ts ../../packages/db/src/cli/migrate.ts --target bun --minify-whitespace --minify-syntax --outdir dist --entry-naming [name].[ext] --sourcemap=linked",
+    "build": "bun build src/index.ts src/telemetry/preload.ts src/cli/staff.ts src/cli/ingest.ts ../../packages/db/src/cli/migrate.ts --target bun --external pg --minify-whitespace --minify-syntax --outdir dist --entry-naming [name].[ext] --sourcemap=linked",
     "ingest": "bun src/cli/ingest.ts"
   },
   "dependencies": {
@@ -26,6 +26,7 @@
     "@manifeste/parser": "workspace:*",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/exporter-trace-otlp-proto": "0.223.0",
+    "@opentelemetry/instrumentation-pg": "^0.76.0",
     "@opentelemetry/sdk-node": "0.223.0",
     "@opentelemetry/sdk-trace-base": "2.12.0",
     "@resvg/resvg-wasm": "2.6.2",

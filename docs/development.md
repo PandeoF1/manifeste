@@ -66,7 +66,7 @@ CI fails when the schema and the migrations drift apart.
 
 ## Image
 
-`docker build -t manifeste .` produces one image: `bun index.js` (server), `bun migrate.js`
+`docker build -t manifeste .` produces one image: `bun --preload ./preload.js index.js` (server, the preload starts OpenTelemetry before `pg` loads), `bun migrate.js`
 (one-shot migrations), `bun staff.js …` (staff CLI). The server is bundled with `bun build`,
 so the image carries no `node_modules`.
 
