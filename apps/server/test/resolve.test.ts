@@ -154,6 +154,7 @@ describe('resolve', () => {
   })
 
   test('the city alone never makes a university the answer ("Catho d\'Angers")', async () => {
+    // The curated alias points at the Facultés libres de l'Ouest, which this directory lacks.
     expect(await matching.resolve("Catho d'Angers", 'Angers')).toBeNull()
   })
 

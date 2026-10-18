@@ -12,6 +12,7 @@ import {
   canonicalUrl,
   eventNamedInText,
   extractDomain,
+  isForeignPlace,
   isGenericSchoolName,
   isWeekendLyceeBlockade,
   levelOfName,
@@ -55,6 +56,9 @@ export interface Fact {
   title: string
   attempts: number
 }
+
+/** The detail of a fact dropped because its school is abroad. */
+export const OUTSIDE_FRANCE = 'school outside France'
 
 export type Decision = {
   outcome: ExtractionOutcome
@@ -308,6 +312,8 @@ export async function decide(
   const uai = options.forceUai ?? (await findSchool(matching, fact))
   const sourceUrl = canonicalUrl(fact.url)
   if (!uai) {
+    // A school abroad is not in the directory and never will be: nothing for staff to do.
+    if (isForeignPlace(fact.city)) return { outcome: 'low_certainty', detail: OUTSIDE_FRANCE }
     if (options.recordUnmatched === false) return { outcome: 'unmatched' }
     await db.insert(schema.unmatched).values({
       extractionId: fact.id,

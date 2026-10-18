@@ -13,6 +13,7 @@ import {
   type RouteProposal,
 } from '@/queries/admin'
 
+const PAGE = 15
 const MovementMap = lazy(() => import('@/components/movement/MovementMap'))
 
 const PLACE_LABEL = { ok: 'Trouvé', weak: 'Incertain', none: 'Introuvable' } as const
@@ -74,8 +75,13 @@ export function RouteProposalsPanel() {
   const groups = useMemo(() => {
     const by = new Map<string, RouteProposal[]>()
     for (const p of proposals.data ?? []) by.set(p.groupKey, [...(by.get(p.groupKey) ?? []), p])
-    return [...by.values()]
+    // The ones with the fewest warnings first: the quickest to check.
+    const warned = (g: RouteProposal[]) => Math.min(...g.map((p) => p.warnings.length))
+    return [...by.values()].sort((a, b) => warned(a) - warned(b))
   }, [proposals.data])
+  // One map at a time: every map is a WebGL context, and a browser gives up after a few dozen.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [shown, setShown] = useState(PAGE)
 
   return (
     <div className="mt-4 space-y-4">
@@ -110,7 +116,7 @@ export function RouteProposalsPanel() {
           {view === 'pending' ? 'Aucun parcours à vérifier.' : 'Rien de traité pour l’instant.'}
         </p>
       )}
-      {groups.map((group) => (
+      {groups.slice(0, shown).map((group) => (
         <section key={group[0]?.groupKey} className="space-y-2">
           {group.length > 1 && view === 'pending' && (
             <p className="text-sm font-bold">
@@ -120,15 +126,36 @@ export function RouteProposalsPanel() {
             </p>
           )}
           {group.map((p) => (
-            <ProposalCard key={p.id} p={p} sameGroup={group.length > 1} />
+            <ProposalCard
+              key={p.id}
+              p={p}
+              sameGroup={group.length > 1}
+              open={openId === p.id}
+              onToggle={() => setOpenId(openId === p.id ? null : p.id)}
+            />
           ))}
         </section>
       ))}
+      {groups.length > shown && (
+        <button type="button" className="btn-secondary" onClick={() => setShown((n) => n + PAGE)}>
+          Afficher plus ({groups.length - shown} marches restantes)
+        </button>
+      )}
     </div>
   )
 }
 
-function ProposalCard({ p, sameGroup }: { p: RouteProposal; sameGroup: boolean }) {
+function ProposalCard({
+  p,
+  sameGroup,
+  open,
+  onToggle,
+}: {
+  p: RouteProposal
+  sameGroup: boolean
+  open: boolean
+  onToggle: () => void
+}) {
   const queryClient = useQueryClient()
   const theme = useTheme()
   const pending = p.status === 'pending'
@@ -198,6 +225,26 @@ function ProposalCard({ p, sameGroup }: { p: RouteProposal; sameGroup: boolean }
     })
   const canApprove = Boolean(p.line) && p.places.every((pl) => pl.status === 'ok') && !dirty
 
+  if (!open)
+    return (
+      <article className="card flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-bold">
+            {p.title} <span className="font-normal text-muted">· {p.city}</span>
+          </h3>
+          <p className="text-xs text-muted">
+            {p.domain} · {p.places.length} lieux ·{' '}
+            {p.warnings.length === 0
+              ? 'rien à signaler'
+              : `${p.warnings.length} point${p.warnings.length > 1 ? 's' : ''} à vérifier`}
+          </p>
+        </div>
+        <button type="button" className="btn-secondary" onClick={onToggle}>
+          {p.status === 'pending' ? 'Vérifier' : 'Voir'}
+        </button>
+      </article>
+    )
+
   return (
     <article className="card space-y-3">
       <header className="flex flex-wrap items-start justify-between gap-2">
@@ -211,6 +258,9 @@ function ProposalCard({ p, sameGroup }: { p: RouteProposal; sameGroup: boolean }
             {p.lineKm != null && ` · ${p.lineKm.toFixed(1).replace('.', ',')} km à pied`}
           </p>
         </div>
+        <button type="button" className="btn-secondary" onClick={onToggle}>
+          Fermer
+        </button>
         <a
           href={p.url}
           target="_blank"
@@ -228,7 +278,7 @@ function ProposalCard({ p, sameGroup }: { p: RouteProposal; sameGroup: boolean }
           ))}
         </ul>
       )}
-      <div className="h-64 overflow-hidden rounded-xl border border-border">
+      <div className="relative isolate h-64 overflow-hidden rounded-xl border border-border">
         <Suspense fallback={<div className="h-full animate-pulse bg-surface" />}>
           <MovementMap
             events={events}
