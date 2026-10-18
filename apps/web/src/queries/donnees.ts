@@ -69,13 +69,26 @@ function normalize<K extends keyof Vues>(vue: K, data: Vues[K]): Vues[K] {
   })) as unknown as Vues[K]
 }
 
-/** Open data is served by /api/donnees (5-minute CDN cache, open to everyone). */
+/** The API takes English view names; the page keeps the published (French) ones as keys. */
+export const API_VIEW = {
+  resume: 'summary',
+  jours: 'days',
+  departements: 'departments',
+  academies: 'academies',
+  etablissements: 'schools',
+  signalements: 'reports',
+  dictionnaire: 'dictionary',
+} as const
+
+/** Open data is served by /api/open-data (5-minute CDN cache, open to everyone). */
 async function fetchVue<K extends keyof Vues>(vue: K): Promise<Vues[K]> {
-  const res = await fetch(`/api/donnees?vue=${vue}`, { headers: { accept: 'application/json' } })
+  const res = await fetch(`/api/open-data?view=${API_VIEW[vue]}`, {
+    headers: { accept: 'application/json' },
+  })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const body = (await res.json()) as { donnees?: Vues[K] }
-  if (body.donnees == null) throw new Error('Empty answer')
-  return normalize(vue, body.donnees)
+  const body = (await res.json()) as { data?: Vues[K] }
+  if (body.data == null) throw new Error('Empty answer')
+  return normalize(vue, body.data)
 }
 
 const REFRESH_MS = 5 * 60_000

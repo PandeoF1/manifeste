@@ -12,8 +12,10 @@
 import { reanalyse, type JudgeVerdict, type ReanalyseItem } from '@manifeste/ai'
 import { isForeignPlace } from '@manifeste/core'
 import { schema } from '@manifeste/db'
+import { trace } from '@opentelemetry/api'
 import { and, eq, gte, inArray, isNull, notExists, sql } from 'drizzle-orm'
 import { errorMessage, type IngestDeps } from './deps.ts'
+import { inSpan } from '../telemetry/trace.ts'
 import { discoverSource } from './discover.ts'
 import { chunk, mapLimit } from './http.ts'
 import { readItems } from './reader.ts'
@@ -222,67 +224,105 @@ export class IngestOperations {
     const settings = await this.deps.settings.all()
     let judged = 0
     let unreadable = 0
-    await mapLimit(candidates, 4, async (r) => {
-      if (!r.url) return
-      const [read] = await readItems(
-        [
-          {
-            id: r.id,
-            kind: 'rss',
-            url: r.url,
-            text: '',
-            publishedAt: r.publishedAt ?? r.observedAt,
-            publisherDomain: r.domain,
-          },
-        ],
-        { fetchFn: this.deps.fetchFn, gateway: config.readerGateway },
-      )
-      if (!read || read.text.length < 300) {
-        unreadable++
-        return
-      }
-      const verdict: JudgeVerdict | null = await judge
-        .judge({
-          school: { name: r.name, city: r.city },
-          status: r.status,
-          title: read.title,
-          text: read.text,
-          publishedDay: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(
-            r.publishedAt ?? r.observedAt,
-          ),
-        })
-        .catch(() => null)
-      if (!verdict) {
-        unreadable++
-        return
-      }
-      await db.transaction(async (tx) => {
-        await tx
-          .insert(schema.judgements)
-          .values({
-            reportId: r.id,
-            provider: verdict.provider,
-            model: verdict.model,
-            probability: verdict.probability,
-            nature: verdict.nature,
-            level: verdict.level,
-            natureProbabilities: verdict.natureProbabilities,
-            levelProbabilities: verdict.levelProbabilities,
-            chars: verdict.chars,
+    await mapLimit(candidates, 4, (r) =>
+      inSpan(
+        'ingest.rejudge.report',
+        { 'report.id': r.id, 'source.domain': r.domain ?? '' },
+        async () => {
+          const url = r.url
+          if (!url) return
+          const [read] = await inSpan(
+            'ingest.read',
+            { 'source.domain': r.domain ?? '' },
+            async () => {
+              const out = await readItems(
+                [
+                  {
+                    id: r.id,
+                    kind: 'rss',
+                    url,
+                    text: '',
+                    publishedAt: r.publishedAt ?? r.observedAt,
+                    publisherDomain: r.domain,
+                  },
+                ],
+                { fetchFn: this.deps.fetchFn, gateway: config.readerGateway },
+              )
+              trace.getActiveSpan()?.setAttribute('article.chars', out[0]?.text.length ?? 0)
+              return out
+            },
+          )
+          if (!read || read.text.length < 300) {
+            trace.getActiveSpan()?.setAttribute('rejudge.outcome', 'unreadable')
+            unreadable++
+            return
+          }
+          const verdict: JudgeVerdict | null = await inSpan(
+            'ingest.judge',
+            { 'article.chars': read.text.length },
+            async () => {
+              const v = await judge
+                .judge({
+                  school: { name: r.name, city: r.city },
+                  status: r.status,
+                  title: read.title,
+                  text: read.text,
+                  publishedDay: new Intl.DateTimeFormat('en-CA', {
+                    timeZone: 'Europe/Paris',
+                  }).format(r.publishedAt ?? r.observedAt),
+                })
+                .catch((e: unknown) => {
+                  // Recorded on the span, then the report stays unjudged: the next pass tries again.
+                  trace
+                    .getActiveSpan()
+                    ?.recordException(e instanceof Error ? e : new Error(String(e)))
+                  return null
+                })
+              if (v)
+                trace.getActiveSpan()?.setAttributes({
+                  'judge.model': v.model,
+                  'judge.probability': v.probability,
+                  'judge.nature': v.nature ?? '',
+                  'judge.level': v.level ?? '',
+                })
+              return v
+            },
+          )
+          if (!verdict) {
+            trace.getActiveSpan()?.setAttribute('rejudge.outcome', 'no-verdict')
+            unreadable++
+            return
+          }
+          await db.transaction(async (tx) => {
+            await tx
+              .insert(schema.judgements)
+              .values({
+                reportId: r.id,
+                provider: verdict.provider,
+                model: verdict.model,
+                probability: verdict.probability,
+                nature: verdict.nature,
+                level: verdict.level,
+                natureProbabilities: verdict.natureProbabilities,
+                levelProbabilities: verdict.levelProbabilities,
+                chars: verdict.chars,
+              })
+              .onConflictDoNothing()
+            await tx
+              .update(schema.reports)
+              .set({
+                tier: computeTier(verdict, r.status, r.level, {
+                  keep: settings.judge_keep,
+                  low: settings.judge_low,
+                }),
+              })
+              .where(eq(schema.reports.id, r.id))
           })
-          .onConflictDoNothing()
-        await tx
-          .update(schema.reports)
-          .set({
-            tier: computeTier(verdict, r.status, r.level, {
-              keep: settings.judge_keep,
-              low: settings.judge_low,
-            }),
-          })
-          .where(eq(schema.reports.id, r.id))
-      })
-      judged++
-    })
+          trace.getActiveSpan()?.setAttribute('rejudge.outcome', 'judged')
+          judged++
+        },
+      ),
+    )
     await this.deps.aiUsage.flush()
     return { reports: candidates.length, judged, unreadable }
   }

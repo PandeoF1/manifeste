@@ -150,7 +150,7 @@ describe('served pages', () => {
   test('the data page carries a Dataset description with export links', async () => {
     const bot = await (await s.request('/donnees', { headers: asBot })).text()
     expect(bot).toContain('"@type":"Dataset"')
-    expect(bot).toContain('/api/donnees?vue=jours&#38;format=csv')
+    expect(bot).toContain('/api/open-data?view=days&#38;format=csv')
   })
 
   test('an unknown school still answers, with the generic page', async () => {

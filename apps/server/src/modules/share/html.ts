@@ -175,14 +175,14 @@ export function dataMeta(origin: string, r: DataSummary): Meta {
   const since = r.firstDay ? ` depuis le ${r.firstDay.split('-').reverse().join('/')}` : ''
   const description = `${plural(r.schools, 'établissement signalé', 'établissements signalés')} bloqué${r.schools > 1 ? 's' : ''} ou en barrage filtrant${since}, dans ${plural(r.departments, 'département', 'départements')}. Chiffres jour par jour, par académie et par département, à télécharger en CSV, JSON et GeoJSON, sous licence libre.`
   const exports = [
-    ['jours', 'csv', 'Chiffres jour par jour (CSV)'],
-    ['departements', 'csv', 'Chiffres par département (CSV)'],
+    ['days', 'csv', 'Chiffres jour par jour (CSV)'],
+    ['departments', 'csv', 'Chiffres par département (CSV)'],
     ['academies', 'csv', 'Chiffres par académie (CSV)'],
-    ['etablissements', 'geojson', 'Établissements (GeoJSON)'],
-    ['signalements', 'csv', 'Tous les signalements (CSV)'],
+    ['schools', 'geojson', 'Établissements (GeoJSON)'],
+    ['reports', 'csv', 'Tous les signalements (CSV)'],
   ] as const
   const link = (view: string, format: string) =>
-    `${origin}/api/donnees?vue=${view}&format=${format}`
+    `${origin}/api/open-data?view=${view}&format=${format}`
   return {
     ...base,
     title: 'Les chiffres du mouvement lycéen et étudiant : données libres - Manifeste',

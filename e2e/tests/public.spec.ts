@@ -62,7 +62,7 @@ test('realtime: the public socket is accepted', async ({ page, baseURL }) => {
 
 test('the API serves its documentation and the open data', async ({ request }) => {
   expect((await request.get('/api/docs')).ok()).toBe(true)
-  const res = await request.get('/api/donnees?vue=resume')
+  const res = await request.get('/api/open-data?view=summary')
   expect(res.headers()['access-control-allow-origin']).toBe('*')
-  expect((await res.json()).donnees.signalements).toBeGreaterThan(0)
+  expect((await res.json()).data.signalements).toBeGreaterThan(0)
 })

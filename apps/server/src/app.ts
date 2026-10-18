@@ -26,6 +26,7 @@ import { marchesModule, movementsModule, movementsStaffModule } from './modules/
 import { MovementsService } from './modules/movements/service.ts'
 import { RouteProposalsService, routeProposalsStaffModule } from './modules/movements/proposals.ts'
 import { safeFetch } from './ingest/safe-fetch.ts'
+import { tracedFetch } from './telemetry/trace.ts'
 import { statusesModule } from './modules/statuses/index.ts'
 import { StatusesService } from './modules/statuses/service.ts'
 import { timelineModule } from './modules/timeline/index.ts'
@@ -63,7 +64,7 @@ export function createApp(ctx: AppContext) {
   const routeProposals = new RouteProposalsService(
     db,
     movements,
-    safeFetch((url, init) => fetch(url, init)),
+    safeFetch(tracedFetch((url, init) => fetch(url, init))),
   )
   const analytics = new AnalyticsService(db)
   const schools = new SchoolsService(db)

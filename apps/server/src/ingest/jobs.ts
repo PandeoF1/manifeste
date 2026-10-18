@@ -1,4 +1,5 @@
 /** Registers the pipeline on the job queue: one sweep per stage, one job per source. */
+import { trace } from '@opentelemetry/api'
 import type { AppContext } from '../context.ts'
 import type { JobQueue } from '../queue/queue.ts'
 import { IngestOperations } from './operations.ts'
@@ -82,7 +83,15 @@ export async function registerIngestJobs(ctx: AppContext, ingest: IngestService)
 
   const operations = new IngestOperations(ingest)
   await queue.work('ingest.operation', async (jobs) => {
-    for (const job of jobs)
-      log.info(await operations.run(job.data, { dryRun: false }), 'ingest operation done')
+    for (const job of jobs) {
+      const span = trace.getActiveSpan()
+      span?.setAttribute('ingest.operation.kind', job.data.kind)
+      const result = await operations.run(job.data, { dryRun: false })
+      // What the operation reported (reports judged, items re-read…) shows on the job's span.
+      for (const [key, value] of Object.entries(result.summary))
+        if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean')
+          span?.setAttribute(`ingest.operation.${key}`, value)
+      log.info(result, 'ingest operation done')
+    }
   })
 }

@@ -13,6 +13,8 @@ import { EventBus } from './realtime/bus.ts'
 import { PgBossQueue, type JobQueue } from './queue/queue.ts'
 import type { BlobStore } from './storage/blob-store.ts'
 import { createBlobStore } from './storage/create-blob-store.ts'
+import { TracedBlobStore, tracedFetch } from './telemetry/trace.ts'
+import { trace } from '@opentelemetry/api'
 
 export interface AppContext {
   config: Config
@@ -64,7 +66,7 @@ export function createContext(
     bus,
     ai,
     aiUsage,
-    blobs: overrides.blobs ?? createBlobStore(config),
+    blobs: overrides.blobs ?? new TracedBlobStore(createBlobStore(config)),
     version: process.env.APP_VERSION ?? 'dev',
     async close() {
       await aiUsage.flush()
@@ -80,7 +82,20 @@ export function createContext(
  * production a worker without them refuses to start, because ingestion would silently do nothing.
  */
 function createAiRuntime(config: Config, db: Database, log: Logger) {
-  const meter = createMeter()
+  // Each finished call becomes an event on the span it ran in: model, tokens, cost, outcome.
+  const meter = createMeter((call) =>
+    trace.getActiveSpan()?.addEvent('ai.call', {
+      'ai.task': call.task,
+      'ai.provider': call.provider,
+      'ai.model': call.model,
+      'ai.outcome': call.outcome,
+      'ai.latency_ms': call.latencyMs,
+      'ai.tokens.prompt': call.usage.promptTokens,
+      'ai.tokens.output': call.usage.outputTokens,
+      'ai.tokens.thoughts': call.usage.thoughtsTokens,
+      'ai.cost_usd': call.costUsd,
+    }),
+  )
   let aiConfig = aiConfigFromEnv(config as unknown as Record<string, string | undefined>)
   if (aiConfig.enabled && !aiConfig.credentials.gemini) {
     if (config.NODE_ENV === 'production' && config.ROLE !== 'api')
@@ -93,7 +108,11 @@ function createAiRuntime(config: Config, db: Database, log: Logger) {
     () => meter.spentUsd,
     () => meter.drain(),
   )
-  const ai = createAi(aiConfig, { sink: meter, spentToday: () => aiUsage.spentTodayCached() })
+  const ai = createAi(aiConfig, {
+    sink: meter,
+    spentToday: () => aiUsage.spentTodayCached(),
+    fetch: tracedFetch(fetch),
+  })
   // Know today's spend before the first call, not after it.
   if (aiConfig.enabled) void aiUsage.spentToday(true).catch(() => 0)
   return { ai, aiUsage }
