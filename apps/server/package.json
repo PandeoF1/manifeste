@@ -13,7 +13,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "bun test",
     "staff": "bun src/cli/staff.ts",
-    "build": "bun build src/index.ts src/cli/staff.ts src/cli/ingest.ts ../../packages/db/src/cli/migrate.ts --target bun --outdir dist --entry-naming [name].[ext] --sourcemap=linked",
+    "build": "bun build src/index.ts src/cli/staff.ts src/cli/ingest.ts ../../packages/db/src/cli/migrate.ts --target bun --minify-whitespace --minify-syntax --outdir dist --entry-naming [name].[ext] --sourcemap=linked",
     "ingest": "bun src/cli/ingest.ts"
   },
   "dependencies": {
