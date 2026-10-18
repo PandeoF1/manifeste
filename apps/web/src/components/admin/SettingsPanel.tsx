@@ -41,7 +41,7 @@ const FIELDS = [
   {
     key: 'marches_on_map',
     label: 'Cortèges sur la carte d’accueil',
-    help: 'Désactivé (par défaut) : la carte d’accueil ne montre que les lycées. Activé : les cortèges approuvés des mouvements en cours (Parcours détectés ou saisis à la main) sont tracés sur la carte, de 3 jours avant à 7 jours après aujourd’hui, en pointillé quand le parcours est seulement probable.',
+    help: 'Désactivé (par défaut) : la carte d’accueil ne montre que les lycées. Activé : les cortèges approuvés des mouvements en cours (Parcours détectés ou saisis à la main) sont tracés sur la carte, selon la période choisie (direct : en cours et à venir ; 24 h, 7 j, tout : jusqu’où remonter), en pointillé quand le parcours est seulement probable.',
     type: 'boolean',
   },
   {

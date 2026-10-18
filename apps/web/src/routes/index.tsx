@@ -103,7 +103,10 @@ function MapPage() {
     search.periode === undefined || search.periode === 'historique' ? 'direct' : search.periode
   const isPhone = useMediaQuery('(max-width: 767px)')
   const { data: settings = DEFAULT_SETTINGS } = useQuery(settingsQuery)
-  const marches = useQuery({ ...marchesQuery, enabled: settings.marchesOnMap && !historyMode })
+  const marches = useQuery({
+    ...marchesQuery(period),
+    enabled: settings.marchesOnMap && !historyMode,
+  })
   const {
     data: statuses = [],
     dataUpdatedAt,

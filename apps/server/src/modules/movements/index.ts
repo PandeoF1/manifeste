@@ -71,16 +71,17 @@ export const movementsModule = (service: MovementsService, settings: SettingsSer
 export const marchesModule = (service: MovementsService, settings: SettingsService) =>
   new Elysia({ name: 'module.marches', prefix: '/api/marches' }).get(
     '/',
-    async ({ set }) => {
+    async ({ query, set }) => {
       if (!(await settings.all()).marches_on_map) return []
       set.headers['cache-control'] = CACHE
-      return service.marches()
+      return service.marches(query.period ?? 'live')
     },
     {
+      query: t.Object({ period: t.Optional(MovementsModel.period) }),
       response: t.Array(MovementsModel.event),
       detail: {
         tags: ['movements'],
-        summary: 'Marches with a route, from 3 days ago to 7 days ahead (home map)',
+        summary: 'Marches with a route of the active movements, for a period (home map)',
       },
     },
   )

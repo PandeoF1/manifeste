@@ -53,10 +53,9 @@ describe('marches on the home map', () => {
     expect(settings.marches_on_map).toBe(false)
   })
 
-  test('on: only approved, visible marches with a route, close to now', async () => {
+  test('on: only approved, visible marches with a route, not announced too far ahead', async () => {
     hiddenId = await addEvent(movementId, 'Masqué', 1)
     await addEvent(movementId, 'Sans parcours', 0, false)
-    await addEvent(movementId, 'Il y a un mois', -30)
     await addEvent(movementId, 'Dans un mois', 30)
     await addEvent(movementId, 'Demain', 1)
     await as(`/api/staff/movement-events/${hiddenId}`, { method: 'PATCH', json: { hidden: true } })
@@ -74,15 +73,40 @@ describe('marches on the home map', () => {
     expect(marches[0].route).toEqual(ROUTE)
   })
 
+  test('the period decides how far back: live, 24 h, 7 days, all', async () => {
+    await addEvent(movementId, 'Hier soir', -0.5)
+    await addEvent(movementId, 'Il y a cinq jours', -5)
+    await addEvent(movementId, 'Il y a un mois', -30)
+    const titles = async (period?: string) =>
+      (
+        (await (
+          await s.request(`/api/marches${period ? `?period=${period}` : ''}`)
+        ).json()) as Loose[]
+      ).map((m) => m.title)
+    // Live (the default): what is going on or still to come.
+    expect(await titles()).toEqual(['Aujourd’hui', 'Demain'])
+    expect(await titles('live')).toEqual(['Aujourd’hui', 'Demain'])
+    expect(await titles('24h')).toEqual(['Hier soir', 'Aujourd’hui', 'Demain'])
+    expect(await titles('7d')).toEqual(['Il y a cinq jours', 'Hier soir', 'Aujourd’hui', 'Demain'])
+    expect(await titles('all')).toEqual([
+      'Il y a un mois',
+      'Il y a cinq jours',
+      'Hier soir',
+      'Aujourd’hui',
+      'Demain',
+    ])
+    expect((await s.request('/api/marches?period=forever')).status).toBe(422)
+  })
+
   test('archiving the movement takes its marches off the map; reopening brings them back', async () => {
     const archive = await as(`/api/staff/movements/${movementId}`, {
       method: 'PATCH',
       json: { status: 'archived' },
     })
     expect(archive.status).toBe(200)
-    expect(await (await s.request('/api/marches')).json()).toEqual([])
+    expect(await (await s.request('/api/marches?period=all')).json()).toEqual([])
     await as(`/api/staff/movements/${movementId}`, { method: 'PATCH', json: { status: 'active' } })
-    expect(((await (await s.request('/api/marches')).json()) as Loose[]).length).toBe(2)
+    expect(((await (await s.request('/api/marches?period=all')).json()) as Loose[]).length).toBe(5)
   })
 
   test('the movement pages stay hidden: the two switches are independent', async () => {
