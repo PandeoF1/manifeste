@@ -19,6 +19,7 @@ import { schema, type Database } from '@manifeste/db'
 import { detectImageKind, hasMetadata, type ImageKind } from '../../lib/image.ts'
 import { rows } from '../../lib/sql.ts'
 import { newBlobKey, type BlobStore } from '../../storage/blob-store.ts'
+import { tracedFetch } from '../../telemetry/trace.ts'
 import type { AnalyticsService } from '../analytics/service.ts'
 
 export type SubmitResult =
@@ -50,7 +51,7 @@ export class ReportsService {
 
   /** Cloudflare Turnstile. The visitor's IP is deliberately not forwarded. */
   private async captchaOk(token: string | null): Promise<boolean> {
-    const { secret, production, fetchFn = fetch } = this.turnstile
+    const { secret, production, fetchFn = tracedFetch(fetch) } = this.turnstile
     // Without a secret the check is only skipped in development: in production, a missing
     // configuration must block, not open the form to robots.
     if (!secret) return !production

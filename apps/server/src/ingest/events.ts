@@ -22,26 +22,7 @@ export interface PipelineEvent {
   detail?: Record<string, unknown>
 }
 
-const tracer = trace.getTracer('manifeste.ingest')
-
-/** Runs `fn` in a span named for the stage; the span is a no-op when tracing is off. */
-export function inSpan<T>(
-  name: string,
-  attributes: Record<string, string | number | boolean>,
-  fn: () => Promise<T>,
-): Promise<T> {
-  return tracer.startActiveSpan(name, { attributes }, async (span) => {
-    try {
-      return await fn()
-    } catch (e) {
-      span.recordException(e instanceof Error ? e : new Error(String(e)))
-      span.setStatus({ code: 2, message: e instanceof Error ? e.message : String(e) })
-      throw e
-    } finally {
-      span.end()
-    }
-  })
-}
+export { inSpan } from '../telemetry/trace.ts'
 
 export class PipelineEvents {
   private lastSignal = 0
