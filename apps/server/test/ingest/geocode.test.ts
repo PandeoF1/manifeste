@@ -2,7 +2,13 @@ import { describe, expect, test } from 'bun:test'
 import { coverage, distinctive, Geocoder } from '../../src/ingest/geocode.ts'
 import { routeWarnings, walkingRoute, type WalkingRoute } from '../../src/ingest/osrm.ts'
 
-const MONTPELLIER = { name: 'Montpellier', code: '34172', lng: 3.8767, lat: 43.6108 }
+const MONTPELLIER = {
+  name: 'Montpellier',
+  code: '34172',
+  lng: 3.8767,
+  lat: 43.6108,
+  homonyms: [],
+}
 
 const ban = (label: string, lng: number, lat: number, score = 0.9, citycode = '34172') => ({
   features: [
@@ -20,6 +26,59 @@ describe('words that prove a place', () => {
     expect(distinctive('place de la Comédie')).toEqual(['comedie'])
     expect(coverage('place de la Comédie', 'Place de la Comédie 34000 Montpellier')).toBe(1)
     expect(coverage('gare', 'Avenue du Marché Gare')).toBe(0)
+  })
+})
+
+describe('finding the commune', () => {
+  const rows = (...names: string[]) =>
+    names.map((nom, i) => ({ nom, code: `0${i}`, centre: { coordinates: [3 + i, 43] } }))
+
+  test('takes the commune of that exact name, not a near one', async () => {
+    const g = new Geocoder(async () => reply(rows('Tournai-sur-Dive')))
+    expect(await g.commune('Tournai')).toBeNull()
+    const l = new Geocoder(async () => reply(rows('Le Liège')))
+    expect(await l.commune('Liège')).toBeNull()
+    const ok = new Geocoder(async () => reply(rows('Lyonnais', 'Lyon')))
+    expect((await ok.commune('Lyon'))?.name).toBe('Lyon')
+  })
+
+  test('says when other communes have the very same name', async () => {
+    const g = new Geocoder(async () =>
+      reply([
+        {
+          nom: 'Clermont',
+          code: '60175',
+          codeDepartement: '60',
+          centre: { coordinates: [2.4, 49.4] },
+        },
+        {
+          nom: 'Clermont',
+          code: '09100',
+          codeDepartement: '09',
+          centre: { coordinates: [1.2, 43.2] },
+        },
+      ]),
+    )
+    const c = await g.commune('Clermont')
+    expect(c?.code).toBe('60175')
+    expect(c?.homonyms).toEqual(['09'])
+  })
+
+  test('a place that is the name of another commune is a trip between towns', async () => {
+    const brest = (nom: string, code: string) =>
+      reply([{ nom, code, codeDepartement: '29', centre: { coordinates: [-4.4, 48.4] } }])
+    const g = new Geocoder(async () => brest('Brest', '29019'))
+    const morlaix = { ...MONTPELLIER, name: 'Morlaix', code: '29151' }
+    expect(await g.isOtherCommune('Brest', morlaix)).toBe(true)
+    // Its own commune, or a named place, is not.
+    expect(await g.isOtherCommune('Brest', { ...morlaix, code: '29019' })).toBe(false)
+    expect(await g.isOtherCommune('place de la Comédie', morlaix)).toBe(false)
+    expect(await g.isOtherCommune('gare', morlaix)).toBe(false)
+  })
+
+  test('ignores accents, hyphens and Saint / St', async () => {
+    const g = new Geocoder(async () => reply(rows('Saint-Étienne')))
+    expect((await g.commune('St Etienne'))?.name).toBe('Saint-Étienne')
   })
 })
 
