@@ -64,6 +64,27 @@ export const movementsModule = (service: MovementsService, settings: SettingsSer
       },
     )
 
+/**
+ * Public: the approved marches with a route, close to now, for the home map. Empty until the
+ * `marches_on_map` setting is on.
+ */
+export const marchesModule = (service: MovementsService, settings: SettingsService) =>
+  new Elysia({ name: 'module.marches', prefix: '/api/marches' }).get(
+    '/',
+    async ({ set }) => {
+      if (!(await settings.all()).marches_on_map) return []
+      set.headers['cache-control'] = CACHE
+      return service.marches()
+    },
+    {
+      response: t.Array(MovementsModel.event),
+      detail: {
+        tags: ['movements'],
+        summary: 'Marches with a route, from 3 days ago to 7 days ahead (home map)',
+      },
+    },
+  )
+
 /** Staff: create, archive and edit movements and their events. Every action is audited. */
 export const movementsStaffModule = (
   auth: Auth,

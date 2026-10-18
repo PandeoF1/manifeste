@@ -1,6 +1,6 @@
 import { extractDomain, parseRoute, slugify } from '@manifeste/core'
 import { schema, type Database } from '@manifeste/db'
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNotNull, lte, sql } from 'drizzle-orm'
 import { memoWithTtl } from '../../lib/memo.ts'
 import type { EventView, MovementView, StaffEventView } from './model.ts'
 
@@ -16,6 +16,10 @@ export class MovementError extends Error {
     super(message)
   }
 }
+
+/** The window of marches on the home map, in days around now. */
+const MARCH_DAYS_BEFORE = 3
+const MARCH_DAYS_AFTER = 7
 
 const PUBLIC = and(
   eq(schema.movementEvents.moderation, 'approved'),
@@ -83,7 +87,39 @@ export class MovementsService {
     return this.oneCache.get(slug)
   }
 
+  private readonly marchesCache = memoWithTtl(60_000, () => this.loadMarches())
+
+  /**
+   * Approved events with a route, close to now (3 days back, 7 days ahead), of the movements that
+   * are active: what the home map draws. Short cache, like the pages.
+   */
+  marches(): Promise<EventView[]> {
+    return this.marchesCache.get(undefined as never)
+  }
+
+  private async loadMarches(): Promise<EventView[]> {
+    const day = 86_400_000
+    const now = Date.now()
+    const rows = await this.db
+      .select({ event: schema.movementEvents })
+      .from(schema.movementEvents)
+      .innerJoin(schema.movements, eq(schema.movements.id, schema.movementEvents.movementId))
+      .where(
+        and(
+          PUBLIC,
+          // Only the movements that are running: archiving one takes its marches off the map.
+          eq(schema.movements.status, 'active'),
+          isNotNull(schema.movementEvents.route),
+          gte(schema.movementEvents.startsAt, new Date(now - MARCH_DAYS_BEFORE * day)),
+          lte(schema.movementEvents.startsAt, new Date(now + MARCH_DAYS_AFTER * day)),
+        ),
+      )
+      .orderBy(asc(schema.movementEvents.startsAt))
+    return rows.map((r) => eventView(r.event))
+  }
+
   private invalidate() {
+    this.marchesCache.clear()
     this.listCache.clear()
     this.oneCache.clear()
   }

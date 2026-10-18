@@ -3,6 +3,7 @@ import {
   GeolocateControl,
   Map as MapLibreMap,
   NavigationControl,
+  Popup,
   type ExpressionSpecification,
   type IControl,
   type GeoJSONSource,
@@ -21,6 +22,7 @@ import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
 import { NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
 import { setTheme, type Theme } from '@/lib/theme'
 import { OverseasInsets } from './OverseasInsets'
+import { EVENT_STATUS_COLOR, routesGeoJSON, shownStatus, type MovementEvent } from '@/lib/movements'
 
 setWorkerUrl(workerUrl)
 
@@ -112,6 +114,8 @@ interface Props {
   datasetKey?: string
   /** Overseas insets (off in History mode: each one is one more map to redraw). */
   overseas?: boolean
+  /** Approved marches with a route, drawn under the schools (dashed when only probable). */
+  marches?: ReadonlyArray<MovementEvent>
 }
 
 function heatColor(theme: Theme): ExpressionSpecification {
@@ -144,6 +148,66 @@ function mobGlowOpacity(theme: Theme): ExpressionSpecification {
   return ['*', POP_ALPHA, MAP_BASES[theme].glowOpacity * 0.75]
 }
 
+const MARCHES_SOURCE = 'marches'
+/** A stable empty list: a new one at every render would redraw the source every time. */
+const NO_MARCHES: ReadonlyArray<MovementEvent> = []
+const MARCH_COLOR: ExpressionSpecification = [
+  'match',
+  ['get', 'status'],
+  'ongoing',
+  EVENT_STATUS_COLOR.ongoing,
+  'planned',
+  EVENT_STATUS_COLOR.planned,
+  EVENT_STATUS_COLOR.ended,
+]
+const MARCH_WIDTH: ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  5,
+  2,
+  12,
+  5,
+  16,
+  8,
+]
+const marchCasing = (theme: Theme) => (theme === 'dark' ? '#05070b' : '#ffffff')
+
+/** The popup of a march: built with text nodes, the title comes from an article. */
+function marchPopup(e: MovementEvent, now: Date): HTMLElement {
+  const box = document.createElement('div')
+  box.style.color = '#111'
+  box.style.maxWidth = '16rem'
+  const title = document.createElement('strong')
+  title.textContent = e.title
+  box.append(title)
+  const line = (text: string) => {
+    const p = document.createElement('div')
+    p.style.fontSize = '0.8rem'
+    p.textContent = text
+    box.append(p)
+  }
+  const status = shownStatus(e, now)
+  const when = new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Europe/Paris',
+  }).format(e.startsAt)
+  line(`${e.place ? `${e.place} · ` : ''}${when}`)
+  line(status === 'ongoing' ? 'En cours' : status === 'planned' ? 'À venir' : 'Terminé')
+  if (e.routeBasis === 'probable') line('Parcours probable, calculé d’après la presse : à vérifier')
+  if (e.sourceUrl?.startsWith('https://')) {
+    const a = document.createElement('a')
+    a.href = e.sourceUrl
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.textContent = e.sourceDomain ?? 'Source'
+    a.style.fontSize = '0.8rem'
+    box.append(a)
+  }
+  return box
+}
+
 /** Theme of the background and dependent layers, applied on load then on every switch. */
 function applyTheme(map: MapLibreMap, theme: Theme) {
   styleBase(map, MAP_BASES[theme])
@@ -153,6 +217,11 @@ function applyTheme(map: MapLibreMap, theme: Theme) {
     map.setPaintProperty('mobilisation-glow', 'circle-opacity', mobGlowOpacity(theme))
   if (map.getLayer('selected'))
     map.setPaintProperty('selected', 'circle-stroke-color', MAP_BASES[theme].selection)
+  // styleBase recolours every line layer as a road: the marches are painted again after it.
+  for (const id of ['march-announced', 'march-probable'])
+    if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', MARCH_COLOR)
+  if (map.getLayer('march-casing'))
+    map.setPaintProperty('march-casing', 'line-color', marchCasing(theme))
 }
 
 const STATUS_COLOR: ExpressionSpecification = [
@@ -218,6 +287,7 @@ export default function MapView({
   theme,
   overseas = true,
   datasetKey = '',
+  marches = NO_MARCHES,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -236,9 +306,9 @@ export default function MapView({
     first: true,
   })
   const themeControlRef = useRef<ThemeControl | null>(null)
-  const latest = useRef({ statuses, mobilisation, onViewChange, onSelect, theme })
+  const latest = useRef({ statuses, mobilisation, marches, onViewChange, onSelect, theme })
   useEffect(() => {
-    latest.current = { statuses, mobilisation, onViewChange, onSelect, theme }
+    latest.current = { statuses, mobilisation, marches, onViewChange, onSelect, theme }
   })
 
   // One-time creation of the map.
@@ -286,6 +356,58 @@ export default function MapView({
         promoteId: 'uai',
         data: pops.current.data ?? toGeoJSON(latest.current.statuses, Date.now()),
       })
+
+      // Marches, under everything else: a solid line when the route is announced, a dashed and
+      // lighter one when it is only probable (a hypothesis, never read as the real route).
+      map.addSource(MARCHES_SOURCE, {
+        type: 'geojson',
+        data: routesGeoJSON(latest.current.marches, new Date()),
+      })
+      map.addLayer({
+        id: 'march-casing',
+        type: 'line',
+        source: MARCHES_SOURCE,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': marchCasing(latest.current.theme),
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 4, 12, 9, 16, 13],
+          'line-opacity': 0.8,
+        },
+      })
+      map.addLayer({
+        id: 'march-announced',
+        type: 'line',
+        source: MARCHES_SOURCE,
+        filter: ['==', ['get', 'basis'], 'announced'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': MARCH_COLOR, 'line-width': MARCH_WIDTH },
+      })
+      map.addLayer({
+        id: 'march-probable',
+        type: 'line',
+        source: MARCHES_SOURCE,
+        filter: ['==', ['get', 'basis'], 'probable'],
+        layout: { 'line-join': 'round' },
+        paint: {
+          'line-color': MARCH_COLOR,
+          'line-width': MARCH_WIDTH,
+          'line-dasharray': [1.2, 1.4],
+          'line-opacity': 0.85,
+        },
+      })
+      for (const layer of ['march-announced', 'march-probable']) {
+        map.on('click', layer, (e: MapLayerMouseEvent) => {
+          const id = e.features?.[0]?.properties?.id
+          const march = latest.current.marches.find((m) => m.id === id)
+          if (!march) return
+          new Popup({ closeButton: true, maxWidth: '18rem' })
+            .setLngLat(e.lngLat)
+            .setDOMContent(marchPopup(march, new Date()))
+            .addTo(map)
+        })
+        map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
+        map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
+      }
 
       // 1. National-scale heat map: shows the scale of the movement.
       map.addLayer({
@@ -529,6 +651,13 @@ export default function MapView({
     // The initial view is only read on mount; after that the map is the source of truth.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Marches: a plain source update.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !readyRef.current) return
+    map.getSource<GeoJSONSource>(MARCHES_SOURCE)?.setData(routesGeoJSON(marches, new Date()))
+  }, [marches])
 
   // Reported mobilisations: a plain source update (no animation).
   useEffect(() => {

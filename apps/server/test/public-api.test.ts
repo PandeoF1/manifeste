@@ -76,6 +76,7 @@ describe('settings', () => {
       movement_start: '2026-09-14',
       judge_tiers: false,
       movements_public: false,
+      marches_on_map: false,
     })
     expect(res.headers.get('cache-control')).toContain('max-age=60')
   })

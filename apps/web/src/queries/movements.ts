@@ -9,6 +9,14 @@ export const movementsQuery = queryOptions({
   staleTime: 60_000,
 })
 
+/** Marches with a route, close to now: drawn on the home map when the setting is on. */
+export const marchesQuery = queryOptions({
+  queryKey: [...queryKeys.movements.all, 'marches'],
+  queryFn: async () => reviveDates(await unwrap(api.api.marches.get())),
+  staleTime: 60_000,
+  refetchInterval: 120_000,
+})
+
 /** One movement with its published events; null when the address is unknown. */
 export const movementQuery = (slug: string) =>
   queryOptions({

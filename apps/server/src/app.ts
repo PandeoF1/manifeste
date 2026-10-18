@@ -22,7 +22,7 @@ import { schoolsModule } from './modules/schools/index.ts'
 import { SchoolsService } from './modules/schools/service.ts'
 import { settingsModule } from './modules/settings/index.ts'
 import { SettingsService } from './modules/settings/service.ts'
-import { movementsModule, movementsStaffModule } from './modules/movements/index.ts'
+import { marchesModule, movementsModule, movementsStaffModule } from './modules/movements/index.ts'
 import { MovementsService } from './modules/movements/service.ts'
 import { RouteProposalsService, routeProposalsStaffModule } from './modules/movements/proposals.ts'
 import { safeFetch } from './ingest/safe-fetch.ts'
@@ -108,6 +108,7 @@ export function createApp(ctx: AppContext) {
     .use(settingsModule(settings))
     .use(statusesModule(statuses))
     .use(movementsModule(movements, settings))
+    .use(marchesModule(movements, settings))
     .use(openDataModule(openData))
     .use(schoolsModule(schools))
     .use(analyticsModule(analytics))
