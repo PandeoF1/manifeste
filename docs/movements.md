@@ -66,3 +66,8 @@ resets the field.
 ## Detected routes
 
 Marches found in the press arrive as proposals to check by hand: see [route-detection.md](route-detection.md).
+
+## Next
+
+The plan to follow every large movement in France, and to archive the high school one, is in
+[movements-roadmap.md](movements-roadmap.md).

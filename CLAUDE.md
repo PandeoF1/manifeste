@@ -13,18 +13,19 @@ Live, sourced map of blocked schools and universities in France. Bun workspaces:
 
 ## Where to look
 
-| Topic                             | Doc                                                                  |
-| --------------------------------- | -------------------------------------------------------------------- |
-| Local setup, checks, migrations   | [docs/development.md](docs/development.md)                           |
-| Architecture and why              | [docs/adr/0001-v2-architecture.md](docs/adr/0001-v2-architecture.md) |
-| Database schema                   | [docs/database.md](docs/database.md)                                 |
-| Ingestion pipeline and operations | [docs/ingestion.md](docs/ingestion.md)                               |
-| AI layer, models, budget          | [docs/ai.md](docs/ai.md)                                             |
-| Movements and events              | [docs/movements.md](docs/movements.md)                               |
-| Route detection from the press    | [docs/route-detection.md](docs/route-detection.md)                   |
-| Deploy, Cloudflare, backups       | [docs/ops/coolify.md](docs/ops/coolify.md)                           |
-| Public API reference              | `/api/docs` on a running server                                      |
-| Security reports                  | [SECURITY.md](SECURITY.md)                                           |
+| Topic                               | Doc                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| Local setup, checks, migrations     | [docs/development.md](docs/development.md)                           |
+| Architecture and why                | [docs/adr/0001-v2-architecture.md](docs/adr/0001-v2-architecture.md) |
+| Database schema                     | [docs/database.md](docs/database.md)                                 |
+| Ingestion pipeline and operations   | [docs/ingestion.md](docs/ingestion.md)                               |
+| AI layer, models, budget            | [docs/ai.md](docs/ai.md)                                             |
+| Movements and events                | [docs/movements.md](docs/movements.md)                               |
+| Plan: all large movements in France | [docs/movements-roadmap.md](docs/movements-roadmap.md)               |
+| Route detection from the press      | [docs/route-detection.md](docs/route-detection.md)                   |
+| Deploy, Cloudflare, backups         | [docs/ops/coolify.md](docs/ops/coolify.md)                           |
+| Public API reference                | `/api/docs` on a running server                                      |
+| Security reports                    | [SECURITY.md](SECURITY.md)                                           |
 
 ## Gotchas
 
