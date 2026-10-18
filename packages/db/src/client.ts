@@ -30,10 +30,12 @@ export function createDb(url: string, options: DbOptions = {}): DbHandle {
   const pool = new pg.Pool({
     connectionString: url,
     max: options.max ?? 10,
+    // Kept open when idle: a quiet site would otherwise reconnect on the first request after a pause.
+    min: Math.min(2, options.max ?? 10),
     application_name: options.applicationName ?? 'manifeste',
     // Without a timeout, a request that finds the pool empty waits for ever.
     connectionTimeoutMillis: 10_000,
-    idleTimeoutMillis: 30_000,
+    idleTimeoutMillis: 5 * 60_000,
     ...(options.statementTimeoutMs && { statement_timeout: options.statementTimeoutMs }),
   })
   // An "error" on an idle client with no listener is an uncaught exception: it would stop the
