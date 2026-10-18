@@ -177,25 +177,6 @@ blurred photos under `public/`, the 48 h retention, the API serving `/api/photos
 5. At start the API logs `photo storage reachable` or, if the bucket or the key is wrong,
    `photo storage NOT reachable`: check that line after a deploy.
 
-### Moving the existing photos (production already running on the volume)
-
-The published photos must follow, or the pages that show them would lose their image.
-
-1. Set the `S3_*` variables on the `api` container but **keep `BLOB_STORE=fs`** for now.
-2. In the `api` container (the volume is mounted on `/data`):
-   `bun copy-blobs.js` (a dry run: what would be copied), then `bun copy-blobs.js --run`.
-   It is safe to repeat: what is already in the bucket is skipped.
-3. Switch `BLOB_STORE=s3` on `api` and `worker` and redeploy. Photos sent between step 2 and the
-   switch stay on the volume: run `bun copy-blobs.js --run` once more just before switching.
-4. Keep the volume for a few days, then remove it.
-
-To go back: `bun copy-blobs.js --run --reverse`, then `BLOB_STORE=fs`.
-
-### Migrating from Supabase straight into the bucket
-
-`migrate:supabase --photos` copies the published photos into the configured store: with
-`BLOB_STORE=s3` they go directly into the bucket.
-
 ### Privacy
 
 The bucket is the only copy of the originals while they await moderation (48 h at most). It is

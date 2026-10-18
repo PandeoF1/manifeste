@@ -13,11 +13,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "bun test",
     "staff": "bun src/cli/staff.ts",
-    "build": "bun build src/index.ts src/cli/staff.ts src/cli/ingest.ts src/cli/migrate-supabase.ts src/cli/shadow-compare.ts src/cli/copy-blobs.ts ../../packages/db/src/cli/migrate.ts --target bun --outdir dist --entry-naming [name].[ext] --sourcemap=linked",
-    "ingest": "bun src/cli/ingest.ts",
-    "migrate:supabase": "bun src/cli/migrate-supabase.ts",
-    "shadow:compare": "bun src/cli/shadow-compare.ts",
-    "blobs:copy": "bun src/cli/copy-blobs.ts"
+    "build": "bun build src/index.ts src/cli/staff.ts src/cli/ingest.ts ../../packages/db/src/cli/migrate.ts --target bun --outdir dist --entry-naming [name].[ext] --sourcemap=linked",
+    "ingest": "bun src/cli/ingest.ts"
   },
   "dependencies": {
     "@elysiajs/openapi": "1.4.16",

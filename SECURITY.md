@@ -10,12 +10,12 @@ answer as soon as possible; this is a small volunteer project, so please be pati
 
 ## Scope
 
-In scope: the web app, the `api/` edge functions, the Supabase Edge Functions, the database
-policies and the migrations in this repository. Of particular interest: anything that exposes a
+In scope: the web app, the API and worker (`apps/server`), the database schema and the
+migrations in this repository. Of particular interest: anything that exposes a
 visitor's position, a photo, an IP-derived value or an unreviewed report, and any way for a
 non-staff account to write data.
 
-Out of scope: denial of service, spam, social engineering, and third-party services (Supabase,
-Vercel, Cloudflare, Google).
+Out of scope: denial of service, spam, social engineering, and third-party services (Cloudflare,
+Coolify, Google).
 
 Please test only against your own deployment and never access data that is not yours.
