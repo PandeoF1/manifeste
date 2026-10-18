@@ -195,13 +195,22 @@ async function buildProposal(
   const commune = await geocoder.commune(m.city)
   const warnings: string[] = []
   const places: ProposalPlace[] = []
+  const missing = { quote: '', lng: null, lat: null, label: null, status: 'none' as const }
   for (const p of m.places) {
-    const fix = commune
-      ? await geocoder.place(p.name, commune)
-      : { name: p.name, quote: '', lng: null, lat: null, label: null, status: 'none' as const }
+    // A place that is another commune: the march goes between towns, which a map of one cannot show.
+    if (commune && (await geocoder.isOtherCommune(p.name, commune))) {
+      places.push({ ...missing, name: p.name, quote: p.quote })
+      warnings.push(`« ${p.name} » est une autre commune : trajet entre villes, pas un cortège`)
+      continue
+    }
+    const fix = commune ? await geocoder.place(p.name, commune) : { ...missing, name: p.name }
     places.push({ ...fix, name: p.name, quote: p.quote })
   }
   if (!commune) warnings.push(`Commune « ${m.city} » introuvable`)
+  if (commune && commune.homonyms.length > 0)
+    warnings.push(
+      `Plusieurs communes s’appellent « ${commune.name} » (aussi dans : ${commune.homonyms.join(', ')}) : vérifie que c’est la bonne`,
+    )
   const walk = await walkPlaces(deps.fetchFn, places)
   warnings.push(...walk.warnings)
   const route = walk.route

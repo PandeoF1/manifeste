@@ -17,14 +17,20 @@ would draw false routes.
 3. **AI.** One call per batch of 6 articles (`routes` task, same models as the media task). The
    model returns marches with their ordered places, and **a quote for each place**. A place whose
    quote is not in the text, a name not in its own quote, a city not in the text, or a march with
-   fewer than two places is dropped by the parser.
+   fewer than two places is dropped by the parser. A march is also dropped unless the model gives a
+   quote (checked against the text) saying that lycéens or students take part in it: taxi, biker or
+   farmer marches are not ours (prompt v3).
 4. **Geocoding.** The commune is found first (geo.api.gouv.fr). A place is "ok" only if the address
    base (BAN) returns it in that commune, within 7 km of the centre, and every distinctive word of
    the name is in the answer ("gare" alone proves nothing). Otherwise OpenStreetMap is tried inside
    a box around the commune. Otherwise the place stays "weak" (a guess) or "none".
+   A place that is the name of another commune ("Brest" in a march of Morlaix) is refused: it is a
+   trip between towns. When several communes share the commune's name (Clermont), a warning says so.
+   The day must be within 14 days before and 21 days after the article, else it is dropped.
 5. **Route.** Walking route through the places (public OSRM). No straight-line fallback. A route
    under 0.2 km, over 15 km or with a detour over 3.5x is flagged and not drawn.
-6. **Proposal.** Stored in `route_proposals` with warnings in French. Proposals about the same
+6. **Proposal.** One per commune, day and route (same start and end): outlets reprint the same
+   dispatch. Stored in `route_proposals` with warnings in French. Proposals about the same
    commune and day share a `group_key`; the admin shows them together.
 7. **Decision.** Admin tab **Parcours détectés**: correct points (paste `lat, lng` from a map), the
    route is recomputed, then approve (creates a `march` event with route basis `probable`, which the
