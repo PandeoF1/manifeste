@@ -4,6 +4,7 @@ import {
   EVENT_STATUSES,
   MAX_ROUTE_POINTS,
   MOVEMENT_STATUSES,
+  PERIODS,
   ROUTE_BASES,
   SLUG_PATTERN,
 } from '@manifeste/core'
@@ -26,7 +27,10 @@ const route = t.Array(t.Tuple([t.Number(), t.Number()]), {
   maxItems: MAX_ROUTE_POINTS,
 })
 
+const period = oneOf(PERIODS)
+
 export const MovementsModel = {
+  period,
   movement: t.Object({
     id: t.String(),
     slug: t.String(),

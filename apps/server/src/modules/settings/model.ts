@@ -6,5 +6,6 @@ export const SettingsModel = {
     movement_start: t.String(),
     judge_tiers: t.Boolean(),
     movements_public: t.Boolean(),
+    marches_on_map: t.Boolean(),
   }),
 } as const

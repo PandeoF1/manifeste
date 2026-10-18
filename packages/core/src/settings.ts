@@ -19,6 +19,11 @@ export const SETTINGS = {
    * exist for visitors, while staff can still prepare movements in the admin.
    */
   movements_public: { schema: t.Boolean(), default: false, public: true },
+  /**
+   * Show the approved marches (with their route) on the home map. Off until wanted: the
+   * dedicated Mouvements pages are a separate switch.
+   */
+  marches_on_map: { schema: t.Boolean(), default: false, public: true },
   /** Judge probability at or above which a report can be confirmed. */
   judge_keep: { schema: t.Number({ minimum: 0, maximum: 1 }), default: 0.5, public: false },
   /** Judge probability below which a report is not retained (unless gathering or incident). */
@@ -68,7 +73,7 @@ export function readSettings(rows: Iterable<{ key: string; value: unknown }>): S
 
 export type PublicSettings = Pick<
   Settings,
-  'status_ttl_hours' | 'movement_start' | 'judge_tiers' | 'movements_public'
+  'status_ttl_hours' | 'movement_start' | 'judge_tiers' | 'movements_public' | 'marches_on_map'
 >
 
 export function publicSettings(s: Settings): PublicSettings {
@@ -77,5 +82,6 @@ export function publicSettings(s: Settings): PublicSettings {
     movement_start: s.movement_start,
     judge_tiers: s.judge_tiers,
     movements_public: s.movements_public,
+    marches_on_map: s.marches_on_map,
   }
 }

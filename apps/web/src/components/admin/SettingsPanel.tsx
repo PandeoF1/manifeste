@@ -39,6 +39,12 @@ const FIELDS = [
     type: 'boolean',
   },
   {
+    key: 'marches_on_map',
+    label: 'Cortèges sur la carte d’accueil',
+    help: 'Désactivé (par défaut) : la carte d’accueil ne montre que les lycées. Activé : les cortèges approuvés des mouvements en cours (Parcours détectés ou saisis à la main) sont tracés sur la carte, selon la période choisie (direct : en cours et à venir ; 24 h, 7 j, tout : jusqu’où remonter), en pointillé quand le parcours est seulement probable.',
+    type: 'boolean',
+  },
+  {
     key: 'media_analysis',
     label: 'Analyse des médias (IA)',
     help: 'Activé : chaque article de presse lu est aussi analysé par l’IA (revendications citées, qui s’exprime, angle, ton) pour l’onglet « Médias ». C’est ~40 % des appels Gemini. Désactivé : plus aucun appel pour ça, les analyses déjà faites restent.',

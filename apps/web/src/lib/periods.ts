@@ -22,6 +22,8 @@ export interface PublicSettings {
   judgeTiers: boolean
   /** The public Mouvements pages are shown (off until they are wanted). */
   movementsPublic: boolean
+  /** Approved marches are drawn on the home map. */
+  marchesOnMap: boolean
 }
 
 export const DEFAULT_SETTINGS: PublicSettings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: PublicSettings = {
   movementStart: '2026-09-14',
   judgeTiers: false,
   movementsPublic: false,
+  marchesOnMap: false,
 }
 
 export const PERIOD_SHORT_LABELS: Record<Period, string> = {
@@ -83,11 +86,13 @@ export function fromApiSettings(s: {
   movement_start: string
   judge_tiers: boolean
   movements_public: boolean
+  marches_on_map: boolean
 }): PublicSettings {
   return {
     statusTtlHours: s.status_ttl_hours,
     movementStart: s.movement_start,
     judgeTiers: s.judge_tiers,
     movementsPublic: s.movements_public,
+    marchesOnMap: s.marches_on_map,
   }
 }

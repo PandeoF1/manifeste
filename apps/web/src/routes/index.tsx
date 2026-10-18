@@ -30,6 +30,7 @@ import {
 } from '@/queries/statuses'
 import { timelineQuery } from '@/queries/timeline'
 import { settingsQuery } from '@/queries/settings'
+import { marchesQuery } from '@/queries/movements'
 import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib/periods'
 import { PeriodPicker } from '@/components/status/PeriodPicker'
 import { useReportsRealtime } from '@/lib/realtime'
@@ -102,6 +103,10 @@ function MapPage() {
     search.periode === undefined || search.periode === 'historique' ? 'direct' : search.periode
   const isPhone = useMediaQuery('(max-width: 767px)')
   const { data: settings = DEFAULT_SETTINGS } = useQuery(settingsQuery)
+  const marches = useQuery({
+    ...marchesQuery(period),
+    enabled: settings.marchesOnMap && !historyMode,
+  })
   const {
     data: statuses = [],
     dataUpdatedAt,
@@ -317,6 +322,7 @@ function MapPage() {
           <MapView
             statuses={shown}
             mobilisation={mobilisation}
+            marches={marches.data}
             initialView={initialView}
             selected={selected}
             onViewChange={onViewChange}

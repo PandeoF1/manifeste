@@ -1,6 +1,12 @@
-import { extractDomain, parseRoute, slugify } from '@manifeste/core'
+import {
+  DEFAULT_EVENT_HOURS,
+  extractDomain,
+  parseRoute,
+  slugify,
+  type Period,
+} from '@manifeste/core'
 import { schema, type Database } from '@manifeste/db'
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNotNull, lte, sql } from 'drizzle-orm'
 import { memoWithTtl } from '../../lib/memo.ts'
 import type { EventView, MovementView, StaffEventView } from './model.ts'
 
@@ -14,6 +20,25 @@ export class MovementError extends Error {
     message: string,
   ) {
     super(message)
+  }
+}
+
+/** Marches announced further than this many days ahead are not drawn. */
+const MARCH_DAYS_AFTER = 7
+
+/** How far back the home map looks, by the period shown: the same names as the statuses. */
+const marchSince = (period: Period, now: number): Date | null => {
+  const hour = 3_600_000
+  switch (period) {
+    case 'live':
+      // Still going on: those that began less than an event lasts ago, and those to come.
+      return new Date(now - DEFAULT_EVENT_HOURS * hour)
+    case '24h':
+      return new Date(now - 24 * hour)
+    case '7d':
+      return new Date(now - 7 * 24 * hour)
+    case 'all':
+      return null
   }
 }
 
@@ -83,7 +108,40 @@ export class MovementsService {
     return this.oneCache.get(slug)
   }
 
+  private readonly marchesCache = memoWithTtl(60_000, (period: Period) => this.loadMarches(period))
+
+  /**
+   * Approved events with a route, of the movements that are active, for the period the home map
+   * shows (live, 24 h, 7 days, all) and up to a week ahead. Short cache, like the pages.
+   */
+  marches(period: Period): Promise<EventView[]> {
+    return this.marchesCache.get(period)
+  }
+
+  private async loadMarches(period: Period): Promise<EventView[]> {
+    const day = 86_400_000
+    const now = Date.now()
+    const since = marchSince(period, now)
+    const rows = await this.db
+      .select({ event: schema.movementEvents })
+      .from(schema.movementEvents)
+      .innerJoin(schema.movements, eq(schema.movements.id, schema.movementEvents.movementId))
+      .where(
+        and(
+          PUBLIC,
+          // Only the movements that are running: archiving one takes its marches off the map.
+          eq(schema.movements.status, 'active'),
+          isNotNull(schema.movementEvents.route),
+          since ? gte(schema.movementEvents.startsAt, since) : undefined,
+          lte(schema.movementEvents.startsAt, new Date(now + MARCH_DAYS_AFTER * day)),
+        ),
+      )
+      .orderBy(asc(schema.movementEvents.startsAt))
+    return rows.map((r) => eventView(r.event))
+  }
+
   private invalidate() {
+    this.marchesCache.clear()
     this.listCache.clear()
     this.oneCache.clear()
   }

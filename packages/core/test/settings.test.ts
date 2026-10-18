@@ -8,6 +8,7 @@ describe('settings', () => {
       movement_start: '2026-09-14',
       judge_tiers: false,
       movements_public: false,
+      marches_on_map: false,
       judge_keep: 0.5,
       judge_low: 0.3,
       media_analysis: true,
@@ -47,6 +48,7 @@ describe('settings', () => {
       'movement_start',
       'judge_tiers',
       'movements_public',
+      'marches_on_map',
     ])
   })
 })

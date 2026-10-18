@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { api, reviveDates, unwrap } from '@/lib/api'
+import { API_PERIOD, type Period } from '@/lib/periods'
 import { queryKeys } from '@/lib/queryKeys'
 
 /** Movements: the active ones, then the archives. A page, not a live feed: a slow refresh. */
@@ -8,6 +9,16 @@ export const movementsQuery = queryOptions({
   queryFn: () => unwrap(api.api.movements.get()),
   staleTime: 60_000,
 })
+
+/** Marches with a route for the period shown: drawn on the home map when the setting is on. */
+export const marchesQuery = (period: Period) =>
+  queryOptions({
+    queryKey: [...queryKeys.movements.all, 'marches', period],
+    queryFn: async () =>
+      reviveDates(await unwrap(api.api.marches.get({ query: { period: API_PERIOD[period] } }))),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  })
 
 /** One movement with its published events; null when the address is unknown. */
 export const movementQuery = (slug: string) =>
