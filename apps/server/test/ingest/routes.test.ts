@@ -249,6 +249,33 @@ describe('route detection', () => {
   })
 })
 
+describe('the same dispatch printed twice', () => {
+  test('one proposal for the same march told by two outlets; another route stays', async () => {
+    ingest.deps.ai = routesAi()
+    ingest.deps.fetchFn = geoFetch
+    world.feed = rss([
+      {
+        guid: 'c1',
+        title: 'Manifestation des lycéens : le parcours du cortège à Lille',
+        link: ARTICLE,
+      },
+      {
+        guid: 'c3',
+        title: 'Manifestation des lycéens : le parcours à Lille (bis)',
+        link: `${ARTICLE}-bis`,
+      },
+    ])
+    world.pages[`${ARTICLE}-bis`] = world.pages[ARTICLE] ?? ''
+    await ingest.discover(sourceId, 'manual')
+    await ingest.read()
+    const out = await ingest.routes()
+    expect(out.calls).toBe(1)
+    expect(await proposals()).toHaveLength(1)
+    // Both articles are marked as read, so neither is analysed again.
+    expect(await ingest.routes()).toMatchObject({ scanned: 0, calls: 0 })
+  })
+})
+
 describe('the day of a march', () => {
   const published = new Date('2026-10-15T08:00:00Z')
   test('a day close to the article is plausible; 1986, 2020 and next year are not', () => {

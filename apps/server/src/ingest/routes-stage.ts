@@ -41,6 +41,24 @@ const parisDay = (d: Date): string =>
 
 const DAY_MS = 86_400_000
 
+/** A route is told apart by where it starts and where it ends. */
+const routeSignature = (places: ReadonlyArray<{ name: string }>): string =>
+  `${fold(places[0]?.name ?? '')}>${fold(places.at(-1)?.name ?? '')}`
+
+/** Another proposal (decided or not) for the same commune and day, from the same start to the same end. */
+async function alreadyProposed(
+  db: IngestDeps['db'],
+  groupKey: string,
+  places: ReadonlyArray<{ name: string }>,
+): Promise<boolean> {
+  const rows = await db
+    .select({ places: schema.routeProposals.places })
+    .from(schema.routeProposals)
+    .where(eq(schema.routeProposals.groupKey, groupKey))
+  const signature = routeSignature(places)
+  return rows.some((r) => routeSignature(r.places) === signature)
+}
+
 /**
  * The day the model read must make sense next to the article's date: a march of 1986 or of 2020
  * mentioned in passing is not today's march. Outside this window the day is dropped (and said).
@@ -132,6 +150,11 @@ export async function routesSweep(deps: IngestDeps): Promise<RoutesSweepResult> 
       const domain = article && (article.publisherDomain ?? extractDomain(article.url))
       if (!article || !domain) continue
       const proposal = await buildProposal(deps, geocoder, m, article.publishedAt)
+      // The same dispatch is printed by many outlets: one proposal is enough.
+      if (await alreadyProposed(db, proposal.groupKey, proposal.places)) {
+        found.set(article.url, found.get(article.url) ?? 0)
+        continue
+      }
       const inserted = await db
         .insert(schema.routeProposals)
         .values({
