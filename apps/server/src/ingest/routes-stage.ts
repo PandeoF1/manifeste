@@ -39,6 +39,18 @@ export const worthReading = (text: string): boolean =>
 const parisDay = (d: Date): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d)
 
+const DAY_MS = 86_400_000
+
+/**
+ * The day the model read must make sense next to the article's date: a march of 1986 or of 2020
+ * mentioned in passing is not today's march. Outside this window the day is dropped (and said).
+ */
+export const plausibleDay = (day: string | null, publishedAt: Date): boolean => {
+  if (!day) return false
+  const gap = (new Date(`${day}T12:00:00Z`).getTime() - publishedAt.getTime()) / DAY_MS
+  return gap >= -14 && gap <= 21
+}
+
 export const groupKeyOf = (citycode: string | null, city: string, day: string | null): string =>
   `${citycode ?? fold(city).replace(/ /g, '-')}|${day ?? 'sans-date'}`
 
@@ -170,7 +182,12 @@ async function buildProposal(
   const walk = await walkPlaces(deps.fetchFn, places)
   warnings.push(...walk.warnings)
   const route = walk.route
-  const day = m.day ?? (m.timing === 'ongoing' ? parisDay(publishedAt) : null)
+  let day = m.day
+  if (day && !plausibleDay(day, publishedAt)) {
+    warnings.push(`Date écartée (${day}) : trop éloignée de la date de l’article`)
+    day = null
+  }
+  day ??= m.timing === 'ongoing' ? parisDay(publishedAt) : null
   if (!day) warnings.push('Date du cortège absente de l’article')
   return {
     city: commune?.name ?? m.city,

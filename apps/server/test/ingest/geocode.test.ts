@@ -23,6 +23,25 @@ describe('words that prove a place', () => {
   })
 })
 
+describe('finding the commune', () => {
+  const rows = (...names: string[]) =>
+    names.map((nom, i) => ({ nom, code: `0${i}`, centre: { coordinates: [3 + i, 43] } }))
+
+  test('takes the commune of that exact name, not a near one', async () => {
+    const g = new Geocoder(async () => reply(rows('Tournai-sur-Dive')))
+    expect(await g.commune('Tournai')).toBeNull()
+    const l = new Geocoder(async () => reply(rows('Le Liège')))
+    expect(await l.commune('Liège')).toBeNull()
+    const ok = new Geocoder(async () => reply(rows('Lyonnais', 'Lyon')))
+    expect((await ok.commune('Lyon'))?.name).toBe('Lyon')
+  })
+
+  test('ignores accents, hyphens and Saint / St', async () => {
+    const g = new Geocoder(async () => reply(rows('Saint-Étienne')))
+    expect((await g.commune('St Etienne'))?.name).toBe('Saint-Étienne')
+  })
+})
+
 describe('geocoding a place', () => {
   test('a street found in the right commune with its words is ok', async () => {
     const g = new Geocoder(async () =>

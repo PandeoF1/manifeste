@@ -120,9 +120,9 @@ export function RouteProposalsPanel() {
         <section key={group[0]?.groupKey} className="space-y-2">
           {group.length > 1 && view === 'pending' && (
             <p className="text-sm font-bold">
-              {group.length} articles parlent de la même marche ({group[0]?.city},{' '}
-              {group[0]?.day ?? 'date inconnue'}) : compare-les, approuve le bon et rejette les
-              autres.
+              {group.length} articles à {group[0]?.city}, {group[0]?.day ?? 'date inconnue'} :
+              peut-être la même marche, peut-être plusieurs (une ville peut en avoir plusieurs le
+              même jour). Compare avant de rejeter.
             </p>
           )}
           {group.map((p) => (
@@ -168,7 +168,7 @@ function ProposalCard({
   )
   const [movementId, setMovementId] = useState('')
   const [time, setTime] = useState('14:00')
-  const [rejectOthers, setRejectOthers] = useState(true)
+  const [rejectOthers, setRejectOthers] = useState(false)
   const [selected, setSelected] = useState<string | undefined>()
   const [error, setError] = useState<string | null>(null)
   const refresh = () =>
@@ -233,7 +233,8 @@ function ProposalCard({
             {p.title} <span className="font-normal text-muted">· {p.city}</span>
           </h3>
           <p className="text-xs text-muted">
-            {p.domain} · {p.places.length} lieux ·{' '}
+            {p.day ? dateFmt.format(new Date(p.day)) : 'date inconnue'} · {p.domain} ·{' '}
+            {p.places.length} lieux ·{' '}
             {p.warnings.length === 0
               ? 'rien à signaler'
               : `${p.warnings.length} point${p.warnings.length > 1 ? 's' : ''} à vérifier`}
@@ -379,7 +380,8 @@ function ProposalCard({
                 checked={rejectOthers}
                 onChange={(e) => setRejectOthers(e.target.checked)}
               />
-              Rejeter les autres articles de la même marche en approuvant celui-ci
+              Rejeter aussi les autres articles de cette ville et de ce jour (à ne cocher que si
+              c’est la même marche)
             </label>
           )}
           {error && (

@@ -40,6 +40,15 @@ export const fold = (s: string): string =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 
+/** Same commune name, whatever the case, accents, hyphens and "St"/"Saint". */
+export const sameName = (a: string, b: string): boolean => {
+  const plain = (s: string) =>
+    fold(s)
+      .replace(/\bste\b/g, 'sainte')
+      .replace(/\bst\b/g, 'saint')
+  return plain(a) === plain(b)
+}
+
 /** The words of a place name that tell it apart from every other of its kind. */
 export const distinctive = (name: string): string[] =>
   fold(name)
@@ -105,9 +114,11 @@ export class Geocoder {
       found = this.json<
         Array<{ nom: string; code: string; centre?: { coordinates: [number, number] } }>
       >(
-        `${GEO}?nom=${encodeURIComponent(name)}&fields=nom,code,centre&boost=population&limit=1`,
+        `${GEO}?nom=${encodeURIComponent(name)}&fields=nom,code,centre&boost=population&limit=5`,
       ).then((rows) => {
-        const c = Array.isArray(rows) ? rows[0] : undefined
+        // The name must be the commune's own: a search for "Tournai" or "Liège" (Belgian towns)
+        // also returns "Tournai-sur-Dive" and "Le Liège", which are not the place meant.
+        const c = (Array.isArray(rows) ? rows : []).find((r) => sameName(r.nom, name))
         return c?.centre
           ? {
               name: c.nom,

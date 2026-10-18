@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:tes
 import { createAi, createMeter } from '@manifeste/ai'
 import { readSettings } from '@manifeste/core'
 import { schema } from '@manifeste/db'
+import { plausibleDay } from '../../src/ingest/routes-stage.ts'
 import { IngestService } from '../../src/ingest/service.ts'
 import { startTestServer, type TestServer } from '../helpers.ts'
 import { NOW, aiConfig, fetchFn, geminiFetch, page, rss, world } from './world.ts'
@@ -245,5 +246,18 @@ describe('route detection', () => {
     const r = await ingest.routes()
     expect(r).toMatchObject({ calls: 0, skipped: 1 })
     expect(routeCalls).toBe(0)
+  })
+})
+
+describe('the day of a march', () => {
+  const published = new Date('2026-10-15T08:00:00Z')
+  test('a day close to the article is plausible; 1986, 2020 and next year are not', () => {
+    expect(plausibleDay('2026-10-15', published)).toBe(true)
+    expect(plausibleDay('2026-10-17', published)).toBe(true)
+    expect(plausibleDay('2026-10-06', published)).toBe(true)
+    expect(plausibleDay('2020-10-08', published)).toBe(false)
+    expect(plausibleDay('1986-12-04', published)).toBe(false)
+    expect(plausibleDay('2027-10-15', published)).toBe(false)
+    expect(plausibleDay(null, published)).toBe(false)
   })
 })
