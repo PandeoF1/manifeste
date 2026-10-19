@@ -66,6 +66,7 @@ resets the field.
 ## Detected routes
 
 Marches found in the press arrive as proposals to check by hand: see [route-detection.md](route-detection.md).
+Mobilisations reported by the press all over France (red zones and points): see [signaled-mobilisations.md](signaled-mobilisations.md).
 
 ## Next
 

@@ -20,6 +20,18 @@ export const marchesQuery = (period: Period) =>
     refetchInterval: 120_000,
   })
 
+/** Mobilisations reported by the press all over France (the `signaled_mobilisations` setting). */
+export const mobilisationsQuery = (period: Period) =>
+  queryOptions({
+    queryKey: [...queryKeys.movements.all, 'mobilisations', period],
+    queryFn: async () =>
+      reviveDates(
+        await unwrap(api.api.mobilisations.get({ query: { period: API_PERIOD[period] } })),
+      ),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  })
+
 /** One movement with its published events; null when the address is unknown. */
 export const movementQuery = (slug: string) =>
   queryOptions({

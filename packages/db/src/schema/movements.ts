@@ -65,6 +65,13 @@ export const movementEvents = pgTable(
     lng: doublePrecision(),
     route: jsonb().$type<Array<[number, number]>>(),
     routeBasis: routeBasis(),
+    /** A signaled mobilisation known only by a district or a commune: the area drawn in red. */
+    zone: jsonb().$type<{ type: 'Polygon'; coordinates: Array<Array<[number, number]>> }>(),
+    /** point | district | city: how precisely a signaled mobilisation is placed. */
+    precision: text(),
+    citycode: text(),
+    /** One mobilisation signaled by several outlets: commune, day and place make its key. */
+    dedupeKey: text(),
     sourceUrl: text(),
     sourceDomain: text(),
     moderation: moderationState().notNull().default('pending'),
@@ -86,6 +93,11 @@ export const movementEvents = pgTable(
       'movement_events_source_https',
       sql`${t.sourceUrl} is null or ${t.sourceUrl} ~ '^https://'`,
     ),
+    check(
+      'movement_events_precision',
+      sql`${t.precision} is null or ${t.precision} in ('point', 'district', 'city')`,
+    ),
+    uniqueIndex('movement_events_dedupe').on(t.dedupeKey),
     check('movement_events_dates', sql`${t.endsAt} is null or ${t.endsAt} >= ${t.startsAt}`),
     index('movement_events_movement_start').on(t.movementId, t.startsAt.desc()),
     index('movement_events_public_start')
@@ -160,6 +172,16 @@ export const routeProposals = pgTable(
  * them (one AI call per article, ever).
  */
 export const routeScans = pgTable('route_scans', {
+  url: text().primaryKey(),
+  scannedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  found: integer().notNull().default(0),
+})
+
+/**
+ * Articles the signaled-mobilisations stage already read, whether or not they held one: one AI
+ * call per article, ever.
+ */
+export const signalScans = pgTable('signal_scans', {
   url: text().primaryKey(),
   scannedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   found: integer().notNull().default(0),

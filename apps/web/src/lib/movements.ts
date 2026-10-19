@@ -6,7 +6,7 @@ import {
   type EventStatus,
   type RouteBasis,
 } from '@manifeste/core'
-import type { FeatureCollection, LineString, Point } from 'geojson'
+import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson'
 
 /** The fields of an event the page and the map use (a subset of what the API returns). */
 export interface MovementEvent {
@@ -21,6 +21,9 @@ export interface MovementEvent {
   lng: number | null
   route: Array<[number, number]> | null
   routeBasis: RouteBasis | null
+  /** Signaled mobilisations: the red area, and how precisely it is placed. */
+  zone?: { type: 'Polygon'; coordinates: Array<Array<[number, number]>> } | null
+  precision?: 'point' | 'district' | 'city' | null
   sourceUrl: string | null
   sourceDomain: string | null
 }
@@ -29,6 +32,7 @@ export const EVENT_KIND_LABEL: Record<EventKind, string> = {
   march: 'Cortège',
   rally: 'Rassemblement',
   blockade: 'Blocage',
+  signaled: 'Mobilisation signalée',
 }
 
 export const EVENT_STATUS_LABEL: Record<EventStatus, string> = {
@@ -205,4 +209,37 @@ export function parseLatLng(text: string): [number, number] | null {
   const lat = Number(m[1]?.replace(',', '.'))
   const lng = Number(m[2]?.replace(',', '.'))
   return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? [lng, lat] : null
+}
+
+export interface SignaledProps {
+  id: string
+  status: EventStatus
+  precision: 'point' | 'district' | 'city'
+}
+
+/**
+ * The signaled mobilisations as map features: a polygon (red zone) for a district or a commune, a
+ * point for a street or a place. A zone without a valid ring falls back to its centre point.
+ */
+export function signaledGeoJSON(
+  events: ReadonlyArray<MovementEvent>,
+  now: Date,
+): FeatureCollection<Polygon | Point, SignaledProps> {
+  const features: Array<Feature<Polygon | Point, SignaledProps>> = []
+  for (const e of events) {
+    const precision = e.precision ?? 'point'
+    const properties: SignaledProps = { id: e.id, status: shownStatus(e, now), precision }
+    const ring = e.zone?.coordinates[0]
+    if (precision !== 'point' && e.zone && ring && ring.length >= 4) {
+      features.push({ type: 'Feature', id: e.id, properties, geometry: e.zone as Polygon })
+    } else if (e.lat != null && e.lng != null) {
+      features.push({
+        type: 'Feature',
+        id: e.id,
+        properties: { ...properties, precision: 'point' },
+        geometry: { type: 'Point', coordinates: [e.lng, e.lat] },
+      })
+    }
+  }
+  return { type: 'FeatureCollection', features }
 }

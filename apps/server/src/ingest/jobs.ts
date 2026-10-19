@@ -14,7 +14,7 @@ import type { IngestService } from './service.ts'
  */
 export async function defineIngestQueues(queue: JobQueue): Promise<void> {
   const sweep = { policy: 'stately', retryLimit: 2, expireInSeconds: 15 * 60 } as const
-  for (const stage of ['read', 'extract', 'resolve', 'media', 'routes'] as const)
+  for (const stage of ['read', 'extract', 'resolve', 'media', 'routes', 'signals'] as const)
     await queue.define(`ingest.${stage}`, sweep)
   await queue.define('ingest.discover', {
     policy: 'stately',
@@ -32,7 +32,7 @@ export async function registerIngestJobs(ctx: AppContext, ingest: IngestService)
   const { config } = ingest.deps
   await defineIngestQueues(queue)
 
-  for (const stage of ['read', 'extract', 'resolve', 'media', 'routes'] as const) {
+  for (const stage of ['read', 'extract', 'resolve', 'media', 'routes', 'signals'] as const) {
     await queue.work(`ingest.${stage}`, async () => {
       // A sweep that left work behind asks for the next one itself.
       await ingest[stage]()
@@ -61,7 +61,7 @@ export async function registerIngestJobs(ctx: AppContext, ingest: IngestService)
         { singletonKey: sourceId },
       )
     // Safety net: whatever waits in a stage is picked up even if its wake-up was lost.
-    for (const stage of ['read', 'extract', 'resolve', 'media', 'routes'] as const)
+    for (const stage of ['read', 'extract', 'resolve', 'media', 'routes', 'signals'] as const)
       await queue.send(`ingest.${stage}`, {}, { singletonKey: stage })
     log.debug({ sources: due.length }, 'ingest tick')
   })

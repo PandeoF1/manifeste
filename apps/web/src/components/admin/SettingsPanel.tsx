@@ -45,6 +45,12 @@ const FIELDS = [
     type: 'boolean',
   },
   {
+    key: 'signaled_mobilisations',
+    label: 'Mobilisations signalées (toute la France)',
+    help: 'Désactivé (par défaut) : seuls les lycées et les facs sont collectés. Activé : la collecte lit aussi les articles sur les manifestations partout en France, l’IA en tire le lieu, et la carte d’accueil montre chaque mobilisation signalée par un point (rue, lieu) ou une zone rouge (arrondissement, quartier, commune). Une mobilisation n’est jamais comptée comme un blocage. Ça élargit ce qui est lu et ajoute des appels d’IA.',
+    type: 'boolean',
+  },
+  {
     key: 'media_analysis',
     label: 'Analyse des médias (IA)',
     help: 'Activé : chaque article de presse lu est aussi analysé par l’IA (revendications citées, qui s’exprime, angle, ton) pour l’onglet « Médias ». C’est ~40 % des appels Gemini. Désactivé : plus aucun appel pour ça, les analyses déjà faites restent.',

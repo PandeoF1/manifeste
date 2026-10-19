@@ -86,6 +86,28 @@ export const marchesModule = (service: MovementsService, settings: SettingsServi
     },
   )
 
+/**
+ * Public: the "mobilisations signalées" (demonstrations the press reports, as a point or a red
+ * zone) for the home map. Empty until the `signaled_mobilisations` setting is on.
+ */
+export const mobilisationsModule = (service: MovementsService, settings: SettingsService) =>
+  new Elysia({ name: 'module.mobilisations', prefix: '/api/mobilisations' }).get(
+    '/',
+    async ({ query, set }) => {
+      if (!(await settings.all()).signaled_mobilisations) return []
+      set.headers['cache-control'] = CACHE
+      return service.mobilisations(query.period ?? 'live')
+    },
+    {
+      query: t.Object({ period: t.Optional(MovementsModel.period) }),
+      response: t.Array(MovementsModel.event),
+      detail: {
+        tags: ['movements'],
+        summary: 'Signaled mobilisations (points and zones) for a period (home map)',
+      },
+    },
+  )
+
 /** Staff: create, archive and edit movements and their events. Every action is audited. */
 export const movementsStaffModule = (
   auth: Auth,
@@ -94,6 +116,15 @@ export const movementsStaffModule = (
 ) =>
   new Elysia({ name: 'module.movements.staff', prefix: '/api/staff' })
     .use(authPlugin(auth))
+    .get('/mobilisations', ({ query }) => service.mobilisationsForStaff(query.limit ?? 200), {
+      staff: { movement: ['manage'] },
+      query: t.Object({ limit: t.Optional(t.Integer({ minimum: 1, maximum: 500 })) }),
+      response: { 200: t.Array(MovementsModel.staffEvent) },
+      detail: {
+        tags: ['staff'],
+        summary: 'Recent signaled mobilisations, hidden ones included (hide with the event edit)',
+      },
+    })
     .get('/movements', () => service.listForStaff(), {
       staff: { movement: ['manage'] },
       response: { 200: t.Array(MovementsModel.movement) },

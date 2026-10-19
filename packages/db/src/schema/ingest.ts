@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   bigserial,
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -43,6 +44,11 @@ export const ingestItems = pgTable(
     /** Sent to the AI without the keyword filter (a point of a map of blockades). */
     alwaysRelevant: boolean().notNull().default(false),
     state: itemState().notNull().default('discovered'),
+    /**
+     * school: about a school or a university (the whole pipeline); demonstration: only a street
+     * demonstration (the signaled-mobilisations stage, nothing else).
+     */
+    scope: text().notNull().default('school'),
     /** Why it rests there: the blocked reason, "off topic", the last error. */
     reason: text(),
     attempts: integer().notNull().default(0),
@@ -56,6 +62,7 @@ export const ingestItems = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
+    check('ingest_items_scope', sql`${t.scope} in ('school', 'demonstration')`),
     uniqueIndex('ingest_items_source_external').on(t.sourceId, t.externalId),
     index('ingest_items_state').on(t.state, t.updatedAt.desc()),
     index('ingest_items_discovered').on(t.discoveredAt.desc()),

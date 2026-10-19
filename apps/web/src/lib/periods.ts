@@ -24,6 +24,8 @@ export interface PublicSettings {
   movementsPublic: boolean
   /** Approved marches are drawn on the home map. */
   marchesOnMap: boolean
+  /** Press-signaled demonstrations (points and red zones) are drawn on the home map. */
+  signaledMobilisations: boolean
 }
 
 export const DEFAULT_SETTINGS: PublicSettings = {
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: PublicSettings = {
   judgeTiers: false,
   movementsPublic: false,
   marchesOnMap: false,
+  signaledMobilisations: false,
 }
 
 export const PERIOD_SHORT_LABELS: Record<Period, string> = {
@@ -87,6 +90,7 @@ export function fromApiSettings(s: {
   judge_tiers: boolean
   movements_public: boolean
   marches_on_map: boolean
+  signaled_mobilisations: boolean
 }): PublicSettings {
   return {
     statusTtlHours: s.status_ttl_hours,
@@ -94,5 +98,6 @@ export function fromApiSettings(s: {
     judgeTiers: s.judge_tiers,
     movementsPublic: s.movements_public,
     marchesOnMap: s.marches_on_map,
+    signaledMobilisations: s.signaled_mobilisations,
   }
 }

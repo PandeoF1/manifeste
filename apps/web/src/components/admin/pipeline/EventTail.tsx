@@ -14,6 +14,7 @@ const STAGES = [
   'store',
   'media',
   'routes',
+  'signals',
   'run',
   'job',
 ] as const

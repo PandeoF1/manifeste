@@ -6,6 +6,8 @@
  *   at, hence `trusted: false` at the source level.
  * - Direct RSS feeds link to the publisher's site, validated by the trusted domains too.
  * - Official newsroom accounts on Bluesky are trusted.
+ * - "manifestations (toute la France)": read only when the `signaled_mobilisations` setting is on;
+ *   their articles feed the map of mobilisations signalées, not the school pipeline.
  * - Activist channels and independent media react fast but are not trusted: their reports go
  *   through concordance or moderation.
  */
@@ -998,6 +1000,92 @@ export const SOURCE_PRESETS: readonly SourcePreset[] = [
     kind: 'telegram',
     identifier: 'rapportsdeforce',
     label: 'Rapports de force (Telegram)',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier: 'https://news.google.com/rss/search?q=manifestation+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : manifestation',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier: 'https://news.google.com/rss/search?q=manifestants+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : manifestants',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier: 'https://news.google.com/rss/search?q=cort%C3%A8ge+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : cortège',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier: 'https://news.google.com/rss/search?q=rassemblement+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : rassemblement',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier:
+      'https://news.google.com/rss/search?q=d%C3%A9fil%C3%A9%20manifestants+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : défilé',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier:
+      'https://news.google.com/rss/search?q=%22marche%20blanche%22+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : marche blanche',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier:
+      'https://news.google.com/rss/search?q=%22marche%20pour%22+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : marche pour',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier:
+      'https://news.google.com/rss/search?q=blocage%20manifestants+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : blocage',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier:
+      'https://news.google.com/rss/search?q=gr%C3%A8ve%20manifestation+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : grève manifestation',
+    origin: 'press',
+    trusted: false,
+  },
+  {
+    group: 'Presse : manifestations (toute la France)',
+    kind: 'rss',
+    identifier:
+      'https://news.google.com/rss/search?q=mobilisation%20rassembl%C3%A9s+when:1d&hl=fr&gl=FR&ceid=FR:fr',
+    label: 'Google Actualités : mobilisation',
     origin: 'press',
     trusted: false,
   },

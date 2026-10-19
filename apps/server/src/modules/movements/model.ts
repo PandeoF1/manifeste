@@ -5,6 +5,7 @@ import {
   MAX_ROUTE_POINTS,
   MOVEMENT_STATUSES,
   PERIODS,
+  ZONE_PRECISIONS,
   ROUTE_BASES,
   SLUG_PATTERN,
 } from '@manifeste/core'
@@ -28,6 +29,13 @@ const route = t.Array(t.Tuple([t.Number(), t.Number()]), {
 })
 
 const period = oneOf(PERIODS)
+
+/** The red area of a signaled mobilisation known by a district or a commune (GeoJSON polygon). */
+const zone = t.Object({
+  type: t.Literal('Polygon'),
+  coordinates: t.Array(t.Array(t.Tuple([t.Number(), t.Number()]))),
+})
+const precision = oneOf(ZONE_PRECISIONS)
 
 export const MovementsModel = {
   period,
@@ -55,6 +63,8 @@ export const MovementsModel = {
     lng: t.Nullable(t.Number()),
     route: t.Nullable(route),
     routeBasis: t.Nullable(routeBasis),
+    zone: t.Nullable(zone),
+    precision: t.Nullable(precision),
     sourceUrl: t.Nullable(t.String()),
     sourceDomain: t.Nullable(t.String()),
   }),
@@ -71,6 +81,8 @@ export const MovementsModel = {
     lng: t.Nullable(t.Number()),
     route: t.Nullable(route),
     routeBasis: t.Nullable(routeBasis),
+    zone: t.Nullable(zone),
+    precision: t.Nullable(precision),
     sourceUrl: t.Nullable(t.String()),
     sourceDomain: t.Nullable(t.String()),
     hidden: t.Boolean(),

@@ -24,6 +24,12 @@ export const SETTINGS = {
    * dedicated Mouvements pages are a separate switch.
    */
   marches_on_map: { schema: t.Boolean(), default: false, public: true },
+  /**
+   * "Mobilisations signalées": collect the press articles about demonstrations all over France
+   * (not only schools) and draw them on the map, as a point or a red zone. Off until wanted: it
+   * widens what is fetched and read, and spends AI calls.
+   */
+  signaled_mobilisations: { schema: t.Boolean(), default: false, public: true },
   /** Judge probability at or above which a report can be confirmed. */
   judge_keep: { schema: t.Number({ minimum: 0, maximum: 1 }), default: 0.5, public: false },
   /** Judge probability below which a report is not retained (unless gathering or incident). */
@@ -73,7 +79,12 @@ export function readSettings(rows: Iterable<{ key: string; value: unknown }>): S
 
 export type PublicSettings = Pick<
   Settings,
-  'status_ttl_hours' | 'movement_start' | 'judge_tiers' | 'movements_public' | 'marches_on_map'
+  | 'status_ttl_hours'
+  | 'movement_start'
+  | 'judge_tiers'
+  | 'movements_public'
+  | 'marches_on_map'
+  | 'signaled_mobilisations'
 >
 
 export function publicSettings(s: Settings): PublicSettings {
@@ -83,5 +94,6 @@ export function publicSettings(s: Settings): PublicSettings {
     judge_tiers: s.judge_tiers,
     movements_public: s.movements_public,
     marches_on_map: s.marches_on_map,
+    signaled_mobilisations: s.signaled_mobilisations,
   }
 }

@@ -58,7 +58,7 @@ export interface JsonModel {
 export type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
 /** The tasks that spend AI calls, as accounted in the database. */
-export const AI_TASKS = ['extract', 'judge', 'reanalyse', 'media', 'routes'] as const
+export const AI_TASKS = ['extract', 'judge', 'reanalyse', 'media', 'routes', 'signals'] as const
 export type AiTask = (typeof AI_TASKS)[number]
 
 /** One finished call, handed to the usage sink for accounting and traces. */

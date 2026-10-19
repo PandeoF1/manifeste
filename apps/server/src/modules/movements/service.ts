@@ -25,6 +25,8 @@ export class MovementError extends Error {
 
 /** Marches announced further than this many days ahead are not drawn. */
 const MARCH_DAYS_AFTER = 7
+/** Most signaled mobilisations sent to the map at once. */
+const MAX_MOBILISATIONS = 1500
 
 /** How far back the home map looks, by the period shown: the same names as the statuses. */
 const marchSince = (period: Period, now: number): Date | null => {
@@ -70,6 +72,8 @@ const eventView = (e: EventRow): EventView => ({
   lng: e.lng,
   route: e.route,
   routeBasis: e.routeBasis,
+  zone: e.zone,
+  precision: e.precision as EventView['precision'],
   sourceUrl: e.sourceUrl,
   sourceDomain: e.sourceDomain,
 })
@@ -140,7 +144,51 @@ export class MovementsService {
     return rows.map((r) => eventView(r.event))
   }
 
+  private readonly mobilisationsCache = memoWithTtl(60_000, (period: Period) =>
+    this.loadMobilisations(period),
+  )
+
+  /**
+   * The signaled mobilisations (press reports of demonstrations, a point or a red zone) for a
+   * period of the home map, up to a week ahead. Short cache, like the pages.
+   */
+  mobilisations(period: Period): Promise<EventView[]> {
+    return this.mobilisationsCache.get(period)
+  }
+
+  private async loadMobilisations(period: Period): Promise<EventView[]> {
+    const day = 86_400_000
+    const now = Date.now()
+    const since = marchSince(period, now)
+    const rows = await this.db
+      .select()
+      .from(schema.movementEvents)
+      .where(
+        and(
+          PUBLIC,
+          eq(schema.movementEvents.kind, 'signaled'),
+          since ? gte(schema.movementEvents.startsAt, since) : undefined,
+          lte(schema.movementEvents.startsAt, new Date(now + MARCH_DAYS_AFTER * day)),
+        ),
+      )
+      .orderBy(desc(schema.movementEvents.startsAt))
+      .limit(MAX_MOBILISATIONS)
+    return rows.map(eventView)
+  }
+
+  /** Recent signaled mobilisations for staff, hidden ones included. */
+  async mobilisationsForStaff(limit = 200): Promise<StaffEventView[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.movementEvents)
+      .where(eq(schema.movementEvents.kind, 'signaled'))
+      .orderBy(desc(schema.movementEvents.startsAt))
+      .limit(Math.min(Math.max(limit, 1), 500))
+    return rows.map((e) => ({ ...eventView(e), hidden: e.hidden }))
+  }
+
   private invalidate() {
+    this.mobilisationsCache.clear()
     this.marchesCache.clear()
     this.listCache.clear()
     this.oneCache.clear()

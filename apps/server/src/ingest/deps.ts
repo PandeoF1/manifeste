@@ -9,7 +9,7 @@ import type { PipelineEvents } from './events.ts'
 import type { ReportStore } from './report-store.ts'
 import type { FetchLike } from './types.ts'
 
-export type SweepStage = 'read' | 'extract' | 'resolve' | 'media' | 'routes'
+export type SweepStage = 'read' | 'extract' | 'resolve' | 'media' | 'routes' | 'signals'
 
 /** Everything a stage needs, injected so tests run the real stages on fake I/O. */
 export interface IngestDeps {

@@ -12,6 +12,7 @@ const settings = {
   judgeTiers: false,
   movementsPublic: false,
   marchesOnMap: false,
+  signaledMobilisations: false,
 }
 const now = Date.parse('2026-10-05T12:00:00Z')
 
@@ -52,6 +53,7 @@ describe('fromApiSettings', () => {
         judge_tiers: true,
         movements_public: true,
         marches_on_map: true,
+        signaled_mobilisations: true,
       }),
     ).toEqual({
       statusTtlHours: 8,
@@ -59,6 +61,7 @@ describe('fromApiSettings', () => {
       judgeTiers: true,
       movementsPublic: true,
       marchesOnMap: true,
+      signaledMobilisations: true,
     })
   })
   it('the defaults are the production ones', () => {
@@ -68,6 +71,7 @@ describe('fromApiSettings', () => {
       judgeTiers: false,
       movementsPublic: false,
       marchesOnMap: false,
+      signaledMobilisations: false,
     })
   })
 })

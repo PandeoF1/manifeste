@@ -36,7 +36,7 @@ const MIN_TEXT = 400
 export const worthReading = (text: string): boolean =>
   text.length >= MIN_TEXT && ROUTE_WORDS.test(text) && PLACE_WORDS.test(text)
 
-const parisDay = (d: Date): string =>
+export const parisDay = (d: Date): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d)
 
 const DAY_MS = 86_400_000
@@ -95,6 +95,7 @@ export async function routesSweep(deps: IngestDeps): Promise<RoutesSweepResult> 
       and(
         eq(schema.sources.kind, 'rss'),
         inArray(schema.ingestItems.state, ['read', 'extracted', 'done', 'no_event']),
+        eq(schema.ingestItems.scope, 'school'),
         gte(schema.ingestItems.discoveredAt, since),
         sql`${schema.ingestItems.url} not like 'https://news.google.com/%'`,
         notExists(

@@ -165,6 +165,7 @@ describe('rangeStart', () => {
     judgeTiers: false,
     movementsPublic: false,
     marchesOnMap: false,
+    signaledMobilisations: false,
   }
   const now = Date.parse('2026-10-05T12:00:00Z')
   it('goes back by the chosen duration', () => {

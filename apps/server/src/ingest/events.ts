@@ -12,7 +12,7 @@ import type { Logger } from '../logger.ts'
 import type { EventBus } from '../realtime/bus.ts'
 
 export interface PipelineEvent {
-  stage: Stage | 'media' | 'routes' | 'run' | 'job'
+  stage: Stage | 'media' | 'routes' | 'signals' | 'run' | 'job'
   /** ok | skipped | deferred | failed, or the specific outcome (irrelevant, duplicate, reported…). */
   outcome: string
   runId?: string | null

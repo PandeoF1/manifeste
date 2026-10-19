@@ -7,6 +7,7 @@ import {
   afterAttempt,
   beforeAttempt,
   canonicalUrl,
+  isDemonstration,
   isRelevant,
   mayAttempt,
   type SourceState,
@@ -90,12 +91,16 @@ export async function discoverSource(
 
         let newItems = 0
         let relevant = 0
+        // Off by default: only then are the demonstrations of any cause kept (scope "demonstration").
+        const wideNet = (await deps.settings.all()).signaled_mobilisations
         for (const group of chunk(recent, 100)) {
           const inserted = await db
             .insert(schema.ingestItems)
             .values(
               group.map((i) => {
-                const keep = Boolean(i.alwaysRelevant) || isRelevant(i.text)
+                const school = Boolean(i.alwaysRelevant) || isRelevant(i.text)
+                const demonstration = wideNet && !school && isDemonstration(i.text)
+                const keep = school || demonstration
                 return {
                   sourceId,
                   externalId: i.externalId,
@@ -105,6 +110,7 @@ export async function discoverSource(
                   geoLat: i.geo?.lat ?? null,
                   geoLng: i.geo?.lng ?? null,
                   alwaysRelevant: Boolean(i.alwaysRelevant),
+                  scope: school ? 'school' : demonstration ? 'demonstration' : 'school',
                   state: keep ? ('discovered' as const) : ('irrelevant' as const),
                   reason: keep ? null : 'off topic',
                   runId,

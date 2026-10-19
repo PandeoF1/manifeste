@@ -77,6 +77,7 @@ describe('settings', () => {
       judge_tiers: false,
       movements_public: false,
       marches_on_map: false,
+      signaled_mobilisations: false,
     })
     expect(res.headers.get('cache-control')).toContain('max-age=60')
   })

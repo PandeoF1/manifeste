@@ -22,7 +22,13 @@ import { MAP_BASES, MAP_STATUS_COLORS } from './palette'
 import { NATIONAL_MAX_ZOOM, territoryOf } from '@/lib/overseas'
 import { setTheme, type Theme } from '@/lib/theme'
 import { OverseasInsets } from './OverseasInsets'
-import { EVENT_STATUS_COLOR, routesGeoJSON, shownStatus, type MovementEvent } from '@/lib/movements'
+import {
+  EVENT_STATUS_COLOR,
+  routesGeoJSON,
+  shownStatus,
+  signaledGeoJSON,
+  type MovementEvent,
+} from '@/lib/movements'
 
 setWorkerUrl(workerUrl)
 
@@ -116,6 +122,8 @@ interface Props {
   overseas?: boolean
   /** Approved marches with a route, drawn under the schools (dashed when only probable). */
   marches?: ReadonlyArray<MovementEvent>
+  /** Mobilisations reported by the press, all over France: a red zone or a red point. */
+  signaled?: ReadonlyArray<MovementEvent>
 }
 
 function heatColor(theme: Theme): ExpressionSpecification {
@@ -151,6 +159,9 @@ function mobGlowOpacity(theme: Theme): ExpressionSpecification {
 const MARCHES_SOURCE = 'marches'
 /** A stable empty list: a new one at every render would redraw the source every time. */
 const NO_MARCHES: ReadonlyArray<MovementEvent> = []
+const SIGNALED_SOURCE = 'signaled'
+const NO_SIGNALED: ReadonlyArray<MovementEvent> = []
+const SIGNALED_RED = '#dc2626'
 const MARCH_COLOR: ExpressionSpecification = [
   'match',
   ['get', 'status'],
@@ -208,6 +219,45 @@ function marchPopup(e: MovementEvent, now: Date): HTMLElement {
   return box
 }
 
+/** The popup of a reported mobilisation: text nodes only, the title comes from an article. */
+function signaledPopup(e: MovementEvent, now: Date): HTMLElement {
+  const box = document.createElement('div')
+  box.style.color = '#111'
+  box.style.maxWidth = '16rem'
+  const title = document.createElement('strong')
+  title.textContent = e.title
+  box.append(title)
+  const line = (text: string) => {
+    const p = document.createElement('div')
+    p.style.fontSize = '0.8rem'
+    p.textContent = text
+    box.append(p)
+  }
+  const when = new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Europe/Paris',
+  }).format(e.startsAt)
+  line(`${e.place ? `${e.place} · ` : ''}${when}`)
+  const status = shownStatus(e, now)
+  line(status === 'ongoing' ? 'En cours' : status === 'planned' ? 'À venir' : 'Terminé')
+  line(
+    e.precision === 'point'
+      ? 'Mobilisation signalée par la presse'
+      : 'Mobilisation signalée par la presse : zone approximative',
+  )
+  if (e.sourceUrl?.startsWith('https://')) {
+    const a = document.createElement('a')
+    a.href = e.sourceUrl
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.textContent = e.sourceDomain ?? 'Source'
+    a.style.fontSize = '0.8rem'
+    box.append(a)
+  }
+  return box
+}
+
 /** Theme of the background and dependent layers, applied on load then on every switch. */
 function applyTheme(map: MapLibreMap, theme: Theme) {
   styleBase(map, MAP_BASES[theme])
@@ -222,6 +272,10 @@ function applyTheme(map: MapLibreMap, theme: Theme) {
     if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', MARCH_COLOR)
   if (map.getLayer('march-casing'))
     map.setPaintProperty('march-casing', 'line-color', marchCasing(theme))
+  if (map.getLayer('signaled-outline'))
+    map.setPaintProperty('signaled-outline', 'line-color', SIGNALED_RED)
+  if (map.getLayer('signaled-point'))
+    map.setPaintProperty('signaled-point', 'circle-stroke-color', marchCasing(theme))
 }
 
 const STATUS_COLOR: ExpressionSpecification = [
@@ -288,6 +342,7 @@ export default function MapView({
   overseas = true,
   datasetKey = '',
   marches = NO_MARCHES,
+  signaled = NO_SIGNALED,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -306,9 +361,17 @@ export default function MapView({
     first: true,
   })
   const themeControlRef = useRef<ThemeControl | null>(null)
-  const latest = useRef({ statuses, mobilisation, marches, onViewChange, onSelect, theme })
+  const latest = useRef({
+    statuses,
+    mobilisation,
+    marches,
+    signaled,
+    onViewChange,
+    onSelect,
+    theme,
+  })
   useEffect(() => {
-    latest.current = { statuses, mobilisation, marches, onViewChange, onSelect, theme }
+    latest.current = { statuses, mobilisation, marches, signaled, onViewChange, onSelect, theme }
   })
 
   // One-time creation of the map.
@@ -406,6 +469,58 @@ export default function MapView({
           new Popup({ closeButton: true, maxWidth: '18rem' })
             .setLngLat(e.lngLat)
             .setDOMContent(marchPopup(march, new Date()))
+            .addTo(map)
+        })
+        map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
+        map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
+      }
+
+      // Mobilisations reported by the press, under the schools: a translucent red zone with a
+      // dashed outline (a district, a city), a red point with a ring (a street, a place).
+      map.addSource(SIGNALED_SOURCE, {
+        type: 'geojson',
+        data: signaledGeoJSON(latest.current.signaled, new Date()),
+      })
+      map.addLayer({
+        id: 'signaled-zone',
+        type: 'fill',
+        source: SIGNALED_SOURCE,
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: { 'fill-color': SIGNALED_RED, 'fill-opacity': 0.22 },
+      })
+      map.addLayer({
+        id: 'signaled-outline',
+        type: 'line',
+        source: SIGNALED_SOURCE,
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        layout: { 'line-join': 'round' },
+        paint: {
+          'line-color': SIGNALED_RED,
+          'line-width': 2,
+          'line-dasharray': [2, 1.5],
+          'line-opacity': 0.9,
+        },
+      })
+      map.addLayer({
+        id: 'signaled-point',
+        type: 'circle',
+        source: SIGNALED_SOURCE,
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: {
+          'circle-color': SIGNALED_RED,
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 4, 10, 7, 15, 10],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': marchCasing(latest.current.theme),
+        },
+      })
+      for (const layer of ['signaled-zone', 'signaled-point']) {
+        map.on('click', layer, (e: MapLayerMouseEvent) => {
+          const id = e.features?.[0]?.properties?.id
+          const hit = latest.current.signaled.find((m) => m.id === id)
+          if (!hit) return
+          new Popup({ closeButton: true, maxWidth: '18rem' })
+            .setLngLat(e.lngLat)
+            .setDOMContent(signaledPopup(hit, new Date()))
             .addTo(map)
         })
         map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
@@ -661,6 +776,13 @@ export default function MapView({
     if (!map || !readyRef.current) return
     map.getSource<GeoJSONSource>(MARCHES_SOURCE)?.setData(routesGeoJSON(marches, new Date()))
   }, [marches])
+
+  // Reported mobilisations: a plain source update.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !readyRef.current) return
+    map.getSource<GeoJSONSource>(SIGNALED_SOURCE)?.setData(signaledGeoJSON(signaled, new Date()))
+  }, [signaled])
 
   // Reported mobilisations: a plain source update (no animation).
   useEffect(() => {
