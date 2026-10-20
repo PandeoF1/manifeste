@@ -1,7 +1,8 @@
 /**
  * The signals stage: street demonstrations of any cause, reported by the press, placed on the map.
- * Each one becomes a movement event of kind `signaled` ("Mobilisation signalée") that follows no
- * movement: a point when the article names a street or a place, a red zone when it names a district,
+ * Each one becomes a movement event of kind `signaled` ("Mobilisation signalée"), attached to an
+ * active movement when the article names its cause (the model picks among the active ones, with a
+ * quote), else following none: a point when the article names a street or a place, a red zone when it names a district,
  * a neighbourhood or only the commune. A precise place that cannot be found falls back to the
  * commune, never to a guess. Off until the admin switch `signaled_mobilisations` is on.
  *
@@ -11,7 +12,7 @@
 import { AiError, detectSignals, type DetectedSignal } from '@manifeste/ai'
 import { extractDomain, isDemonstration, type Zone } from '@manifeste/core'
 import { schema } from '@manifeste/db'
-import { and, desc, eq, gte, inArray, notExists, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, notExists, sql } from 'drizzle-orm'
 import type { IngestDeps } from './deps.ts'
 import { inSpan } from './events.ts'
 import { chunk } from './http.ts'
@@ -27,6 +28,7 @@ export interface SignalsSweepResult {
 }
 
 const MIN_TEXT = 250
+const MAX_MOVEMENTS = 12
 
 /** Noon in Paris on a day (summer or winter time), as an instant. */
 export function parisNoon(day: string): Date {
@@ -159,6 +161,20 @@ export async function signalsSweep(deps: IngestDeps): Promise<SignalsSweepResult
   result.more = worth.length > limit
   if (todo.length === 0) return { ...result, more: false }
 
+  // Active movements the model may attach a mobilisation to (a handful, so the prompt stays small).
+  const active = await db
+    .select({
+      id: schema.movements.id,
+      name: schema.movements.name,
+      description: schema.movements.description,
+    })
+    .from(schema.movements)
+    .where(eq(schema.movements.status, 'active'))
+    .orderBy(desc(schema.movements.startsAt))
+    .limit(MAX_MOVEMENTS)
+  const offered = active.map((m, i) => ({ key: `m${i + 1}`, ...m }))
+  const movementOf = new Map(offered.map((m) => [m.key, m.id]))
+
   const chain = ai.signalsChain()
   const geocoder = new Geocoder(deps.fetchFn)
   for (const group of chunk(todo, config.signalsBatchSize)) {
@@ -172,6 +188,7 @@ export async function signalsSweep(deps: IngestDeps): Promise<SignalsSweepResult
             text: g.text,
             publishedOn: parisDay(g.publishedAt),
           })),
+          offered,
         ),
       )
       result.calls++
@@ -197,10 +214,11 @@ export async function signalsSweep(deps: IngestDeps): Promise<SignalsSweepResult
           ? article.publishedAt
           : parisNoon(day)
       const key = `${commune.code}|${day}|${placed.precision === 'city' ? 'city' : fold(s.place.name)}`
+      const movementId = (s.movement && movementOf.get(s.movement)) || null
       const inserted = await db
         .insert(schema.movementEvents)
         .values({
-          movementId: null,
+          movementId,
           kind: 'signaled',
           title: s.title || `Mobilisation à ${commune.name}`,
           place: placed.place,
@@ -217,6 +235,15 @@ export async function signalsSweep(deps: IngestDeps): Promise<SignalsSweepResult
         })
         .onConflictDoNothing()
         .returning({ id: schema.movementEvents.id })
+      // The same demonstration read earlier without a movement: attach it now (never move one that
+      // is already attached, a person may have decided).
+      if (inserted.length === 0 && movementId)
+        await db
+          .update(schema.movementEvents)
+          .set({ movementId })
+          .where(
+            and(eq(schema.movementEvents.dedupeKey, key), isNull(schema.movementEvents.movementId)),
+          )
       if (inserted.length > 0) {
         result.events++
         found.set(article.url, (found.get(article.url) ?? 0) + 1)

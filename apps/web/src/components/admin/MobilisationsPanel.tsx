@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink } from 'lucide-react'
 import { EVENT_STATUS_LABEL, shownStatus } from '@/lib/movements'
 import { queryKeys } from '@/lib/queryKeys'
-import { adminMobilisationsQuery, patchMovementEvent } from '@/queries/admin'
+import { adminMobilisationsQuery, adminMovementsQuery, patchMovementEvent } from '@/queries/admin'
 
 const PRECISION_LABEL = { point: 'Point', district: 'Quartier', city: 'Ville entière' } as const
 const dateTimeFmt = new Intl.DateTimeFormat('fr-FR', {
@@ -19,10 +19,11 @@ const dateTimeFmt = new Intl.DateTimeFormat('fr-FR', {
 export function MobilisationsPanel() {
   const queryClient = useQueryClient()
   const list = useQuery(adminMobilisationsQuery)
+  const movements = useQuery(adminMovementsQuery)
   const [showHidden, setShowHidden] = useState(true)
   const edit = useMutation({
-    mutationFn: ({ id, hidden }: { id: string; hidden: boolean }) =>
-      patchMovementEvent(id, { hidden }),
+    mutationFn: ({ id, ...body }: { id: string; hidden?: boolean; movementId?: string | null }) =>
+      patchMovementEvent(id, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.mobilisations() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.movements.all })
@@ -79,6 +80,19 @@ export function MobilisationsPanel() {
                 <ExternalLink size={14} aria-hidden />
               </a>
             )}
+            <select
+              className="input w-auto"
+              aria-label={`Mouvement de ${ev.title}`}
+              value={ev.movementId ?? ''}
+              onChange={(e) => edit.mutate({ id: ev.id, movementId: e.target.value || null })}
+            >
+              <option value="">Sans mouvement</option>
+              {movements.data?.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               className="btn-secondary"

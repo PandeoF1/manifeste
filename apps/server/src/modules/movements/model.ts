@@ -86,6 +86,7 @@ export const MovementsModel = {
     sourceUrl: t.Nullable(t.String()),
     sourceDomain: t.Nullable(t.String()),
     hidden: t.Boolean(),
+    movementId: t.Nullable(t.String()),
   }),
   slugParams: t.Object({ slug: t.String({ pattern: SLUG_PATTERN.source, maxLength: 80 }) }),
   idParams: t.Object({ id: t.String({ format: 'uuid' }) }),
@@ -125,6 +126,8 @@ export const MovementsModel = {
     route: t.Optional(t.Nullable(route)),
     routeBasis: t.Optional(t.Nullable(routeBasis)),
     hidden: t.Optional(t.Boolean()),
+    /** Attach the event to a movement, or detach it with null. */
+    movementId: t.Optional(t.Nullable(t.String({ format: 'uuid' }))),
   }),
 } as const
 

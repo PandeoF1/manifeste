@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { schema } from '@manifeste/db'
+import { eq } from 'drizzle-orm'
 import { signInStaff, startTestServer, type TestServer } from './helpers.ts'
 
 let s: TestServer
@@ -114,5 +115,21 @@ describe('signaled mobilisations API', () => {
     expect(list.find((m) => m.title === 'Masquée')?.hidden).toBe(true)
     expect((await as(moderator, '/api/staff/mobilisations')).status).toBe(403)
     expect((await s.request('/api/staff/mobilisations')).status).toBe(401)
+  })
+
+  test('an admin attaches an event to a movement and detaches it; an unknown movement is refused', async () => {
+    const id = await signaled('À rattacher', 1)
+    const [mv] = await s.ctx.db
+      .insert(schema.movements)
+      .values({ slug: 'rattache', name: 'Rattaché', startsAt: new Date() })
+      .returning({ id: schema.movements.id })
+    const patch = (movementId: string | null) =>
+      as(admin, `/api/staff/movement-events/${id}`, { method: 'PATCH', json: { movementId } })
+    expect((await patch(mv?.id ?? '')).status).toBe(200)
+    const attached = (await (await as(admin, '/api/staff/mobilisations')).json()) as Loose[]
+    expect(attached.find((m) => m.id === id)?.movementId).toBe(mv?.id)
+    expect((await patch(null)).status).toBe(200)
+    expect((await patch('00000000-0000-4000-8000-000000000000')).status).toBe(404)
+    await s.ctx.db.delete(schema.movements).where(eq(schema.movements.id, mv?.id ?? ''))
   })
 })

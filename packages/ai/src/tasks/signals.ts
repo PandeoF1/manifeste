@@ -30,6 +30,8 @@ const wireSignal = {
   timing: Enum(Object.keys(WIRE_TIMING) as Array<keyof typeof WIRE_TIMING>),
   title: t.String(),
   lieu: Strict(wirePlace),
+  mouvement: Nullable(t.String()),
+  mouvement_quote: Nullable(t.String()),
 }
 const answerSchema = Strict({
   articles: t.Array(Strict({ item_id: t.String(), mobilisations: t.Array(Strict(wireSignal)) })),
@@ -41,6 +43,8 @@ const lenient = t.Object({
       ...wireSignal,
       timing: t.String(),
       lieu: t.Object({ name: t.String(), niveau: t.String(), quote: t.String() }),
+      mouvement: t.Optional(Nullable(t.String())),
+      mouvement_quote: t.Optional(Nullable(t.String())),
     }),
   ),
 })
@@ -52,6 +56,8 @@ export interface DetectedSignal {
   timing: 'announced' | 'ongoing' | 'past'
   title: string
   place: { name: string; level: (typeof SIGNAL_LEVELS)[number]; quote: string }
+  /** The key of the movement it belongs to, only when the article names its cause. */
+  movement: string | null
 }
 
 export interface SignalsItem {
@@ -61,7 +67,17 @@ export interface SignalsItem {
   publishedOn: string
 }
 
-export function buildSignalsRequest(items: readonly SignalsItem[]): JsonRequest {
+/** An active movement offered to the model, under a short key it answers with. */
+export interface SignalsMovement {
+  key: string
+  name: string
+  description: string | null
+}
+
+export function buildSignalsRequest(
+  items: readonly SignalsItem[],
+  movements: readonly SignalsMovement[] = [],
+): JsonRequest {
   const payload = items.map(({ id, text, publishedOn }) => ({
     id,
     publie_le: publishedOn,
@@ -69,7 +85,9 @@ export function buildSignalsRequest(items: readonly SignalsItem[]): JsonRequest 
   }))
   return {
     system: SIGNALS_SYSTEM,
-    user: `Articles à analyser (JSON) :\n${JSON.stringify(payload)}`,
+    user: `Mouvements (JSON) : ${JSON.stringify(
+      movements.map((m) => ({ cle: m.key, nom: m.name, description: m.description })),
+    )}\n\nArticles à analyser (JSON) :\n${JSON.stringify(payload)}`,
     schema: answerSchema,
   }
 }
@@ -91,10 +109,15 @@ const validDay = (d: string | null): string | null => {
 
 /**
  * Validates the answer. An entry whose city is not in the text, whose quote is not in the text, or
- * whose place name is not in its own quote is dropped (a place that cannot be backed falls back to
+ * whose place name is not in its own quote is dropped; a movement is kept only when its key was
+ * offered and its quote is in the text (a place that cannot be backed falls back to
  * "city" only when the city itself is quoted); one entry per city and article.
  */
-export function parseSignals(raw: unknown, items: readonly SignalsItem[]): DetectedSignal[] {
+export function parseSignals(
+  raw: unknown,
+  items: readonly SignalsItem[],
+  movementKeys: readonly string[] = [],
+): DetectedSignal[] {
   const list = (raw as { articles?: unknown } | null)?.articles
   if (!Array.isArray(list)) return []
   const texts = new Map(items.map((i) => [i.id, norm(i.text)]))
@@ -118,6 +141,14 @@ export function parseSignals(raw: unknown, items: readonly SignalsItem[]): Detec
         // The precise place is not in the text: keep the mobilisation at the level of the city.
         place = { name: city, level: 'city', quote: city }
       }
+      const movementQuote = norm(m.mouvement_quote ?? '')
+      const movement =
+        m.mouvement &&
+        movementKeys.includes(m.mouvement) &&
+        movementQuote &&
+        text.includes(movementQuote)
+          ? m.mouvement
+          : null
       seen.add(norm(city))
       out.push({
         itemId: a.item_id,
@@ -126,6 +157,7 @@ export function parseSignals(raw: unknown, items: readonly SignalsItem[]): Detec
         timing: WIRE_TIMING[m.timing as keyof typeof WIRE_TIMING],
         title: m.title.replace(/\s+/g, ' ').trim().slice(0, 80),
         place,
+        movement,
       })
     }
   }
@@ -135,8 +167,13 @@ export function parseSignals(raw: unknown, items: readonly SignalsItem[]): Detec
 export async function detectSignals(
   chain: Chain,
   items: readonly SignalsItem[],
+  movements: readonly SignalsMovement[] = [],
 ): Promise<DetectedSignal[]> {
   if (items.length === 0) return []
-  const { json } = await chain.generate(buildSignalsRequest(items))
-  return parseSignals(json, items)
+  const { json } = await chain.generate(buildSignalsRequest(items, movements))
+  return parseSignals(
+    json,
+    items,
+    movements.map((m) => m.key),
+  )
 }

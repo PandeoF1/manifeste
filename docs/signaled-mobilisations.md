@@ -21,7 +21,13 @@ signalée"), without a movement (`movement_id` null: a "veille"). Off by default
    - district / neighbourhood (`13e arrondissement`) → its contour, else a circle of 700-1200 m;
    - otherwise the whole commune (contour from geo.api.gouv.fr, else a 2.5 km circle).
      A place that cannot be found is never guessed: the zone gets wider, never elsewhere.
-5. The event is **published at once** (`hidden = false`) with a `dedupe_key` (commune + day + place)
+5. **Movement.** The prompt (v2) also receives the active movements (at most 12, short keys `m1`…).
+   The model attaches a mobilisation to one only when the article names its cause, sector or actors,
+   and must quote the sentence. The parser drops a key that was not offered or a quote that is not in
+   the text. An event already stored without a movement is attached by a later article; one that is
+   already attached is never moved. An admin can attach or detach by hand (tab "Mobilisations
+   signalées", or `PATCH /api/staff/movement-events/:id {movementId}`).
+6. The event is **published at once** (`hidden = false`) with a `dedupe_key` (commune + day + place)
    so that the same demonstration read in several articles is one event.
 
 Dates: ongoing today → publication time; otherwise noon in Paris of the day found. An announcement
@@ -44,4 +50,4 @@ without a day is skipped; a day outside -14 / +21 days of the publication is dro
 
 - Nothing is checked by hand before publication: hide wrong ones from the admin tab.
 - Cost: about one cheap AI call per demonstration article.
-- Not yet: attaching a signaled event to a movement, regional filters, merging with approved marches.
+- Not yet: creating movements automatically from clusters of events, regional filters, merging with approved marches.

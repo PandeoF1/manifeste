@@ -184,7 +184,7 @@ export class MovementsService {
       .where(eq(schema.movementEvents.kind, 'signaled'))
       .orderBy(desc(schema.movementEvents.startsAt))
       .limit(Math.min(Math.max(limit, 1), 500))
-    return rows.map((e) => ({ ...eventView(e), hidden: e.hidden }))
+    return rows.map((e) => ({ ...eventView(e), hidden: e.hidden, movementId: e.movementId }))
   }
 
   private invalidate() {
@@ -234,7 +234,7 @@ export class MovementsService {
       .from(schema.movementEvents)
       .where(eq(schema.movementEvents.movementId, movementId))
       .orderBy(asc(schema.movementEvents.startsAt))
-    return rows.map((e) => ({ ...eventView(e), hidden: e.hidden }))
+    return rows.map((e) => ({ ...eventView(e), hidden: e.hidden, movementId: e.movementId }))
   }
 
   async create(input: {
@@ -375,6 +375,7 @@ export class MovementsService {
       route?: unknown
       routeBasis?: EventRow['routeBasis']
       hidden?: boolean
+      movementId?: string | null
     },
   ): Promise<{ before: EventRow; after: EventRow }> {
     const [before] = await this.db
@@ -389,6 +390,16 @@ export class MovementsService {
     if (input.startsAt !== undefined) patch.startsAt = input.startsAt
     if (input.endsAt !== undefined) patch.endsAt = input.endsAt
     if (input.hidden !== undefined) patch.hidden = input.hidden
+    if (input.movementId !== undefined) {
+      if (input.movementId !== null) {
+        const [target] = await this.db
+          .select({ id: schema.movements.id })
+          .from(schema.movements)
+          .where(eq(schema.movements.id, input.movementId))
+        if (!target) throw new MovementError('not_found', 'Unknown movement')
+      }
+      patch.movementId = input.movementId
+    }
     if (input.route !== undefined) {
       if (input.route === null) {
         patch.route = null

@@ -13,6 +13,8 @@ const entry = (over: Record<string, unknown> = {}) => ({
   day: '2026-10-17',
   timing: 'en_cours',
   title: 'Rassemblement contre la vie chère',
+  mouvement: null,
+  mouvement_quote: null,
   lieu: {
     name: 'place Bellecour',
     niveau: 'lieu',
@@ -82,5 +84,20 @@ describe('signaled mobilisations answers', () => {
     ])
     expect(req.user).toContain('2026-10-17')
     expect(req.user.length).toBeLessThan(6300)
+  })
+
+  test('a movement is kept only when its key was offered and its quote is in the text', () => {
+    const quote = 'plusieurs centaines de personnes se sont rassemblées'
+    const withMovement = (mouvement: string, mouvement_quote: string) =>
+      parseSignals(wrap(entry({ mouvement, mouvement_quote })), items, ['m1'])[0]?.movement
+    expect(withMovement('m1', quote)).toBe('m1')
+    expect(withMovement('m2', quote)).toBeNull()
+    expect(withMovement('m1', 'une phrase inventée')).toBeNull()
+    expect(parseSignals(wrap(entry()), items, ['m1'])[0]?.movement).toBeNull()
+  })
+
+  test('the movements offered travel in the request', () => {
+    const req = buildSignalsRequest(items, [{ key: 'm1', name: 'Lycéens', description: null }])
+    expect(req.user).toContain('"cle":"m1"')
   })
 })
