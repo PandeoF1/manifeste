@@ -24,26 +24,26 @@
     "@manifeste/core": "workspace:*",
     "@manifeste/db": "workspace:*",
     "@manifeste/parser": "workspace:*",
-    "@opentelemetry/api": "1.9.1",
-    "@opentelemetry/exporter-trace-otlp-proto": "0.223.0",
-    "@opentelemetry/instrumentation-pg": "^0.76.0",
-    "@opentelemetry/sdk-node": "0.223.0",
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "0.300.0",
+    "@opentelemetry/instrumentation-pg": "^0.77.0",
+    "@opentelemetry/sdk-node": "0.300.0",
     "@opentelemetry/sdk-trace-base": "2.12.0",
     "@resvg/resvg-wasm": "2.6.2",
     "@sinclair/typebox": "0.34.52",
-    "better-auth": "1.7.7",
+    "better-auth": "1.7.12",
     "drizzle-orm": "0.45.4",
     "elysia": "1.4.30",
     "fast-xml-parser": "5.11.2",
     "pg": "^8.23.1",
-    "pg-boss": "12.37.1",
+    "pg-boss": "12.38.0",
     "pino": "10.4.0",
-    "satori": "0.47.1"
+    "satori": "0.63.2"
   },
   "devDependencies": {
     "@elysiajs/eden": "1.4.9",
     "@opentelemetry/context-async-hooks": "2.12.0",
-    "@scalar/api-reference": "1.73.1",
+    "@scalar/api-reference": "1.76.0",
     "@types/pg": "^8.15.6"
   }
 }
