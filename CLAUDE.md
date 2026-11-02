@@ -23,6 +23,7 @@ Live, sourced map of blocked schools and universities in France. Bun workspaces:
 | Movements and events                | [docs/movements.md](docs/movements.md)                               |
 | Plan: all large movements in France | [docs/movements-roadmap.md](docs/movements-roadmap.md)               |
 | Route detection from the press      | [docs/route-detection.md](docs/route-detection.md)                   |
+| MCP server for bulk moderation      | [docs/mcp.md](docs/mcp.md)                                           |
 | Deploy, Cloudflare, backups         | [docs/ops/coolify.md](docs/ops/coolify.md)                           |
 | Public API reference                | `/api/docs` on a running server                                      |
 | Security reports                    | [SECURITY.md](SECURITY.md)                                           |
