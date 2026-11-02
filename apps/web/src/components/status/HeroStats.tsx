@@ -99,8 +99,10 @@ export function HeroStats({
         </p>
         {stats.blockedDays !== null && stats.blockedDays > 0 && (
           <p className={`text-muted ${compact ? 'text-xs' : 'mt-1 text-sm'}`}>
-            <strong className="tabular-nums text-fg">{stats.blockedDays}</strong> journée
-            {plural(stats.blockedDays)} de mobilisation au total
+            <strong className="tabular-nums text-fg">{stats.blockedDays}</strong> blocages cumulés
+            <span className="block text-xs">
+              (1 par établissement et par jour, tout mis bout à bout)
+            </span>
           </p>
         )}
         {mobilises > 0 && (
