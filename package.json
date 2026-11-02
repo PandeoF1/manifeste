@@ -29,14 +29,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.2",
-    "@types/bun": "^1.4.3"
+    "typescript-eslint": "^8.72.1",
+    "@types/bun": "^1.4.4"
   },
   "overrides": {
     "@opentelemetry/sdk-node": "0.223.0",
