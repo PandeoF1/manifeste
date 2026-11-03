@@ -18,25 +18,22 @@ Open the one-time link to choose a password.
 
 ## Configuration
 
-Add it to `.mcp.json` (or `claude mcp add`), on the machine that runs Claude Code:
+The repository's `.mcp.json` declares the server, so it starts by itself in Claude Code (local or
+cloud). It reads three variables, and never a password from a file:
 
-```json
-{
-  "mcpServers": {
-    "manifeste": {
-      "command": "bun",
-      "args": ["run", "--cwd", "apps/mcp", "start"],
-      "env": {
-        "MANIFESTE_URL": "https://manifeste.example.org",
-        "MANIFESTE_EMAIL": "claude@example.org",
-        "MANIFESTE_PASSWORD": "…"
-      }
-    }
-  }
-}
-```
+| Variable             | Value                                               |
+| -------------------- | --------------------------------------------------- |
+| `MANIFESTE_URL`      | optional, defaults to `https://manifeste.pandeo.fr` |
+| `MANIFESTE_EMAIL`    | the moderator account                               |
+| `MANIFESTE_PASSWORD` | its password                                        |
 
-Keep the password out of git (use `.mcp.json` in your user scope, not the repository).
+- **Cloud sessions**: add the variables in the environment's settings (the cloud environment menu
+  in the session title bar, then Edit). Start a **new session**: MCP servers are read at start.
+  The environment's network policy must allow the instance's host.
+- **Local**: export the same variables before starting Claude Code.
+
+Never paste the password in a chat or commit it. A claude.ai "custom connector" does not fit: it
+needs a hosted OAuth server, which this does not have.
 
 ## Tools
 
