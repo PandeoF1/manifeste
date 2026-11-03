@@ -497,3 +497,105 @@ describe('insights', () => {
     expect((await as(admin, `/api/staff/media/${m?.id}`, { method: 'DELETE' })).status).toBe(204)
   })
 })
+
+describe('unmatched queue in bulk (export, decide in a spreadsheet, import)', () => {
+  async function waiting(name = 'Lycée Pasteur') {
+    const [src] = await s.ctx.db
+      .insert(schema.sources)
+      .values({
+        kind: 'rss',
+        identifier: `https://${crypto.randomUUID()}.example/feed`,
+        label: 'U',
+        origin: 'press',
+      })
+      .returning({ id: schema.sources.id })
+    const [row] = await s.ctx.db
+      .insert(schema.unmatched)
+      .values({
+        sourceId: src?.id ?? null,
+        sourceDomain: 'u.example',
+        schoolName: name,
+        city: 'Lille',
+        status: 'blocked',
+        sourceUrl: `https://u.example/${crypto.randomUUID()}`,
+        observedAt: new Date(),
+        context: '=1+1 : les élèves bloquent "le lycée"',
+      })
+      .returning({ id: schema.unmatched.id })
+    return row?.id ?? ''
+  }
+  type Bulk = {
+    dryRun: boolean
+    linked: number
+    dismissed: number
+    skipped: Array<{ id: string; reason: string }>
+  }
+  const send = async (decisions: unknown[], dryRun: boolean): Promise<Bulk> =>
+    (await (
+      await as(moderator, '/api/staff/unmatched/decisions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ decisions, dryRun }),
+      })
+    ).json()) as Bulk
+  const resolution = async (id: string) =>
+    (
+      await s.ctx.db
+        .select({ resolution: schema.unmatched.resolution })
+        .from(schema.unmatched)
+        .where(eq(schema.unmatched.id, id))
+    )[0]?.resolution
+
+  test('the export lists the waiting facts with their candidates; visitors are refused', async () => {
+    const id = await waiting()
+    expect((await s.request('/api/staff/unmatched/export')).status).toBe(401)
+    const res = await as(moderator, '/api/staff/unmatched/export')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/csv')
+    const lines = (await res.text()).replace('\uFEFF', '').trim().split('\r\n')
+    expect(lines[0]).toStartWith('id,uai,school_cited,city_cited')
+    const mine = lines.find((l) => l.startsWith(`${id},`))
+    expect(mine).toContain(lille)
+    expect(mine).toContain("'=1+1")
+    expect(mine?.split(',')[1]).toBe('')
+  })
+
+  test('a preview changes nothing; applying links or drops, audited, and skips what it cannot do', async () => {
+    const [link, drop, done] = [await waiting(), await waiting(), await waiting()]
+    await s.ctx.db
+      .update(schema.unmatched)
+      .set({ resolvedAt: new Date(), resolution: 'dismissed' })
+      .where(eq(schema.unmatched.id, done))
+    const ghost = '00000000-0000-4000-8000-000000000000'
+    const decisions = [
+      { id: link, uai: lille },
+      { id: drop, dismiss: true },
+      { id: done, uai: lille },
+      { id: link, dismiss: true },
+      { id: ghost, uai: lille },
+      { id: await waiting(), uai: '0000000Z' },
+    ]
+    const preview = await send(decisions, true)
+    expect(preview).toMatchObject({ dryRun: true, linked: 1, dismissed: 1 })
+    expect(await resolution(link)).toBeNull()
+
+    const applied = await send(decisions, false)
+    expect(applied).toMatchObject({ linked: 1, dismissed: 1 })
+    expect(applied.skipped.map((x) => x.reason).sort()).toEqual([
+      'duplicate',
+      'resolved',
+      'unknown',
+      'unknown_school',
+    ])
+    expect(await resolution(link)).toBe('linked')
+    expect(await resolution(drop)).toBe('dismissed')
+    const audited = await s.ctx.db
+      .select({ action: schema.moderationAudit.action })
+      .from(schema.moderationAudit)
+      .where(eq(schema.moderationAudit.target, link))
+    expect(audited.map((a) => a.action)).toContain('unmatched.link')
+    expect((await send([{ id: link, uai: lille }], false)).skipped).toEqual([
+      { id: link, reason: 'resolved' },
+    ])
+  })
+})

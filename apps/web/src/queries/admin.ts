@@ -134,6 +134,33 @@ export const candidatesQuery = (id: string) =>
   })
 export const linkUnmatched = (id: string, uai: string) =>
   unwrap(staff.unmatched({ id }).link.post({ uai }))
+export type UnmatchedBulkResult = {
+  dryRun: boolean
+  linked: number
+  dismissed: number
+  skipped: Array<{
+    id: string
+    reason: 'unknown' | 'resolved' | 'unknown_school' | 'duplicate' | 'failed'
+  }>
+}
+export const unmatchedExportUrl = '/api/staff/unmatched/export'
+
+/** Sends decisions by batches of the server's limit and adds the answers up. */
+export async function decideUnmatchedMany(
+  decisions: Array<{ id: string; uai: string } | { id: string; dismiss: true }>,
+  dryRun: boolean,
+): Promise<UnmatchedBulkResult> {
+  const total: UnmatchedBulkResult = { dryRun, linked: 0, dismissed: 0, skipped: [] }
+  for (let i = 0; i < decisions.length; i += 500) {
+    const part = await unwrap(
+      staff.unmatched.decisions.post({ decisions: decisions.slice(i, i + 500), dryRun }),
+    )
+    total.linked += part.linked
+    total.dismissed += part.dismissed
+    total.skipped.push(...part.skipped)
+  }
+  return total
+}
 export const dismissUnmatched = (id: string) => unwrap(staff.unmatched({ id }).dismiss.post())
 
 export const proposalsQuery = queryOptions({
