@@ -65,3 +65,18 @@ In the admin page, the "Pending" tab has an "Export / import en masse" block:
 Left out on purpose: approving a report that has a photo (it must be blurred by hand: reject is
 allowed), a report decided in the meantime, an unknown or duplicated id. The export is the moderator
 view, with no position and no internal source.
+
+## The unmatched queue ("non rattachés"), same idea
+
+Facts the AI found but could not tie to a school are exported with their best candidates:
+
+1. **Export** (`GET /api/staff/unmatched/export`): one line per waiting fact (cited name and city,
+   source, a 400-character extract) and, per line, the 3 best schools (`c1_uai`, `c1_name`,
+   `c1_city`, `c1_score`, then `c2_…`, `c3_…`), with an empty `uai` column.
+2. Fill `uai`: a school's UAI, or `1` / `2` / `3` to take that candidate, or `ecarter` to drop the
+   fact. Blank leaves it waiting.
+3. **Import** the same file (`POST /api/staff/unmatched/decisions`, 500 per request): a preview
+   first, then apply. A fact attached by a person is published at once (the pipeline's rule), and
+   every decision is audited (`unmatched.link`, `unmatched.dismiss`, with `bulk: true`).
+
+Skipped, never overwritten: a fact already handled, an unknown fact, an unknown UAI, a duplicate id.

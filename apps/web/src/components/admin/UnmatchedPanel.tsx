@@ -6,6 +6,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { initialQuery } from '@/lib/unmatched'
 import { dismissUnmatched, linkUnmatched, unmatchedQuery } from '@/queries/admin'
 import { OperationButton } from './OperationButton'
+import { UnmatchedBulk } from './UnmatchedBulk'
 import { SchoolSearch } from './SchoolSearch'
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
@@ -41,6 +42,7 @@ export function UnmatchedPanel({ canManage = true }: { canManage?: boolean }) {
         signalement suit ensuite les règles de modération. Texte conservé 7 jours.
         {!canManage && ' Si tu ne sais pas, laisse la ligne : un administrateur la traitera.'}
       </p>
+      <UnmatchedBulk />
       {canManage && (
         <div className="mt-3 space-y-3">
           <OperationButton
