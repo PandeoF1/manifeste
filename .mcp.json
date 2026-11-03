@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "manifeste": {
+      "command": "bun",
+      "args": ["apps/mcp/src/index.ts"],
+      "env": {
+        "MANIFESTE_URL": "${MANIFESTE_URL:-https://manifeste.pandeo.fr}",
+        "MANIFESTE_EMAIL": "${MANIFESTE_EMAIL}",
+        "MANIFESTE_PASSWORD": "${MANIFESTE_PASSWORD}"
+      }
+    }
+  }
+}

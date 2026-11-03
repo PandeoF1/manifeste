@@ -18,25 +18,22 @@ Open the one-time link to choose a password.
 
 ## Configuration
 
-Add it to `.mcp.json` (or `claude mcp add`), on the machine that runs Claude Code:
+The repository's `.mcp.json` declares the server, so it starts by itself in Claude Code (local or
+cloud). It reads three variables, and never a password from a file:
 
-```json
-{
-  "mcpServers": {
-    "manifeste": {
-      "command": "bun",
-      "args": ["run", "--cwd", "apps/mcp", "start"],
-      "env": {
-        "MANIFESTE_URL": "https://manifeste.example.org",
-        "MANIFESTE_EMAIL": "claude@example.org",
-        "MANIFESTE_PASSWORD": "…"
-      }
-    }
-  }
-}
-```
+| Variable             | Value                                               |
+| -------------------- | --------------------------------------------------- |
+| `MANIFESTE_URL`      | optional, defaults to `https://manifeste.pandeo.fr` |
+| `MANIFESTE_EMAIL`    | the moderator account                               |
+| `MANIFESTE_PASSWORD` | its password                                        |
 
-Keep the password out of git (use `.mcp.json` in your user scope, not the repository).
+- **Cloud sessions**: add the variables in the environment's settings (the cloud environment menu
+  in the session title bar, then Edit). Start a **new session**: MCP servers are read at start.
+  The environment's network policy must allow the instance's host.
+- **Local**: export the same variables before starting Claude Code.
+
+Never paste the password in a chat or commit it. A claude.ai "custom connector" does not fit: it
+needs a hosted OAuth server, which this does not have.
 
 ## Tools
 
@@ -54,3 +51,17 @@ admin page.
 - One account, one role, every action audited (`report.approve`, `report.reject`).
 - The dry run is the default and a call is capped at 100 reports.
 - A report already decided by someone else is reported as failed (HTTP 409), never overwritten.
+
+## Without the MCP: export, decide in a spreadsheet, import
+
+In the admin page, the "Pending" tab has an "Export / import en masse" block:
+
+1. **Export** the queue (`GET /api/staff/reports/export`): a CSV with an empty `decision` column.
+2. Fill `decision` with `approve` or `reject` (or "valider" / "rejeter"; French Excel's `;` is fine), or
+   hand the file to Claude. A blank decision leaves the report pending.
+3. **Import** the same file: a preview says what would happen, then one click applies it
+   (`POST /api/staff/reports/decisions`, 1000 per request, each decision audited as usual).
+
+Left out on purpose: approving a report that has a photo (it must be blurred by hand: reject is
+allowed), a report decided in the meantime, an unknown or duplicated id. The export is the moderator
+view, with no position and no internal source.

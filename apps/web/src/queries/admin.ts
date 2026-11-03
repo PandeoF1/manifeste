@@ -74,6 +74,33 @@ export const decideReport = async (id: string, decision: 'approve' | 'reject', p
     }),
   )
 
+export type BulkDecision = { id: string; decision: 'approve' | 'reject' }
+export type BulkResult = {
+  dryRun: boolean
+  approved: number
+  rejected: number
+  skipped: Array<{
+    id: string
+    reason: 'unknown' | 'already_decided' | 'needs_photo_check' | 'duplicate'
+  }>
+}
+
+/** Sends decisions by batches of the server's limit and adds the answers up. */
+export async function decideMany(decisions: BulkDecision[], dryRun: boolean): Promise<BulkResult> {
+  const total: BulkResult = { dryRun, approved: 0, rejected: 0, skipped: [] }
+  for (let i = 0; i < decisions.length; i += 1000) {
+    const part = await unwrap(
+      staff.reports.decisions.post({ decisions: decisions.slice(i, i + 1000), dryRun }),
+    )
+    total.approved += part.approved
+    total.rejected += part.rejected
+    total.skipped.push(...part.skipped)
+  }
+  return total
+}
+
+export const queueExportUrl = '/api/staff/reports/export'
+
 export const originalPhotoUrl = (id: string) => `/api/staff/reports/${id}/original-photo`
 
 export const updateReport = (

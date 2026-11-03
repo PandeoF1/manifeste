@@ -345,3 +345,110 @@ describe('edits', () => {
     ).toBe(422)
   })
 })
+
+describe('bulk decisions (an exported queue)', () => {
+  type Bulk = {
+    dryRun: boolean
+    approved: number
+    rejected: number
+    skipped: Array<{ id: string; reason: string }>
+  }
+  const bulk = async (
+    who: { cookie: string },
+    decisions: unknown[],
+    dryRun: boolean,
+  ): Promise<Bulk> => (await bulkCall(who, decisions, dryRun)).json() as Promise<Bulk>
+  const bulkCall = (who: { cookie: string }, decisions: unknown[], dryRun: boolean) =>
+    as(who, '/api/staff/reports/decisions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decisions, dryRun }),
+    })
+  const stateOf = async (id: string) =>
+    (
+      await s.ctx.db
+        .select({ moderation: schema.reports.moderation })
+        .from(schema.reports)
+        .where(eq(schema.reports.id, id))
+    )[0]?.moderation
+
+  test('the export is a CSV of the queue with an empty decision column; visitors are refused', async () => {
+    const id = await addReport(s.ctx.db, {
+      schoolUai: uai,
+      origin: 'press',
+      moderation: 'pending',
+      hoursAgo: 2,
+    })
+    expect((await s.request('/api/staff/reports/export')).status).toBe(401)
+    const res = await as(moderator, '/api/staff/reports/export')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/csv')
+    expect(res.headers.get('content-disposition')).toContain('attachment')
+    const lines = (await res.text()).replace('\uFEFF', '').trim().split('\r\n')
+    expect(lines[0]).toStartWith('id,decision,school,city')
+    const mine = lines.find((l) => l.startsWith(`${id},`))
+    expect(mine).toBeDefined()
+    expect(mine?.split(',')[1]).toBe('')
+  })
+
+  test('a preview changes nothing; applying decides each report, audited, and skips the rest', async () => {
+    const mk = () =>
+      addReport(s.ctx.db, { schoolUai: uai, origin: 'press', moderation: 'pending', hoursAgo: 3 })
+    const [yes, no, decided] = [await mk(), await mk(), await mk()]
+    const onSite = await pendingOnSite()
+    await s.ctx.db
+      .update(schema.reports)
+      .set({ moderation: 'approved' })
+      .where(eq(schema.reports.id, decided))
+    const ghost = '00000000-0000-4000-8000-000000000000'
+    const decisions = [
+      { id: yes, decision: 'approve' },
+      { id: no, decision: 'reject' },
+      { id: decided, decision: 'approve' },
+      { id: onSite.id, decision: 'approve' },
+      { id: yes, decision: 'reject' },
+      { id: ghost, decision: 'approve' },
+    ]
+
+    const preview = await bulk(moderator, decisions, true)
+    expect(preview).toMatchObject({ dryRun: true, approved: 1, rejected: 1 })
+    expect(await stateOf(yes)).toBe('pending')
+    expect(await stateOf(no)).toBe('pending')
+
+    const applied = await bulk(moderator, decisions, false)
+    expect(applied.approved).toBe(1)
+    expect(applied.rejected).toBe(1)
+    expect(applied.skipped).toEqual(
+      expect.arrayContaining([
+        { id: decided, reason: 'already_decided' },
+        { id: onSite.id, reason: 'needs_photo_check' },
+        { id: yes, reason: 'duplicate' },
+        { id: ghost, reason: 'unknown' },
+      ]),
+    )
+    expect(await stateOf(yes)).toBe('approved')
+    expect(await stateOf(no)).toBe('rejected')
+    expect(await stateOf(onSite.id)).toBe('pending')
+    const audited = await s.ctx.db
+      .select({ action: schema.moderationAudit.action })
+      .from(schema.moderationAudit)
+      .where(eq(schema.moderationAudit.target, yes))
+    expect(audited.map((a) => a.action)).toContain('report.approve')
+  })
+
+  test('rejecting a report with a photo is allowed in bulk, and visitors cannot decide', async () => {
+    const withPhoto = await pendingOnSite()
+    const res = await bulk(moderator, [{ id: withPhoto.id, decision: 'reject' }], false)
+    expect(res.rejected).toBe(1)
+    expect(await stateOf(withPhoto.id)).toBe('rejected')
+    const anon = await s.request('/api/staff/reports/decisions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        decisions: [{ id: withPhoto.id, decision: 'approve' }],
+        dryRun: true,
+      }),
+    })
+    expect(anon.status).toBe(401)
+  })
+})
