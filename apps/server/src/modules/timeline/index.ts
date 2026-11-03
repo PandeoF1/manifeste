@@ -5,9 +5,9 @@ import type { TimelineService } from './service.ts'
 export const timelineModule = (service: TimelineService) =>
   new Elysia({ name: 'module.timeline', prefix: '/api/timeline' }).get(
     '/',
-    ({ query, set }) => {
+    async ({ query, set }) => {
       set.headers['cache-control'] = 'public, max-age=60, s-maxage=300, stale-while-revalidate=600'
-      return service.get(query.period)
+      return await service.get(query.period)
     },
     {
       query: TimelineModel.query,

@@ -96,7 +96,19 @@ export function createApp(ctx: AppContext) {
       }),
     )
     .onError({ as: 'global' }, ({ code, error, path }) => {
-      if (code === 'VALIDATION' || code === 'NOT_FOUND' || code === 'PARSE') return
+      if (code === 'VALIDATION') {
+        // A request the client got wrong is its problem; a response our own schema rejects is ours,
+        // and production only tells the client "validation": log which field failed.
+        const failure = error as { type?: string; all?: Array<{ path?: string; message?: string }> }
+        if (failure.type === 'response') {
+          log.error(
+            { path, fields: (failure.all ?? []).slice(0, 5).map((e) => `${e.path}: ${e.message}`) },
+            'response rejected by its own schema',
+          )
+        }
+        return
+      }
+      if (code === 'NOT_FOUND' || code === 'PARSE') return
       log.error({ err: error, path }, 'unhandled error')
     })
     .use(apiDocs(version))

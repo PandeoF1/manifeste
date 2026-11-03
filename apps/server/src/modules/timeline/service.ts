@@ -59,6 +59,17 @@ export class TimelineService {
               order by s.uai`,
         )
       : []
-    return { schools, events }
+    // Whatever the driver hands back, the response must match its schema or every visitor of the
+    // history gets a 422: coerce the numbers and drop the rows that cannot be drawn.
+    return {
+      schools: schools.map((s) => ({
+        ...s,
+        lat: s.lat == null || !Number.isFinite(Number(s.lat)) ? null : Number(s.lat),
+        lng: s.lng == null || !Number.isFinite(Number(s.lng)) ? null : Number(s.lng),
+      })),
+      events: events
+        .map((e) => ({ ...e, at: Number(e.at), mobilisation: e.mobilisation === true }))
+        .filter((e) => Number.isFinite(e.at)),
+    }
   }
 }
