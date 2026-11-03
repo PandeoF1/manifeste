@@ -7,6 +7,7 @@ import {
   pointsGeoJSON,
   routeLengthLabel,
   routesGeoJSON,
+  signaledGeoJSON,
   startOf,
   type MovementEvent,
 } from '../src/lib/movements'
@@ -174,5 +175,51 @@ describe('parseLatLng', () => {
     expect(parseLatLng('50.6')).toBeNull()
     expect(parseLatLng('95, 3')).toBeNull()
     expect(parseLatLng('50, 200')).toBeNull()
+  })
+})
+
+describe('signaledGeoJSON', () => {
+  const RING: Array<[number, number]> = [
+    [2.3, 48.8],
+    [2.4, 48.8],
+    [2.4, 48.9],
+    [2.3, 48.8],
+  ]
+  const now = new Date('2026-10-17T15:00:00Z')
+
+  it('draws a zone as a polygon and a street or a place as a point', () => {
+    const fc = signaledGeoJSON(
+      [
+        event({
+          id: 'z',
+          kind: 'signaled',
+          precision: 'district',
+          zone: { type: 'Polygon', coordinates: [RING] },
+        }),
+        event({ id: 'p', kind: 'signaled', precision: 'point', lat: 48.85, lng: 2.35 }),
+      ],
+      now,
+    )
+    expect(fc.features.map((f) => [f.properties.id, f.geometry.type])).toEqual([
+      ['z', 'Polygon'],
+      ['p', 'Point'],
+    ])
+  })
+
+  it('falls back to the point of a zone without a usable ring, and drops what has no place', () => {
+    const fc = signaledGeoJSON(
+      [
+        event({
+          id: 'a',
+          precision: 'city',
+          zone: { type: 'Polygon', coordinates: [[[2, 48]]] },
+          lat: 48.1,
+          lng: 2.1,
+        }),
+        event({ id: 'b', precision: 'city' }),
+      ],
+      now,
+    )
+    expect(fc.features.map((f) => [f.properties.id, f.geometry.type])).toEqual([['a', 'Point']])
   })
 })

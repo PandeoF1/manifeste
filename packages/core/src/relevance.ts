@@ -17,6 +17,17 @@ const BLOCKING_WORDS =
 export const plainText = (text: string): string =>
   text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 
+/**
+ * A street demonstration, whatever the cause: the filter of the "mobilisations signalées"
+ * (a wide net, the AI decides). A strike alone is not one: it needs a gathering or a march.
+ */
+const DEMONSTRATION_WORDS =
+  /\b(manifest\w*|cortege\w*|defil(e|es|er|ent|ant|ants)|rassemblement\w*|sit-in|marche (pour|contre|blanche|citoyenne|climat)|piquets? de greve|blocage\w*|mobilisation\w*)\b/
+
+export function isDemonstration(text: string): boolean {
+  return DEMONSTRATION_WORDS.test(plainText(text))
+}
+
 export function isRelevant(text: string): boolean {
   const t = plainText(text)
   return LEGACY_KEYWORDS.test(t) || (SCHOOL_WORDS.test(t) && BLOCKING_WORDS.test(t))

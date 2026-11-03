@@ -12,6 +12,7 @@ import { extractSweep } from './extract-stage.ts'
 import { purgeOld, retryLane, type RetryFilter } from './housekeeping.ts'
 import { mediaSweep } from './media-stage.ts'
 import { routesSweep } from './routes-stage.ts'
+import { signalsSweep } from './signals-stage.ts'
 import { readSweep } from './read-stage.ts'
 import { ReportStore } from './report-store.ts'
 import { tracedFetch } from '../telemetry/trace.ts'
@@ -67,6 +68,7 @@ export class IngestService {
   resolve = () => resolveSweep(this.deps)
   media = () => mediaSweep(this.deps)
   routes = () => routesSweep(this.deps)
+  signals = () => signalsSweep(this.deps)
   purge = () => purgeOld(this.deps)
   retry = (filter?: RetryFilter) => retryLane(this.deps, filter)
 

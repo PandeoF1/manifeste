@@ -97,6 +97,14 @@ export function HeroStats({
           <StatusIcon status="filtering" size={compact ? 14 : 18} />
           <strong className="tabular-nums text-filtrant">{filtrant}</strong> en barrage filtrant
         </p>
+        {stats.blockedDays !== null && stats.blockedDays > 0 && (
+          <p className={`text-muted ${compact ? 'text-xs' : 'mt-1 text-sm'}`}>
+            <strong className="tabular-nums text-fg">{stats.blockedDays}</strong> blocages cumulés
+            <span className="block text-xs">
+              (1 par établissement et par jour, tout mis bout à bout)
+            </span>
+          </p>
+        )}
         {mobilises > 0 && (
           <p
             className={`flex items-center gap-2 text-muted ${compact ? 'mt-0.5 text-xs' : 'mt-2 text-sm'}`}

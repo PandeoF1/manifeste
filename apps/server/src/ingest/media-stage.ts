@@ -49,6 +49,7 @@ export async function mediaSweep(deps: IngestDeps): Promise<MediaSweepResult> {
       and(
         eq(schema.sources.kind, 'rss'),
         inArray(schema.ingestItems.state, ['read', 'extracted', 'done', 'no_event']),
+        eq(schema.ingestItems.scope, 'school'),
         gte(schema.ingestItems.discoveredAt, since),
         sql`${schema.ingestItems.url} not like 'https://news.google.com/%'`,
         notExists(

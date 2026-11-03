@@ -30,7 +30,7 @@ import {
 } from '@/queries/statuses'
 import { timelineQuery } from '@/queries/timeline'
 import { settingsQuery } from '@/queries/settings'
-import { marchesQuery } from '@/queries/movements'
+import { marchesQuery, mobilisationsQuery } from '@/queries/movements'
 import { DEFAULT_SETTINGS, PERIODS, periodDescription, type Period } from '@/lib/periods'
 import { PeriodPicker } from '@/components/status/PeriodPicker'
 import { useReportsRealtime } from '@/lib/realtime'
@@ -106,6 +106,10 @@ function MapPage() {
   const marches = useQuery({
     ...marchesQuery(period),
     enabled: settings.marchesOnMap && !historyMode,
+  })
+  const signaled = useQuery({
+    ...mobilisationsQuery(period),
+    enabled: settings.signaledMobilisations && !historyMode,
   })
   const {
     data: statuses = [],
@@ -323,6 +327,7 @@ function MapPage() {
             statuses={shown}
             mobilisation={mobilisation}
             marches={marches.data}
+            signaled={signaled.data}
             initialView={initialView}
             selected={selected}
             onViewChange={onViewChange}

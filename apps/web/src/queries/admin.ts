@@ -1,6 +1,6 @@
 /** Every call the admin makes, typed against the server. Queries here, actions as plain functions. */
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, expectOk, unwrap } from '@/lib/api'
+import { api, expectOk, reviveDates, unwrap } from '@/lib/api'
 import { authClient, staffUser, type StaffSessionUser } from '@/lib/auth'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -189,6 +189,13 @@ export const patchMovementEvent = (
   id: string,
   body: Parameters<ReturnType<(typeof staff)['movement-events']>['patch']>[0],
 ) => unwrap(staff['movement-events']({ id }).patch(body))
+
+/** The mobilisations reported by the press, hidden ones included, newest first. */
+export const adminMobilisationsQuery = queryOptions({
+  queryKey: queryKeys.admin.mobilisations(),
+  queryFn: async () =>
+    reviveDates(await unwrap(staff.mobilisations.get({ query: { limit: 300 } }))),
+})
 
 // --- Route proposals found in the press ---------------------------------------------------------
 

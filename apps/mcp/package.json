@@ -1,0 +1,16 @@
+{
+  "name": "@manifeste/mcp",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "MCP server for staff: review and decide pending reports in bulk on a running Manifeste instance.",
+  "scripts": {
+    "start": "bun src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "^4.0.0"
+  }
+}

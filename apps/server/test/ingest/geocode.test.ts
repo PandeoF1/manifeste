@@ -235,3 +235,80 @@ describe('walking route', () => {
     expect(routeWarnings(null, false)).toEqual([])
   })
 })
+
+describe('zones', () => {
+  const square = (lng: number, lat: number, s: number) => ({
+    type: 'Polygon',
+    coordinates: [
+      [
+        [lng, lat],
+        [lng + s, lat],
+        [lng + s, lat + s],
+        [lng, lat + s],
+        [lng, lat],
+      ],
+    ],
+  })
+
+  test('a commune is drawn with its outline from the official service', async () => {
+    const g = new Geocoder(async () =>
+      reply({ nom: 'Montpellier', contour: square(3.8, 43.6, 0.1) }),
+    )
+    const z = await g.zone('city', 'Montpellier', MONTPELLIER)
+    expect(z?.zone.coordinates[0]).toHaveLength(5)
+    expect(z?.label).toBe('Montpellier')
+  })
+
+  test('without an outline, a circle around the centre, labelled approximate', async () => {
+    const g = new Geocoder(async () => new Response('', { status: 500 }))
+    const z = await g.zone('city', 'Montpellier', MONTPELLIER)
+    expect(z?.label).toContain('approximative')
+    expect(z?.zone.coordinates[0]?.length).toBeGreaterThan(10)
+  })
+
+  test('an arrondissement comes from OpenStreetMap, spelled the way it spells it', async () => {
+    const urls: string[] = []
+    const paris = { ...MONTPELLIER, name: 'Paris', code: '75056', lng: 2.35, lat: 48.85 }
+    const g = new Geocoder(
+      async (url) => {
+        urls.push(url)
+        return reply([
+          {
+            lat: '48.83',
+            lon: '2.36',
+            display_name: 'Paris 13e Arrondissement, Paris, Île-de-France',
+            geojson: square(2.34, 48.82, 0.03),
+          },
+        ])
+      },
+      { sleep: async () => {} },
+    )
+    const z = await g.zone('district', '13ème arrondissement', paris)
+    expect(decodeURIComponent(urls[0] ?? '')).toContain('13e arrondissement, Paris')
+    expect(z?.zone.coordinates[0]).toHaveLength(5)
+  })
+
+  test('a point instead of an outline becomes a circle; another place or nothing gives null', async () => {
+    const point = new Geocoder(
+      async () =>
+        reply([
+          {
+            lat: '43.62',
+            lon: '3.87',
+            display_name: 'Les Arceaux, Montpellier',
+            geojson: { type: 'Point', coordinates: [3.87, 43.62] },
+          },
+        ]),
+      { sleep: async () => {} },
+    )
+    const z = await point.zone('neighbourhood', 'Les Arceaux', MONTPELLIER)
+    expect(z?.zone.type).toBe('Polygon')
+    const elsewhere = new Geocoder(
+      async () => reply([{ lat: '45.7', lon: '4.8', display_name: 'Les Arceaux, Lyon' }]),
+      { sleep: async () => {} },
+    )
+    expect(await elsewhere.zone('neighbourhood', 'Les Arceaux', MONTPELLIER)).toBeNull()
+    const none = new Geocoder(async () => reply([]), { sleep: async () => {} })
+    expect(await none.zone('neighbourhood', 'Les Arceaux', MONTPELLIER)).toBeNull()
+  })
+})

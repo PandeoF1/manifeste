@@ -6,6 +6,7 @@
  * box around the commune, and otherwise stay "weak" (a guess for a person to confirm) or "none".
  * Measured on 141 places: see docs/measurements/route-measurement.md.
  */
+import { circleZone, zoneFromGeometry, type Zone } from '@manifeste/core'
 import type { schema } from '@manifeste/db'
 
 type ProposalPlace = (typeof schema.routeProposals.$inferInsert)['places'][number]
@@ -30,7 +31,7 @@ const GENERIC = new Set(
     'de du des la le les l d et en au aux sur sous a ' +
     'rue place boulevard bd avenue av quai pont cours esplanade chemin route allee impasse square ' +
     'parvis rond point gare prefecture mairie hotel ville universite fac campus lycee college ' +
-    'rectorat palais jardin parc centre'
+    'rectorat palais jardin parc centre quartier'
   ).split(' '),
 )
 
@@ -190,6 +191,82 @@ export class Geocoder {
     const osm = await this.nominatim(name, commune)
     if (osm) return osm
     return guess ?? { ...base, lng: null, lat: null, label: null, status: 'none' }
+  }
+
+  /** "13ème", "13eme", "13e" arrondissement: the spelling OpenStreetMap uses ("13e", "1er"). */
+  private districtQuery(name: string): string {
+    return name.replace(/\b(\d{1,2})\s*(?:er|ère|ere|ème|eme|e|nd|nde)\b/gi, (_m, n: string) =>
+      Number(n) === 1 ? '1er' : `${Number(n)}e`,
+    )
+  }
+
+  private zones = new Map<string, Promise<{ zone: Zone; label: string } | null>>()
+
+  /**
+   * The area of a district, a neighbourhood or the whole commune, to draw in red. The commune's
+   * outline comes from geo.api.gouv.fr, a district's from OpenStreetMap (an outline, else a circle
+   * around its centre). null when nothing trustworthy is found: the caller falls back to the commune.
+   */
+  zone(
+    level: 'district' | 'neighbourhood' | 'city',
+    name: string,
+    commune: Commune,
+  ): Promise<{ zone: Zone; label: string } | null> {
+    const key = `${level}|${commune.code}|${fold(name)}`
+    let found = this.zones.get(key)
+    if (!found) {
+      found = level === 'city' ? this.communeZone(commune) : this.areaZone(level, name, commune)
+      this.zones.set(key, found)
+    }
+    return found
+  }
+
+  private async communeZone(commune: Commune): Promise<{ zone: Zone; label: string } | null> {
+    const row = await this.json<{ contour?: unknown }>(
+      `${GEO}/${encodeURIComponent(commune.code)}?fields=contour`,
+    )
+    const zone = zoneFromGeometry(row?.contour)
+    if (zone) return { zone, label: commune.name }
+    // No outline: a circle around the centre, the size of a small town.
+    return {
+      zone: circleZone(commune.lng, commune.lat, 2_500),
+      label: `${commune.name} (zone approximative)`,
+    }
+  }
+
+  private async areaZone(
+    level: 'district' | 'neighbourhood',
+    name: string,
+    commune: Commune,
+  ): Promise<{ zone: Zone; label: string } | null> {
+    const wait = Math.max(0, this.lastNominatim + 1_100 - (this.opts.now?.() ?? Date.now()))
+    if (wait > 0) await (this.opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))))(wait)
+    this.lastNominatim = this.opts.now?.() ?? Date.now()
+    const query = level === 'district' ? this.districtQuery(name) : name
+    const d = 0.2
+    const box = [commune.lng - d, commune.lat + d, commune.lng + d, commune.lat - d].join(',')
+    const rows = await this.json<
+      Array<{
+        lat: string
+        lon: string
+        display_name: string
+        geojson?: { type: string; coordinates: unknown }
+      }>
+    >(
+      `${NOMINATIM}?q=${encodeURIComponent(`${query}, ${commune.name}`)}&format=json&limit=3&countrycodes=fr&polygon_geojson=1&viewbox=${box}&bounded=1`,
+      { 'user-agent': this.opts.userAgent ?? 'manifeste-route-detection (open source)' },
+    )
+    for (const r of Array.isArray(rows) ? rows : []) {
+      const lng = Number(r.lon)
+      const lat = Number(r.lat)
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue
+      if (km([commune.lng, commune.lat], [lng, lat]) > 25) continue
+      if (coverage(query, r.display_name) < 0.99) continue
+      const outline = zoneFromGeometry(r.geojson)
+      const zone = outline ?? circleZone(lng, lat, level === 'district' ? 1_200 : 700)
+      return { zone, label: `OSM : ${r.display_name.slice(0, 120)}` }
+    }
+    return null
   }
 
   private async nominatim(name: string, commune: Commune): Promise<ProposalPlace | null> {

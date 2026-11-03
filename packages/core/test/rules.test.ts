@@ -3,6 +3,7 @@ import {
   canonicalUrl,
   extractDomain,
   isGenericSchoolName,
+  isDemonstration,
   isRelevant,
   isStatusExpired,
   isTrustedDomain,
@@ -15,6 +16,29 @@ import {
   stripGenericWords,
   type SchoolCandidate,
 } from '../src/index.ts'
+
+describe('demonstration filter', () => {
+  test('keeps articles about a street demonstration, whatever the cause', () => {
+    for (const text of [
+      'Manifestation contre la réforme à Rennes : 3 000 personnes dans la rue',
+      'Les agriculteurs défilent à Toulouse',
+      'Un cortège de retraités place de la Bourse',
+      'Rassemblement devant la préfecture de Nantes',
+      'Marche pour le climat à Paris',
+      'Blocage du périphérique par des manifestants',
+    ])
+      expect(isDemonstration(text)).toBe(true)
+  })
+
+  test('drops what is not one', () => {
+    for (const text of [
+      'La recette de la tarte aux pommes',
+      'Le Stade rennais gagne 2 à 0',
+      'Une marche de 20 km dans la forêt',
+    ])
+      expect(isDemonstration(text)).toBe(false)
+  })
+})
 
 describe('relevance filter', () => {
   test('keeps relevant messages', () => {

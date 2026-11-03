@@ -32,6 +32,7 @@ export const queryKeys = {
     movements: () => [...queryKeys.admin.all, 'movements'] as const,
     routeProposals: (status: string) =>
       [...queryKeys.admin.all, 'route-proposals', status] as const,
+    mobilisations: () => [...queryKeys.admin.all, 'mobilisations'] as const,
     movementEvents: (id: string) => [...queryKeys.admin.all, 'movement-events', id] as const,
   },
   session: ['session'] as const,

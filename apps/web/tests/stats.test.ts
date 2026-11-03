@@ -25,7 +25,14 @@ describe('computeStats', () => {
       ],
       now,
     )
-    expect(stats).toEqual({ blocked: 3, filtering: 1, lifted: 1, departments: 2, lastHour: 2 })
+    expect(stats).toEqual({
+      blocked: 3,
+      filtering: 1,
+      lifted: 1,
+      departments: 2,
+      lastHour: 2,
+      blockedDays: null,
+    })
   })
 
   it('ignores lifted schools for departments and the last hour', () => {
@@ -33,6 +40,16 @@ describe('computeStats', () => {
       departments: 0,
       lastHour: 0,
     })
+  })
+})
+
+describe('computeStats blockedDays', () => {
+  it('sums the days with a signal of each school, and is null without a daily count', () => {
+    const withDays = (days: number) => ({ ...row('blocked', '75', 10), signalDays: days })
+    expect(computeStats([withDays(3), withDays(1), row('lifted', '69', 5)], now).blockedDays).toBe(
+      4,
+    )
+    expect(computeStats([row('blocked', '75', 10)], now).blockedDays).toBeNull()
   })
 })
 

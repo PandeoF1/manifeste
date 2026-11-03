@@ -67,7 +67,8 @@ export async function extractSweep(deps: IngestDeps): Promise<ExtractSweepResult
     })
     .from(schema.ingestItems)
     .innerJoin(schema.itemContents, eq(schema.itemContents.itemId, schema.ingestItems.id))
-    .where(eq(schema.ingestItems.state, 'read'))
+    // A demonstration-only item is for the signaled-mobilisations stage, not for the school facts.
+    .where(and(eq(schema.ingestItems.state, 'read'), eq(schema.ingestItems.scope, 'school')))
     // Oldest first: a fact loses value by the hour, but nothing may starve.
     .orderBy(asc(schema.ingestItems.publishedAt))
     .limit(limit + 1)

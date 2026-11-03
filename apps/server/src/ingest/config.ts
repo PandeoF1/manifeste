@@ -42,6 +42,12 @@ export interface IngestConfig {
   maxRoutesCalls: number
   /** Articles per routes call. */
   routesBatchSize: number
+  /** Look for signaled mobilisations in articles (also needs the admin switch `signaled_mobilisations`). */
+  signalsEnabled: boolean
+  /** AI calls per run of the signals stage. */
+  maxSignalsCalls: number
+  /** Articles per signals call. */
+  signalsBatchSize: number
   /** Ask a reading gateway for the text of pages closed to robots. */
   readerGateway: boolean
   /** Attempts before an item goes to the failed lane. */
@@ -73,6 +79,9 @@ export const DEFAULT_INGEST_CONFIG: IngestConfig = {
   mediaBatchSize: 20,
   mediaMaxWaitMinutes: 120,
   routeDetection: true,
+  signalsEnabled: true,
+  maxSignalsCalls: 4,
+  signalsBatchSize: 8,
   maxRoutesCalls: 3,
   routesBatchSize: 6,
   readerGateway: true,
