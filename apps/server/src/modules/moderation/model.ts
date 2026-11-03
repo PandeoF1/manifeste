@@ -72,4 +72,24 @@ export const ModerationModel = {
     moderation: optionalEnum(MODERATION_STATES),
   }),
   hidden: t.Object({ hidden: t.Boolean() }),
+  /** Decisions taken outside the app (a spreadsheet): one entry per report. */
+  bulk: t.Object({
+    decisions: t.Array(
+      t.Object({ id: t.String({ format: 'uuid' }), decision: t.UnionEnum(['approve', 'reject']) }),
+      { minItems: 1, maxItems: 1000 },
+    ),
+    /** Only say what would happen. */
+    dryRun: t.Boolean(),
+  }),
+  bulkResult: t.Object({
+    dryRun: t.Boolean(),
+    approved: t.Integer(),
+    rejected: t.Integer(),
+    skipped: t.Array(
+      t.Object({
+        id: t.String(),
+        reason: t.UnionEnum(['unknown', 'already_decided', 'needs_photo_check', 'duplicate']),
+      }),
+    ),
+  }),
 } as const

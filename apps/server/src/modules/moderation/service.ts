@@ -16,6 +16,8 @@ import type { ModerationModel } from './model.ts'
 
 type Patch = typeof ModerationModel.patch.static
 type ListQuery = typeof ModerationModel.listQuery.static
+type Bulk = typeof ModerationModel.bulk.static
+type BulkResult = typeof ModerationModel.bulkResult.static
 
 interface PendingRow {
   id: string
@@ -52,7 +54,7 @@ export class ModerationService {
   }
 
   /** The queue, oldest decision first. Moderators never see the position or the internal source. */
-  async pending(role: 'admin' | 'moderator') {
+  async pending(role: 'admin' | 'moderator', limit = 200) {
     const found = await rows<PendingRow>(
       this.db,
       sql`select r.id, r.school_uai as "schoolUai", s.name as "schoolName", s.city as "schoolCity",
@@ -68,7 +70,7 @@ export class ModerationService {
           left join judgements j on j.report_id = r.id
           where r.moderation = 'pending'
           order by r.observed_at desc
-          limit 200`,
+          limit ${limit}`,
     )
     return found.map((r) => ({
       id: r.id,
@@ -189,6 +191,49 @@ export class ModerationService {
     )
     this.signal(decision === 'approve' ? ['statuses', 'moderation'] : ['moderation'], report.uai)
     return { ok: true as const }
+  }
+
+  /**
+   * Decisions taken in bulk (an exported queue decided in a spreadsheet). Same rules as one by one,
+   * each one audited, with two more: an approval of a report that has a photo is left out (the
+   * photo must be blurred by hand), and a report decided meanwhile is skipped, never overwritten.
+   */
+  async decideMany(
+    input: Bulk,
+    actor: Actor & { user: { id: string; email: string } },
+  ): Promise<BulkResult> {
+    const result: BulkResult = { dryRun: input.dryRun, approved: 0, rejected: 0, skipped: [] }
+    const seen = new Set<string>()
+    const wanted = input.decisions.filter((d) => {
+      if (!seen.has(d.id)) return seen.add(d.id)
+      result.skipped.push({ id: d.id, reason: 'duplicate' })
+      return false
+    })
+    const known = await rows<{ id: string; moderation: string; hasPhoto: boolean }>(
+      this.db,
+      sql`select r.id, r.moderation, (rs.photo_key is not null) as "hasPhoto"
+          from reports r left join report_submissions rs on rs.report_id = r.id
+          where r.id in (${sql.join(
+            wanted.map((d) => sql`${d.id}::uuid`),
+            sql`, `,
+          )})`,
+    )
+    const byId = new Map(known.map((r) => [r.id, r]))
+    for (const { id, decision } of wanted) {
+      const report = byId.get(id)
+      if (!report) result.skipped.push({ id, reason: 'unknown' })
+      else if (report.moderation !== 'pending')
+        result.skipped.push({ id, reason: 'already_decided' })
+      else if (decision === 'approve' && report.hasPhoto)
+        result.skipped.push({ id, reason: 'needs_photo_check' })
+      else if (input.dryRun) result[decision === 'approve' ? 'approved' : 'rejected']++
+      else {
+        const done = await this.decide(id, decision, null, actor)
+        if ('ok' in done) result[decision === 'approve' ? 'approved' : 'rejected']++
+        else result.skipped.push({ id, reason: 'already_decided' })
+      }
+    }
+    return result
   }
 
   /** Deletes the private original of a report, wherever it is recorded. */

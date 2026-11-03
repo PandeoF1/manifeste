@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ExternalLink, Image as ImageIcon, MapPin, X } from 'lucide-react'
+import { BulkDecisions } from './BulkDecisions'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { PhotoRedactor } from '@/components/report/PhotoRedactor'
 import type { StaffRole } from '@/lib/auth'
@@ -65,6 +66,7 @@ export function PendingPanel({ role = 'admin' }: { role?: StaffRole }) {
 
   return (
     <div>
+      <BulkDecisions />
       <p className="text-sm text-muted">
         Raccourcis : <kbd>j</kbd>/<kbd>k</kbd> naviguer · <kbd>v</kbd> valider · <kbd>r</kbd>{' '}
         rejeter · <kbd>o</kbd> ouvrir la source. Les signalements avec photo se valident à la main,

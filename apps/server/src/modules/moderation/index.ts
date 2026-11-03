@@ -3,6 +3,7 @@ import type { Auth } from '../../auth/auth.ts'
 import { authPlugin } from '../../auth/plugin.ts'
 import { ModerationModel } from './model.ts'
 import type { ModerationService } from './service.ts'
+import { toCsv } from '../../lib/csv.ts'
 import { bytesResponse } from '../../lib/response.ts'
 
 const okBody = t.Object({ ok: t.Literal(true) })
@@ -23,6 +24,72 @@ export const moderationModule = (auth: Auth, service: ModerationService) =>
         },
       },
     )
+    .get(
+      '/export',
+      async ({ staff }) => {
+        const queue = await service.pending(
+          staff.user.role === 'admin' ? 'admin' : 'moderator',
+          5000,
+        )
+        const csv = toCsv(
+          [
+            'id',
+            'decision',
+            'school',
+            'city',
+            'status',
+            'origin',
+            'tier',
+            'observed_at',
+            'source_url',
+            'source_domain',
+            'certainty',
+            'judge_probability',
+            'judge_nature',
+            'has_photo',
+          ],
+          queue.map((r) => [
+            r.id,
+            '',
+            r.schoolName ?? r.schoolUai,
+            r.schoolCity,
+            r.status,
+            r.origin,
+            r.tier,
+            r.observedAt.toISOString(),
+            r.sourceUrl,
+            r.sourceDomain,
+            r.certainty,
+            r.judge?.probability ?? null,
+            r.judge?.nature ?? null,
+            r.hasPhoto,
+          ]),
+        )
+        return new Response(csv, {
+          headers: {
+            'content-type': 'text/csv; charset=utf-8',
+            'content-disposition': `attachment; filename="file-de-moderation-${new Date().toISOString().slice(0, 10)}.csv"`,
+            'cache-control': 'private, no-store',
+          },
+        })
+      },
+      {
+        staff: { report: ['moderate'] },
+        detail: {
+          tags: ['staff'],
+          summary: 'The whole moderation queue as CSV, with an empty "decision" column to fill',
+        },
+      },
+    )
+    .post('/decisions', ({ body, staff }) => service.decideMany(body, staff), {
+      staff: { report: ['moderate'] },
+      body: ModerationModel.bulk,
+      response: { 200: ModerationModel.bulkResult },
+      detail: {
+        tags: ['staff'],
+        summary: 'Approve or reject many pending reports (a filled export); dryRun only previews',
+      },
+    })
     .post('/:id/decision', ({ params, body, staff }) => decide(service, params.id, body, staff), {
       staff: { report: ['moderate'] },
       params: ModerationModel.id,

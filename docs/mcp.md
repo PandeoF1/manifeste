@@ -51,3 +51,17 @@ admin page.
 - One account, one role, every action audited (`report.approve`, `report.reject`).
 - The dry run is the default and a call is capped at 100 reports.
 - A report already decided by someone else is reported as failed (HTTP 409), never overwritten.
+
+## Without the MCP: export, decide in a spreadsheet, import
+
+In the admin page, the "Pending" tab has an "Export / import en masse" block:
+
+1. **Export** the queue (`GET /api/staff/reports/export`): a CSV with an empty `decision` column.
+2. Fill `decision` with `approve` or `reject` (or "valider" / "rejeter"; French Excel's `;` is fine), or
+   hand the file to Claude. A blank decision leaves the report pending.
+3. **Import** the same file: a preview says what would happen, then one click applies it
+   (`POST /api/staff/reports/decisions`, 1000 per request, each decision audited as usual).
+
+Left out on purpose: approving a report that has a photo (it must be blurred by hand: reject is
+allowed), a report decided in the meantime, an unknown or duplicated id. The export is the moderator
+view, with no position and no internal source.
